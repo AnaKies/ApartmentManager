@@ -1,0 +1,54 @@
+from flask import Flask, request, jsonify, abort
+from ApartmentManager.backend.config.server_config import HOST, PORT
+import ApartmentManager.backend.SQL_API.CRUD.read as read_sql
+
+app = Flask(__name__)
+
+# Controls what the SQL table can return if a query has no parameters/filters.
+DEFAULT_FIELDS_APARTMENT_TABLE = ["area", "address", "price_per_square_meter", "utility_billing_provider_id"]
+ALLOWED_FIELDS = []
+
+@app.route('/apartments', methods=['GET'])
+def get_apartments():
+    """
+    Returns a JSON list of apartments with
+    :return:
+    """
+    apartments = read_sql.get_apartments()
+    apartments_to_json = [apartment.to_dict() for apartment in apartments]
+    return jsonify(apartments_to_json)
+    """
+    # SEARCHING FILTERS with values (restrict which rows are included in the result set. SQL: WHERE area = '60')
+    area = request.args.get('area', type=float)
+    address = request.args.get('address', type=str)
+    price_per_square_meter = request.args.get('price_per_square_meter', type=float)
+    utility_billing_provider_id = request.args.get('utility_billing_provider_id', type=int)
+
+
+    # FIELDS PROJECTION (controls which columns to include in the result. SQL: SELECT)
+    # Projection means returning only the specific fields explicitly requested instead of the entire record
+    # Example: http://127.0.0.1:5003/apartments?area=16&fields=area,address
+    query_fields = request.args.get('fields')
+    # API allows the spaces around the filters in the API query.
+    # Commas should separate filters.
+
+    # If a query has no fields, default fields are used
+    # Example: http://127.0.0.1:5003/apartments
+    if query_fields:
+        requested_fields = [filter_item.strip() for filter_item in query_fields.split(',')]
+    else:
+        requested_fields = DEFAULT_FIELDS_APARTMENT_TABLE
+
+    unknown_fields = [field for field in requested_fields if field not in DEFAULT_FIELDS_APARTMENT_TABLE]
+    if unknown_fields:
+        abort(400, description=f"Unknown fields: {unknown_fields}")
+
+    return jsonify({"fields": requested_fields}), 200
+    """
+
+@app.errorhandler(400)
+def bad_request(error):
+    return jsonify({"error": "Bad request", "message": str(error.description)}), 400
+
+if __name__ == '__main__':
+    app.run(host=HOST, port=PORT, debug=True)
