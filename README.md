@@ -11,4 +11,8 @@ This project features an **AI-powered assistant** that assists landlords in mana
 - Maintain a property database with insights
 
 ## License
-Code is available **for study and learning only**. Any commercial use **requires the author’s permission** and may be subject to a **paid license**.  
+
+This project’s source code is available for **study and learning only**.  
+Any **commercial use requires the author’s permission** and may be subject to a paid license.  
+
+For licensing inquiries, please open an [Issue in this repository](https://github.com/AnaKies/ApartmentManager/issues).
