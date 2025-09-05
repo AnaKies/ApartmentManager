@@ -2,18 +2,20 @@ from abc import ABC, abstractmethod
 
 class AIClient(ABC):
     @abstractmethod
-    def transport_structured_ai_response(self, extended_prompt: str) -> dict:
+    def transport_structured_ai_response(self, ai_role_prompt: str, user_question: str) -> dict:
         """
         Generates a structured response according to the given JSON scheme.
-        :param extended_prompt: User's prompt extended for a command to generate JSON data for the later query.
+        :param: ai_role_prompt: The prompt for the AI behavior.
+        :param: user_question: The prompt with user question.
         :return: JSON scheme containing keywords "path" and "filters for later using in a query.
         """
 
     @abstractmethod
-    def transport_human_like_ai_response(self, extended_prompt: str) -> str:
+    def transport_human_like_ai_response(self, ai_role_prompt: str, user_prompt_with_sql: str) -> str:
         """
         Generates a human like response to the user's question using the retrieved data from the SQL data bank.
-        :param extended_prompt: User#s prompt extended for retrieved data from the SQL data bank.
+        :param ai_role_prompt: The prompt for the AI behavior.
+        :param user_prompt_with_sql: User's prompt extended for retrieved data from the SQL data bank.
         :return: Human like response to the user's question.
         """
 

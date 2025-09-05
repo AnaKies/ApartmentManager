@@ -22,15 +22,16 @@ class GeminiClient(AIClient):
         gemini_api_key = os.getenv("GEMINI_API_KEY")
         self.client = genai.Client(api_key=gemini_api_key)
 
-    def transport_structured_ai_response(self, extended_prompt: str) -> dict:
+    def transport_structured_ai_response(self, ai_role_prompt: str, user_question: str) -> dict:
         """
         Generates a structured response according to the given JSON scheme.
-        :param extended_prompt: User's prompt extended for a command to generate JSON data for the later query.
+        :param: ai_role_prompt: The prompt for the AI behavior.
+        :param: user_question: The prompt with user question.
         :return: JSON scheme containing keywords "path" and "filters for later using in a query.
         """
         json_string_for_sql_query = self.client.models.generate_content(
             model=self.model_name,
-            contents=extended_prompt,
+            contents=ai_role_prompt+user_question,
             config={
                 "response_mime_type": "application/json",
                 "response_schema": response_schema_gemini
@@ -40,16 +41,17 @@ class GeminiClient(AIClient):
         dict_for_sql_query = json_string_for_sql_query.parsed
         return dict_for_sql_query
 
-    def transport_human_like_ai_response(self, extended_prompt: str) -> str:
+    def transport_human_like_ai_response(self, ai_role_prompt: str, user_prompt_with_sql: str) -> str:
         """
         Generates a human like response to the user's question using the retrieved data from the SQL data bank.
-        :param extended_prompt: User#s prompt extended for retrieved data from the SQL data bank.
+        :param ai_role_prompt: The prompt for the AI behavior.
+        :param user_prompt_with_sql: User's prompt extended for retrieved data from the SQL data bank.
         :return: Human like response to the user's question.
         """
         # AI answers in a human like message
         response = self.client.models.generate_content(
             model=self.model_name,
-            contents=extended_prompt)
+            contents=ai_role_prompt + user_prompt_with_sql)
         return response.text
 
 
