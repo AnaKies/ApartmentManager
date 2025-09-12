@@ -20,7 +20,7 @@ response_schema_groq = {
     }
 }
 
-# version of JSON schema for Gemini
+# version of JSON schema for Gemini's structured output
 response_schema_gemini = {
     "type": "object",
     "properties": {

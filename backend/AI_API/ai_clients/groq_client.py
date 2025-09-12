@@ -22,7 +22,7 @@ class GroqClient(AIClient):
         # Initialize the Groq client
         self.client = Groq(api_key=groq_api_key)
 
-    def transport_structured_ai_response(self, ai_role_prompt: str, user_question: str) -> dict:
+    def get_structured_ai_response(self, ai_role_prompt: str, user_question: str) -> dict:
         """
         Generates a structured response according to the given JSON scheme.
         :param: ai_role_prompt: The prompt for the AI behavior.
@@ -50,7 +50,7 @@ class GroqClient(AIClient):
             dict_for_sql_query = {} # prohibit to return the false data to the next function
         return dict_for_sql_query
 
-    def transport_human_like_ai_response(self, ai_role_prompt: str, user_prompt_with_sql: str) -> str:
+    def get_human_like_ai_response(self, ai_role_prompt: str, user_prompt_with_sql: str) -> str:
         """
         Generates a human like response to the user's question using the retrieved data from the SQL data bank.
         :param ai_role_prompt: The prompt for the AI behavior.
@@ -76,7 +76,7 @@ class GroqClient(AIClient):
         """
 
         generated_query_as_json =  prompting.ai_generate_query(user_question,
-                                                               self.transport_structured_ai_response)
+                                                               self.get_structured_ai_response)
         return generated_query_as_json
 
 
@@ -86,7 +86,7 @@ class GroqClient(AIClient):
         :param json_data_for_restful_api_request: JSON with keys "path" and "filters for a query to an endpoint RESTFUL API.
         :return: JSON response from the endpoint RESTFUL API
         """
-        response_json_from_restful_api = prompting.execute_restful_api_query(json_data_for_restful_api_request)
+        response_json_from_restful_api = prompting.execute_restful_api_query_json_param(json_data_for_restful_api_request)
         return response_json_from_restful_api
 
     def represent_ai_answer(self, restful_api_response: dict, user_question: str) -> str:
@@ -98,5 +98,5 @@ class GroqClient(AIClient):
         """
         human_like_ai_answer = prompting.ai_represent_answer(restful_api_response,
                                                              user_question,
-                                                             self.transport_human_like_ai_response)
+                                                             self.get_human_like_ai_response)
         return human_like_ai_answer

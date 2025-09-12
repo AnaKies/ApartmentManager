@@ -1,6 +1,20 @@
 from ApartmentManager.backend.config.server_config import HOST, PORT
 import requests
 
+system_prompt = f"""
+    You are a function-calling assistant for an apartment rental system. 
+    You know the following API paths:
+    1. /apartments
+    2. /tenancies
+    3. /persons
+
+    Restrictions:
+    Only call functions if they are clearly relevant to the user’s request. 
+    If no function is applicable, do not guess or invent. 
+    Instead, respond with the text: 
+    ‘This request cannot be handled because I only work with apartments and rentals.’
+    """
+
 def ai_generate_query(user_question, func_ai_generate_structured_content):
     """
     AI add a wrapper to the user prompt and generates JSON data for a query for HTTP requests.
@@ -9,19 +23,19 @@ def ai_generate_query(user_question, func_ai_generate_structured_content):
     :return: JSON data used for a query
     """
     ai_role_prompt = f"""
-    You are an AI assistant connected to a system API manager.
-    You know the following API paths:
-    1. /apartments
-    2. /tenancies
-    3. /persons
+        You are an AI assistant connected to a system API manager.
+        You know the following API paths:
+        1. /apartments
+        2. /tenancies
+        3. /persons
 
-    Rules:
-    - If the user's question mentions 'apartments', generate a query to fetch data from the /apartments API.
-    - Output ONLY a JSON object with keys:
-      - "path": API path to call
-      - "filters": dictionary of query parameters (optional)
-    - Do not generate human-readable text here; only generate the query.
-    """
+        Rules:
+        - If the user's question mentions 'apartments', generate a query to fetch data from the /apartments API.
+        - Output ONLY a JSON object with keys:
+          - "path": API path to call
+          - "filters": dictionary of query parameters (optional)
+        - Do not generate human-readable text here; only generate the query.
+        """
     try:
         # AI moder generates an answer as JSON
         response_json = func_ai_generate_structured_content(ai_role_prompt, user_question)
@@ -31,7 +45,7 @@ def ai_generate_query(user_question, func_ai_generate_structured_content):
         print("Original JSON: ", response_json)
     return None
 
-def execute_restful_api_query(json_data_for_query):
+def execute_restful_api_query_json_param(json_data_for_query):
     """
     Execute a query from AI to an endpoint RESTFUL API and return the response from this endpoint.
     :param json_data_for_query: JSON with keys "path" and "filters
@@ -43,8 +57,22 @@ def execute_restful_api_query(json_data_for_query):
 
     # list of columns to filter the SQL table
     filters = json_data_for_query.get("filters", [])
-    url = f"http://{HOST}:{PORT}{path}"
 
+    try:
+        response = requests.get(path, params=filters)
+        response.raise_for_status()  # raises an HTTPError if the server responds with a failed status code.
+        return response.json()
+
+    except requests.ConnectionError as error:
+        print("Error connecting to the REST API: Flask server is not running.", error)
+    except requests.HTTPError as error:
+        print(f"Error due returning HTTP error: {error}")
+    except Exception as error:
+        print(f"Unexpected error calling endpoints by AI: {error}")
+    return None
+
+def execute_restful_api_query(path, filters):
+    url = f"http://{HOST}:{PORT}{path}"
     try:
         response = requests.get(url, params=filters)
         response.raise_for_status()  # raises an HTTPError if the server responds with a failed status code.
@@ -58,10 +86,10 @@ def execute_restful_api_query(json_data_for_query):
         print(f"Unexpected error calling endpoints by AI: {error}")
     return None
 
-def ai_represent_answer(restful_api_response, user_question, generate_human_like_ai_response):
+def ai_represent_answer(restful_api_response, user_question, func_generate_human_like_ai_response):
     """
     Generates a human like answer to a user question using retrieved data from the SQL data bank.
-    :param generate_human_like_ai_response: Generates a human like answer to a user question.
+    :param func_generate_human_like_ai_response: The function generates a human like answer to a user question.
     :param restful_api_response: Data from the SQL data bank
     :param user_question: User's question
     :return: Human like text containing an answer to the user's question.
@@ -82,5 +110,5 @@ def ai_represent_answer(restful_api_response, user_question, generate_human_like
         """
 
     # AI answers in a human like message
-    response = generate_human_like_ai_response(ai_role_prompt, extended_prompt_with_sql)
+    response = func_generate_human_like_ai_response(ai_role_prompt, extended_prompt_with_sql)
     return response

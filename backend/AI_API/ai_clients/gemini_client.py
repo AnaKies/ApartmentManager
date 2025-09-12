@@ -1,9 +1,11 @@
 import os
 from google import genai
+from google.genai import types
 from dotenv import load_dotenv
 import ApartmentManager.backend.AI_API.general.prompting as prompting
 from ApartmentManager.backend.AI_API.general.ai_client import AIClient
 from ApartmentManager.backend.AI_API.general.structured_output import response_schema_gemini, QuerySchema
+from ApartmentManager.backend.AI_API.general.function_calling import execute_restful_api_query_declaration
 
 class GeminiClient(AIClient):
     """
@@ -15,14 +17,67 @@ class GeminiClient(AIClient):
     # Specify the model to use
     model_name = "gemini-2.5-flash"
     client = None
+    config_ai_function_call = None
 
     def __init__(self):
         # load variables from environment
         load_dotenv()
         gemini_api_key = os.getenv("GEMINI_API_KEY")
         self.client = genai.Client(api_key=gemini_api_key)
+        # tools object, which contains one or more function declarations for function calling by AI.
+        tools = types.Tool(function_declarations=[execute_restful_api_query_declaration])
+        self.config_ai_function_call = types.GenerateContentConfig(tools=[tools])
 
-    def transport_structured_ai_response(self, ai_role_prompt: str, user_question: str) -> dict:
+    def get_ai_function_call(self, user_question: str) -> str:
+        extended_prompt = user_question + prompting.system_prompt
+
+        # Define prompt
+        contents = [
+            types.Content(
+                role="user", parts=[types.Part(text=extended_prompt)]
+            )
+        ]
+
+        # Send request with function declarations
+        ai_response = self.client.models.generate_content(
+            model=self.model_name,
+            contents=contents,
+            config=self.config_ai_function_call,
+        )
+
+        # functionCall object in an OpenAPI compatible schema specifying how to call one or
+        # more of the declared functions in order to respond to the question in the prompt.
+        fn_call = ai_response.candidates[0].content.parts[0].function_call
+        print(f".... AI want to call the function: {fn_call.name} with arguments: {fn_call.args}")
+
+        # Calls the function, to get the data
+        if fn_call.name == "execute_restful_api_query":
+            sql_answer = prompting.execute_restful_api_query(**fn_call.args)
+
+        # Creates a function response part.
+        # Gives the row answer from the called function back to the conversation.
+        # The AI model will combine the initial question with returned data and
+        # answer in human like text.
+        function_response_part = types.Part.from_function_response(
+            name=fn_call.name,
+            response={"result": sql_answer},
+        )
+
+        # Add the model's request to call the function into the conversation history.
+        contents.append(ai_response.candidates[0].content)
+
+        # Add the actual result of the function execution back into the conversation history,
+        # so the model can use it to generate the final response to the user.
+        contents.append(types.Content(role="user", parts=[function_response_part]))
+
+        final_response = self.client.models.generate_content(
+            model=self.model_name,
+            config=self.config_ai_function_call,
+            contents=contents,
+        )
+        return final_response.text
+
+    def get_structured_ai_response(self, ai_role_prompt: str, user_question: str) -> dict:
         """
         Generates a structured response according to the given JSON scheme.
         :param: ai_role_prompt: The prompt for the AI behavior.
@@ -41,7 +96,7 @@ class GeminiClient(AIClient):
         dict_for_sql_query = json_string_for_sql_query.parsed
         return dict_for_sql_query
 
-    def transport_human_like_ai_response(self, ai_role_prompt: str, user_prompt_with_sql: str) -> str:
+    def get_human_like_ai_response(self, ai_role_prompt: str, user_prompt_with_sql: str) -> str:
         """
         Generates a human like response to the user's question using the retrieved data from the SQL data bank.
         :param ai_role_prompt: The prompt for the AI behavior.
@@ -61,9 +116,8 @@ class GeminiClient(AIClient):
         :param user_question: user input to the AI
         :return: JSON data used for a query
         """
-
         generated_query_as_json = prompting.ai_generate_query(user_question,
-                                                              self.transport_structured_ai_response)
+                                                              self.get_structured_ai_response)
         return generated_query_as_json
 
 
@@ -73,7 +127,7 @@ class GeminiClient(AIClient):
         :param json_data_for_restful_api_request: JSON with keys "path" and "filters for a query to an endpoint RESTFUL API.
         :return: JSON response from the endpoint RESTFUL API
         """
-        response_json_from_restful_api = prompting.execute_restful_api_query(json_data_for_restful_api_request)
+        response_json_from_restful_api = prompting.execute_restful_api_query_json_param(json_data_for_restful_api_request)
 
         return response_json_from_restful_api
 
@@ -87,5 +141,5 @@ class GeminiClient(AIClient):
         """
         human_like_ai_answer = prompting.ai_represent_answer(restful_api_response,
                                                              user_question,
-                                                             self.transport_human_like_ai_response)
+                                                             self.get_human_like_ai_response)
         return human_like_ai_answer
