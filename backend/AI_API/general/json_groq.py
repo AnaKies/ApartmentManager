@@ -20,16 +20,3 @@ response_schema_groq = {
     }
 }
 
-# version of JSON schema for Gemini's structured output
-response_schema_gemini = {
-    "type": "object",
-    "properties": {
-        "path": {"type": "string"},
-        "filters": {
-            "type": "array",
-            "items": {"type": "string"},
-            "description": "List of columns to filter the SQL table."
-        }
-    },
-    "required": ["path", "filters"]
-}

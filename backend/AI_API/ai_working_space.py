@@ -19,7 +19,7 @@ def main():
         user_question = input("Ask me something about apartments: ")
 
         # Answer of AI with function call inside
-        answer = ai_client.function_call_service.get_ai_function_call(user_question)
+        answer = ai_client.process_function_call_request(user_question)
         print(answer)
 """
         # AI generates a query

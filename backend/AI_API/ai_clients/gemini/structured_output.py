@@ -1,26 +1,29 @@
-import os
-import json
-from groq import Groq
-from dotenv import load_dotenv
 import ApartmentManager.backend.AI_API.general.prompting as prompting
-from ApartmentManager.backend.AI_API.general.ai_client import AIClient
-from ApartmentManager.backend.AI_API.general.json_groq import response_schema_groq, QuerySchema
+from google import genai
 
+class StructuredOutput:
+    def __init__(self, ai_client: genai.Client, model_name: str):
+        """
+        Allows the AI model to retrieve an answer as JSON.
+        :param ai_client: AI client.
+        :param model_name: Model name of an AI client.
+        """
+        self.client = ai_client
+        self.model_name = model_name
 
-class GroqClient(AIClient):
-    # Specify the model to use
-    model_name = "openai/gpt-oss-20b"
-    client = None
-
-    def __init__(self):
-        # load variables from environment
-        load_dotenv()
-
-        # Get API key from environment
-        groq_api_key = os.getenv("GROQ_API_KEY")
-
-        # Initialize the Groq client
-        self.client = Groq(api_key=groq_api_key)
+        # version of JSON schema for Gemini's structured output
+        self.response_schema_gemini = {
+        "type": "object",
+        "properties": {
+            "path": {"type": "string"},
+            "filters": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "List of columns to filter the SQL table."
+            }
+        },
+        "required": ["path", "filters"]
+    }
 
     def get_structured_ai_response(self, ai_role_prompt: str, user_question: str) -> dict:
         """
@@ -29,25 +32,16 @@ class GroqClient(AIClient):
         :param: user_question: The prompt with user question.
         :return: JSON scheme containing keywords "path" and "filters for later using in a query.
         """
-        response = self.client.chat.completions.create(
+        json_string_for_sql_query = self.client.models.generate_content(
             model=self.model_name,
-            messages=[
-                {"role": "system", "content": ai_role_prompt},
-                {"role": "user", "content": user_question}
-            ],
-            response_format=response_schema_groq
+            contents=ai_role_prompt+user_question,
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": self.response_schema_gemini
+            }
         )
-        json_string_for_sql_query = response.choices[0].message.content
-        try:
-            # Convert string representation of JSON to dictionary
-            json_for_sql_query = json.loads(json_string_for_sql_query)
-            valid_json_obj_for_sql_query = QuerySchema.model_validate(json_for_sql_query)
-            dict_for_sql_query = valid_json_obj_for_sql_query.model_dump()
-
-        except json.decoder.JSONDecodeError as error:
-            print("Failed to parse JSON from AI response.", error)
-            print("Original response:", json_for_sql_query)
-            dict_for_sql_query = {} # prohibit to return the false data to the next function
+        # Convert string representation of JSON to dictionary
+        dict_for_sql_query = json_string_for_sql_query.parsed
         return dict_for_sql_query
 
     def get_human_like_ai_response(self, ai_role_prompt: str, user_prompt_with_sql: str) -> str:
@@ -57,15 +51,11 @@ class GroqClient(AIClient):
         :param user_prompt_with_sql: User's prompt extended for retrieved data from the SQL data bank.
         :return: Human like response to the user's question.
         """
-
-        response = self.client.chat.completions.create(
+        # AI answers in a human like message
+        response = self.client.models.generate_content(
             model=self.model_name,
-            messages=[
-                {"role": "system", "content": ai_role_prompt},
-                {"role": "user", "content": user_prompt_with_sql}
-            ]
-        )
-        return response.choices[0].message.content
+            contents=ai_role_prompt + user_prompt_with_sql)
+        return response.text
 
 
     def ai_generate_json_data_for_sql_query(self, user_question: str) -> dict:
@@ -74,9 +64,8 @@ class GroqClient(AIClient):
         :param user_question: user input to the AI
         :return: JSON data used for a query
         """
-
-        generated_query_as_json =  prompting.ai_generate_query(user_question,
-                                                               self.get_structured_ai_response)
+        generated_query_as_json = prompting.ai_generate_query(user_question,
+                                                              self.get_structured_ai_response)
         return generated_query_as_json
 
 
@@ -87,7 +76,9 @@ class GroqClient(AIClient):
         :return: JSON response from the endpoint RESTFUL API
         """
         response_json_from_restful_api = prompting.execute_restful_api_query_json_param(json_data_for_restful_api_request)
+
         return response_json_from_restful_api
+
 
     def represent_ai_answer(self, restful_api_response: dict, user_question: str) -> str:
         """
