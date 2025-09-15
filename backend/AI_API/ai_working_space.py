@@ -1,4 +1,4 @@
-from ApartmentManager.backend.AI_API.ai_clients.gemini_client import GeminiClient
+from ApartmentManager.backend.AI_API.ai_clients.gemini.gemini_client import GeminiClient
 from ApartmentManager.backend.AI_API.ai_clients.groq_client import GroqClient
 
 ai_client = None
@@ -19,7 +19,7 @@ def main():
         user_question = input("Ask me something about apartments: ")
 
         # Answer of AI with function call inside
-        answer = ai_client.get_ai_function_call(user_question)
+        answer = ai_client.function_call_service.get_ai_function_call(user_question)
         print(answer)
 """
         # AI generates a query
