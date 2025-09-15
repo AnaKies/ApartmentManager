@@ -5,77 +5,118 @@ from dotenv import load_dotenv
 import ApartmentManager.backend.AI_API.general.prompting as prompting
 from ApartmentManager.backend.AI_API.general.ai_client import AIClient
 from ApartmentManager.backend.AI_API.general.structured_output import response_schema_gemini, QuerySchema
-from ApartmentManager.backend.AI_API.general.function_calling import execute_restful_api_query_declaration
 
 class GeminiClient(AIClient):
     """
     Client implementation for interacting with the Gemini AI model.
-    This class provides methods to generate structured JSON responses for SQL queries,
-    human-like textual answers, and to interface with a RESTful API. It inherits from
+    This class provides methods to interface with a RESTful API. It inherits from
     the abstract base class AIClient and implements all required methods.
     """
     # Specify the model to use
     model_name = "gemini-2.5-flash"
-    client = None
-    config_ai_function_call = None
+
+    # version of JSON schema for Gemini's function calling
+    execute_restful_api_query_declaration = {
+        "name": "execute_restful_api_query",
+        "description": "Execute a query from AI to an endpoint RESTFUL API and return the response from this endpoint.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Path to an endpoint RESTFUL API",
+                },
+                "filters": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Filters to sort the SQL data bank",
+                },
+            },
+            "required": ["path", "filters"],
+        },
+    }
 
     def __init__(self):
         # load variables from environment
         load_dotenv()
         gemini_api_key = os.getenv("GEMINI_API_KEY")
         self.client = genai.Client(api_key=gemini_api_key)
+
         # tools object, which contains one or more function declarations for function calling by AI.
-        tools = types.Tool(function_declarations=[execute_restful_api_query_declaration])
-        self.config_ai_function_call = types.GenerateContentConfig(tools=[tools])
+        tools = types.Tool(function_declarations=[self.execute_restful_api_query_declaration])
+
+        # Configuration for function call and system instructions
+        self.config_ai_function_call = types.GenerateContentConfig(
+            tools=[tools],
+            system_instruction=[types.Part(text=prompting.system_prompt)],
+        )
+
+        # volatile memory of the conversation
+        self.session_contents: list[types.Content] = []
 
     def get_ai_function_call(self, user_question: str) -> str:
-        extended_prompt = user_question + prompting.system_prompt
+        # Add the user prompt to the summary request to AI
+        user_part = types.Part(text=user_question)
+        user_part_content = types.Content(role="user", parts=[user_part])
+        self.session_contents.append(user_part_content)
+        print("....add user question: ", self.session_contents)
 
-        # Define prompt
-        contents = [
-            types.Content(
-                role="user", parts=[types.Part(text=extended_prompt)]
-            )
-        ]
 
-        # Send request with function declarations
+        # The first call of the AI model can return a function call
         ai_response = self.client.models.generate_content(
             model=self.model_name,
-            contents=contents,
+            contents=self.session_contents,
             config=self.config_ai_function_call,
         )
 
-        # functionCall object in an OpenAPI compatible schema specifying how to call one or
-        # more of the declared functions in order to respond to the question in the prompt.
-        fn_call = ai_response.candidates[0].content.parts[0].function_call
-        print(f".... AI want to call the function: {fn_call.name} with arguments: {fn_call.args}")
+        # get content of a response candidate and place it in conversation history
+        response_candidate = ai_response.candidates[0].content
+        self.session_contents.append(response_candidate)
+        print("....Add first response with func call:", self.session_contents)
 
-        # Calls the function, to get the data
-        if fn_call.name == "execute_restful_api_query":
-            sql_answer = prompting.execute_restful_api_query(**fn_call.args)
+        fn_call = None
+        try:
+            # functionCall object in an OpenAPI compatible schema specifying how to call one or
+            # more of the declared functions in order to respond to the question in the prompt.
+            fn_call = response_candidate.parts[0].function_call
+        except Exception:
+            pass
 
-        # Creates a function response part.
-        # Gives the row answer from the called function back to the conversation.
-        # The AI model will combine the initial question with returned data and
-        # answer in human like text.
-        function_response_part = types.Part.from_function_response(
-            name=fn_call.name,
-            response={"result": sql_answer},
-        )
+        if fn_call:
+            print(f".... AI want to call the function: {fn_call.name} with arguments: {fn_call.args}")
 
-        # Add the model's request to call the function into the conversation history.
-        contents.append(ai_response.candidates[0].content)
+            sql_answer = None
+            # Calls the function, to get the data
+            if fn_call.name == "execute_restful_api_query":
+                sql_answer = prompting.execute_restful_api_query(**fn_call.args)
 
-        # Add the actual result of the function execution back into the conversation history,
-        # so the model can use it to generate the final response to the user.
-        contents.append(types.Content(role="user", parts=[function_response_part]))
+            # Creates a function response part.
+            # Gives the row answer from the called function back to the conversation.
+            # The AI model will combine the initial question with returned data and
+            # answer in human like text.
+            function_response_part = types.Part.from_function_response(
+                name=fn_call.name,
+                response={"result": sql_answer},
+            )
 
-        final_response = self.client.models.generate_content(
-            model=self.model_name,
-            config=self.config_ai_function_call,
-            contents=contents,
-        )
-        return final_response.text
+            # Add the actual result of the function execution back into the conversation history,
+            # so the model can use it to generate the final response to the user.
+            self.session_contents.append(types.Content(role="assistant", parts=[function_response_part]))
+            print("....Add sql answer: ", self.session_contents)
+
+            final_response = self.client.models.generate_content(
+                model=self.model_name,
+                config=self.config_ai_function_call,
+                contents=self.session_contents,
+            )
+            final_response_content = final_response.candidates[0].content
+            self.session_contents.append(final_response_content)
+            print("....Add human like response", self.session_contents)
+
+            return final_response.text
+        return ai_response.text
 
     def get_structured_ai_response(self, ai_role_prompt: str, user_question: str) -> dict:
         """

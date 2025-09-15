@@ -45,15 +45,13 @@ def ai_generate_query(user_question, func_ai_generate_structured_content):
         print("Original JSON: ", response_json)
     return None
 
-def execute_restful_api_query_json_param(json_data_for_query):
+def execute_restful_api_query_json_param(json_data_for_query) -> dict:
     """
     Execute a query from AI to an endpoint RESTFUL API and return the response from this endpoint.
     :param json_data_for_query: JSON with keys "path" and "filters
     :return: JSON response from the endpoint RESTFUL API
     """
     path = json_data_for_query["path"]
-    if not path:
-        raise ValueError("No path provided")
 
     # list of columns to filter the SQL table
     filters = json_data_for_query.get("filters", [])
@@ -72,8 +70,11 @@ def execute_restful_api_query_json_param(json_data_for_query):
     return None
 
 def execute_restful_api_query(path, filters):
-    url = f"http://{HOST}:{PORT}{path}"
     try:
+        if not path:
+            raise ValueError("No path provided")
+
+        url = f"http://{HOST}:{PORT}{path}"
         response = requests.get(url, params=filters)
         response.raise_for_status()  # raises an HTTPError if the server responds with a failed status code.
         return response.json()
@@ -82,6 +83,8 @@ def execute_restful_api_query(path, filters):
         print("Error connecting to the REST API: Flask server is not running.", error)
     except requests.HTTPError as error:
         print(f"Error due returning HTTP error: {error}")
+    except ValueError as error:
+        print(f"Error due faulty value: {error}")
     except Exception as error:
         print(f"Unexpected error calling endpoints by AI: {error}")
     return None
