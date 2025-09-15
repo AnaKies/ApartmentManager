@@ -1,5 +1,5 @@
 from ApartmentManager.backend.AI_API.ai_clients.gemini.gemini_client import GeminiClient
-from ApartmentManager.backend.AI_API.ai_clients.groq_client import GroqClient
+from ApartmentManager.backend.AI_API.ai_clients.groq.groq_client import GroqClient
 
 ai_client = None
 model_choice = int(input("""Which AI model do you want to use?

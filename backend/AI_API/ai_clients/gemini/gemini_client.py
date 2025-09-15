@@ -31,7 +31,7 @@ class GeminiClient:
         self.structured_output_service = StructuredOutput(self.client, self.model_name)
 
     def process_function_call_request(self, user_question):
-        return self.function_call_service.get_ai_function_call(user_question)
+        return self.function_call_service.response_with_ai_function_call(user_question)
 
     def process_structured_output_request(self, user_question):
         return self.structured_output_service.get_structured_ai_response(user_question)

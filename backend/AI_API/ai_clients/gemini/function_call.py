@@ -46,9 +46,14 @@ class FunctionCallService:
             system_instruction=[types.Part(text=prompting.system_prompt)]
         )
 
-    def get_ai_function_call(self, user_question: str) -> str:
+    def response_with_ai_function_call(self, user_question: str) -> str:
+        """
+        Gives the user a response using data, retrieved from a function, being called by AI.
+        :param user_question: Question from the user
+        :return: Human like text answer containing the information from the SQL data bank
+        """
         # get the potential function calling response
-        response_candidate = self._order_call_function(user_question)
+        response_candidate = self._order_function_calling(user_question)
 
         fn_call = None
         try:
@@ -70,18 +75,27 @@ class FunctionCallService:
         result = FunctionCallService.filter_text_from_ai_response(response_candidate)
         return result
 
-    def _order_call_function(self, user_question: str) -> genai.types.Content:
+    def _order_function_calling(self, user_question: str) -> genai.types.Content:
+        """
+        Analyzes the user’s question and proposes a function to retrieve the relevant data.
+        :param user_question: Question from the user
+        :return: An object containing the information to the function being called
+        """
         # Add the user prompt to the summary request to AI
         user_part = types.Part(text=user_question)
         user_part_content = types.Content(role="user", parts=[user_part])
         self.session_contents.append(user_part_content)
 
         # get content of a response with a call function candidate.
-        response_call_func_candidate = self._get_ai_response()
+        response_func_candidate = self._get_ai_response()
 
-        return response_call_func_candidate
+        return response_func_candidate
 
     def _get_ai_response(self) -> genai.types.Content:
+        """
+        The simple call routine to the AI to retrieve a response.
+        :return: Object, containing the information about response from the AI.
+        """
         ai_response = self.client.models.generate_content(
             model=self.model_name,
             config=self.config_ai_function_call,
@@ -96,7 +110,7 @@ class FunctionCallService:
 
     def _do_call_function(self, function_call):
         """
-        Calls the function which returns the SQL data.
+        Calls the function which returns the SQL data to the AI.
         Then add the data to the conversation history.
         :param function_call: Object retrieved by the AI model to trigger the function call.
         """
@@ -120,9 +134,10 @@ class FunctionCallService:
     @staticmethod
     def filter_text_from_ai_response(ai_response_content:  genai.types.Content) -> str | None:
         """
-        AI response consists of multiple parts. This method filters the non-text part of the response.
+        AI response consists of multiple parts.
+        This method filters the non-text part of the response.
         :param ai_response_content: Content response returned by the AI.
-        :return: text part of an AI response.
+        :return: Text part of an AI response.
         """
         for part in ai_response_content.parts:
             # part can be text, function_call, thought_signature etc.
