@@ -1,7 +1,11 @@
 import os
+
+import google.genai.types
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
+from google.genai.types import Content
+
 import ApartmentManager.backend.AI_API.general.prompting as prompting
 from ApartmentManager.backend.AI_API.general.ai_client import AIClient
 from ApartmentManager.backend.AI_API.general.structured_output import response_schema_gemini, QuerySchema
@@ -61,8 +65,6 @@ class GeminiClient(AIClient):
         user_part = types.Part(text=user_question)
         user_part_content = types.Content(role="user", parts=[user_part])
         self.session_contents.append(user_part_content)
-        print("....add user question: ", self.session_contents)
-
 
         # The first call of the AI model can return a function call
         ai_response = self.client.models.generate_content(
@@ -70,11 +72,9 @@ class GeminiClient(AIClient):
             contents=self.session_contents,
             config=self.config_ai_function_call,
         )
-
         # get content of a response candidate and place it in conversation history
         response_candidate = ai_response.candidates[0].content
         self.session_contents.append(response_candidate)
-        print("....Add first response with func call:", self.session_contents)
 
         fn_call = None
         try:
@@ -91,6 +91,7 @@ class GeminiClient(AIClient):
             # Calls the function, to get the data
             if fn_call.name == "execute_restful_api_query":
                 sql_answer = prompting.execute_restful_api_query(**fn_call.args)
+                print(".... SQL answer: ", sql_answer)
 
             # Creates a function response part.
             # Gives the row answer from the called function back to the conversation.
@@ -104,8 +105,8 @@ class GeminiClient(AIClient):
             # Add the actual result of the function execution back into the conversation history,
             # so the model can use it to generate the final response to the user.
             self.session_contents.append(types.Content(role="assistant", parts=[function_response_part]))
-            print("....Add sql answer: ", self.session_contents)
 
+            # The second response from the AI model returns the human like text
             final_response = self.client.models.generate_content(
                 model=self.model_name,
                 config=self.config_ai_function_call,
@@ -113,10 +114,27 @@ class GeminiClient(AIClient):
             )
             final_response_content = final_response.candidates[0].content
             self.session_contents.append(final_response_content)
-            print("....Add human like response", self.session_contents)
 
-            return final_response.text
-        return ai_response.text
+            result = GeminiClient.filter_text_from_ai_response(final_response_content)
+            return result
+
+        result = GeminiClient.filter_text_from_ai_response(response_candidate)
+        return result
+
+    @staticmethod
+    def filter_text_from_ai_response(ai_response_content: google.genai.types.Content) -> str:
+        """
+        AI response consists of multiple parts. This method filters the non-text part of the response.
+        :param ai_response_content: Content response returned by the AI.
+        :return: text part of an AI response.
+        """
+        for part in ai_response_content.parts:
+            # part can be text, function_call, thought_signature etc.
+            if hasattr(part, "text") and part.text:
+                return part.text
+            else:
+                raise ValueError("Error: no text in the AI response!")
+        return None
 
     def get_structured_ai_response(self, ai_role_prompt: str, user_question: str) -> dict:
         """
