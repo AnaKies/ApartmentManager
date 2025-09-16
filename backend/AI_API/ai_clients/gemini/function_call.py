@@ -3,6 +3,8 @@ from google.genai import types
 import ApartmentManager.backend.AI_API.general.prompting as prompting
 
 class FunctionCallService:
+    FUNCTION_TO_CALL = prompting.execute_restful_api_query
+
     def __init__(self, ai_client: genai.Client, model_name: str):
         """
         Allows the AI model to call functions and then to give to a user a response
@@ -17,7 +19,7 @@ class FunctionCallService:
 
         # version of JSON schema for Gemini's function calling
         self.execute_restful_api_query_declaration = {
-            "name": "execute_restful_api_query",
+            "name": self.FUNCTION_TO_CALL.__name__,
             "description": "Execute a query from AI to an endpoint RESTFUL API and return the response from this endpoint.",
             "parameters": {
                 "type": "object",
@@ -69,10 +71,10 @@ class FunctionCallService:
 
             final_response_content = self._get_ai_response()
 
-            result = FunctionCallService.filter_text_from_ai_response(final_response_content)
+            result = FunctionCallService._filter_text_from_ai_response(final_response_content)
             return result
 
-        result = FunctionCallService.filter_text_from_ai_response(response_candidate)
+        result = FunctionCallService._filter_text_from_ai_response(response_candidate)
         return result
 
     def _order_function_calling(self, user_question: str) -> genai.types.Content:
@@ -116,7 +118,7 @@ class FunctionCallService:
         """
         sql_answer = None
         # Calls the function, to get the data
-        if function_call.name == "execute_restful_api_query":
+        if function_call.name == self.FUNCTION_TO_CALL.__name__:
             sql_answer = prompting.execute_restful_api_query(**function_call.args)
             print(".... SQL answer: ", sql_answer)
 
@@ -132,7 +134,7 @@ class FunctionCallService:
         self.session_contents.append(types.Content(role="assistant", parts=[function_response_part]))
 
     @staticmethod
-    def filter_text_from_ai_response(ai_response_content:  genai.types.Content) -> str | None:
+    def _filter_text_from_ai_response(ai_response_content:  genai.types.Content) -> str | None:
         """
         AI response consists of multiple parts.
         This method filters the non-text part of the response.
