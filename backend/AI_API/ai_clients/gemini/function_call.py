@@ -1,6 +1,8 @@
+import json
 from google import genai
 from google.genai import types
 import ApartmentManager.backend.AI_API.general.prompting as prompting
+from ApartmentManager.backend.SQL_API.logs.CRUD import create as add_log
 
 class FunctionCallService:
     FUNCTION_TO_CALL = prompting.execute_restful_api_query
@@ -49,17 +51,20 @@ class FunctionCallService:
         except Exception:
             pass
 
+        back_end_response = "---"
         if fn_call:
             print(f".... AI want to call the function: {fn_call.name} with arguments: {fn_call.args}")
-            self._do_call_function(fn_call)
+            back_end_response = json.dumps(self._do_call_function(fn_call))
 
             final_response_content = self._get_ai_response()
 
-            result = FunctionCallService._filter_text_from_ai_response(final_response_content)
-            return result
+            ai_response = FunctionCallService._filter_text_from_ai_response(final_response_content)
+            add_log.create_new_log_entry(self.model_name, user_question, back_end_response, ai_response)
+            return ai_response
 
-        result = FunctionCallService._filter_text_from_ai_response(response_candidate)
-        return result
+        ai_response = FunctionCallService._filter_text_from_ai_response(response_candidate)
+        add_log.create_new_log_entry(self.model_name, user_question, back_end_response, ai_response)
+        return ai_response
 
     def _order_function_calling(self, user_question: str) -> genai.types.Content:
         """
@@ -95,11 +100,12 @@ class FunctionCallService:
         return response_content
 
 
-    def _do_call_function(self, function_call):
+    def _do_call_function(self, function_call) -> dict:
         """
         Calls the function which returns the SQL data to the AI.
         Then add the data to the conversation history.
         :param function_call: Object retrieved by the AI model to trigger the function call.
+        :return: Object containing the SQL data to the AI.
         """
         sql_answer = None
         # Calls the function, to get the data
@@ -117,6 +123,8 @@ class FunctionCallService:
         # Add the actual result of the function execution back into the conversation history,
         # so the model can use it to generate the final response to the user.
         self.session_contents.append(types.Content(role="assistant", parts=[function_response_part]))
+
+        return sql_answer
 
     @staticmethod
     def _filter_text_from_ai_response(ai_response_content:  genai.types.Content) -> str | None:

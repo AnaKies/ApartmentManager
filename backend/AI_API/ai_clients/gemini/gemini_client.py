@@ -6,7 +6,6 @@ from ApartmentManager.backend.AI_API.ai_clients.gemini.structured_output import 
 from google import genai
 from dotenv import load_dotenv
 from ApartmentManager.backend.AI_API.general.ai_client import AIClient
-from ApartmentManager.backend.SQL_API.logs.CRUD import create as add_log
 
 class GeminiClient:
     #class GeminiClient(AIClient, ABC):
@@ -32,7 +31,6 @@ class GeminiClient:
 
     def process_function_call_request(self, user_question):
         ai_response = self.function_call_service.response_with_ai_function_call(user_question)
-        add_log.create_new_log_entry(user_question, ai_response)
         return ai_response
 
     def get_structured_ai_response(self, user_question: str) -> dict:
