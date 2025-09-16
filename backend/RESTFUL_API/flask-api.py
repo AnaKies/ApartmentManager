@@ -1,6 +1,7 @@
-from flask import Flask, request, jsonify, abort
+import requests
+from flask import Flask, jsonify
 from ApartmentManager.backend.config.server_config import HOST, PORT
-import ApartmentManager.backend.SQL_API.CRUD.read as read_sql
+import ApartmentManager.backend.SQL_API.rentral.CRUD.read as read_sql
 
 app = Flask(__name__)
 
@@ -14,9 +15,13 @@ def get_apartments():
     Returns a JSON list of apartments with
     :return:
     """
-    apartments = read_sql.get_apartments()
-    apartments_to_json = [apartment.to_dict() for apartment in apartments]
-    return jsonify(apartments_to_json)
+    try:
+        apartments = read_sql.get_apartments()
+        apartments_to_json = [apartment.to_dict() for apartment in apartments]
+        return jsonify(apartments_to_json)
+    except Exception as error:
+        return jsonify({"error": "Internal server error", "message": str(error)}), 500
+
     """
     # SEARCHING FILTERS with values (restrict which rows are included in the result set. SQL: WHERE area = '60')
     area = request.args.get('area', type=float)
@@ -49,6 +54,13 @@ def get_apartments():
 @app.errorhandler(400)
 def bad_request(error):
     return jsonify({"error": "Bad request", "message": str(error.description)}), 400
+
+@app.errorhandler(500)
+def internal_error(error):
+    return jsonify({
+        "error": "Internal server error",
+        "message": str(error)
+    }), 500
 
 if __name__ == '__main__':
     app.run(host=HOST, port=PORT, debug=True)

@@ -5,8 +5,8 @@ from ApartmentManager.backend.AI_API.ai_clients.gemini.function_call import Func
 from ApartmentManager.backend.AI_API.ai_clients.gemini.structured_output import StructuredOutput
 from google import genai
 from dotenv import load_dotenv
-import ApartmentManager.backend.AI_API.general.prompting as prompting
 from ApartmentManager.backend.AI_API.general.ai_client import AIClient
+from ApartmentManager.backend.SQL_API.logs.CRUD import create as add_log
 
 class GeminiClient:
     #class GeminiClient(AIClient, ABC):
@@ -31,7 +31,13 @@ class GeminiClient:
         self.structured_output_service = StructuredOutput(self.client, self.model_name)
 
     def process_function_call_request(self, user_question):
-        return self.function_call_service.response_with_ai_function_call(user_question)
+        ai_response = self.function_call_service.response_with_ai_function_call(user_question)
+        add_log.create_new_log_entry(user_question, ai_response)
+        return ai_response
 
-    def get_structured_ai_response(self, prompt: str) -> dict:
-        return self.structured_output_service.get_structured_ai_response(prompt)
+    def get_structured_ai_response(self, user_question: str) -> dict:
+        ai_response = self.structured_output_service.get_structured_ai_response(user_question)
+        return ai_response
+
+    def get_textual_ai_response(self, user_question: str) -> str:
+        pass

@@ -94,6 +94,7 @@ class FunctionCallService:
 
         return response_content
 
+
     def _do_call_function(self, function_call):
         """
         Calls the function which returns the SQL data to the AI.

@@ -4,19 +4,19 @@ from sqlalchemy import create_engine, Column, Float, Integer, String
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 # Define a path to the database
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
 DB_PATH = os.path.join(BASE_DIR, "data", "apartment_app.db")
 
 # Create a database connection
-engine = create_engine(f'sqlite:///{DB_PATH}', echo=True)
+rental_engine = create_engine(f'sqlite:///{DB_PATH}', echo=True)
 
 # Create a database session (performs CRUD operations with ORM objects)
-Session = sessionmaker(bind=engine) # returns Fabric
+Session = sessionmaker(bind=rental_engine) # returns Fabric
 
 # Define the data table class's parent class
-Base = declarative_base()
+Rental_Base = declarative_base()
 
-class Apartment(Base):
+class Apartment(Rental_Base):
     __tablename__ = "apartment"
     # manual id for fixed number of apartments
     id_apartment = Column(Integer, primary_key=True, autoincrement=False)
@@ -42,7 +42,7 @@ class Apartment(Base):
             "utility_billing_provider_id": self.utility_billing_provider_id
         }
 
-class Tenancy(Base):
+class Tenancy(Rental_Base):
     __tablename__ = "tenancy"
     # automatically autoincrement for infinity number of tenancies
     id_tenancy = Column(Integer, primary_key=True, autoincrement=True)
@@ -66,7 +66,7 @@ class Tenancy(Base):
                 f"deposit={self.deposit}, "
                 f"comment={self.comment})")
 
-class PersonalData(Base):
+class PersonalData(Rental_Base):
     __tablename__ = "personal_data"
     # automatically autoincrement for infinity number of persons
     id_personal_data = Column(Integer, primary_key=True, autoincrement=True)
@@ -87,7 +87,7 @@ class PersonalData(Base):
                 f"email={self.email}, "
                 f"comment={self.comment})")
 
-class RentData(Base):
+class RentData(Rental_Base):
     __tablename__ = "rent_data"
     # automatically autoincrement for infinity number of rents
     id_rent_data = Column(Integer, primary_key=True, autoincrement=True)
