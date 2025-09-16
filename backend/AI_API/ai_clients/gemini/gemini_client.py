@@ -33,5 +33,5 @@ class GeminiClient:
     def process_function_call_request(self, user_question):
         return self.function_call_service.response_with_ai_function_call(user_question)
 
-    def process_structured_output_request(self, user_question):
-        return self.structured_output_service.get_structured_ai_response(user_question)
+    def get_structured_ai_response(self, prompt: str) -> dict:
+        return self.structured_output_service.get_structured_ai_response(prompt)

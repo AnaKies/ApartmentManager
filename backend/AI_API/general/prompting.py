@@ -20,7 +20,8 @@ Rules:
 - Always attempt to call the function to get fresh data if relevant.
 - If the function returns no data:
     - You may use information from any previous messages in the conversation.
-    - **When you do this, prepend your answer with "unverified: " to indicate that this information comes from previous messages and may not be verified.**
+    - **When you do this, prepend your answer with "unverified: " 
+    to indicate that this information comes from previous messages and may not be verified.**
 - Do not invent data that is not present in either the function results or previous messages.
 """
 

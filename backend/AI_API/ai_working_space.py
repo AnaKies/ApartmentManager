@@ -1,3 +1,5 @@
+import json
+
 from ApartmentManager.backend.AI_API.ai_clients.gemini.gemini_client import GeminiClient
 from ApartmentManager.backend.AI_API.ai_clients.groq.groq_client import GroqClient
 
@@ -18,22 +20,17 @@ def main():
         # User asks a question
         user_question = input("Ask me something about apartments: ")
 
+        # structured output for the later implementation of GUI
+        if user_question == "Show apartments":
+            answer_with_apartments = ai_client.process_function_call_request(user_question)
+            answer_show = ai_client.get_structured_ai_response(answer_with_apartments)
+            print(json.dumps(answer_show, indent=4))
+            continue
+
         # Answer of AI with function call inside
         answer = ai_client.process_function_call_request(user_question)
         print(answer)
-"""
-        # AI generates a query
-        query_json = ai_client.ai_generate_json_data_for_sql_query(user_question)
-        print("......AI generated query:", query_json)
 
-        # Python script executes the query
-        api_response = ai_client.call_endpoint_restful_api(query_json)
-        print("......RESTFUL API returned data:", api_response)
-
-        # AI generates a human friendly answer
-        ai_answer = ai_client.represent_ai_answer(api_response, user_question)
-        print(ai_answer)
-"""
 
 if __name__ == "__main__":
     main()
