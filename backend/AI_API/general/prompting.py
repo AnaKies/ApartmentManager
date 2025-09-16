@@ -77,7 +77,13 @@ def execute_restful_api_query_json_param(json_data_for_query) -> dict:
         print(f"Unexpected error calling endpoints by AI: {error}")
     return None
 
-def execute_restful_api_query(path, filters):
+def execute_restful_api_query(path: str, filters: list[str]) -> dict:
+    """
+    Executes a query from AI to an endpoint RESTFUL API and returns the response.
+    :param path: Path to the endpoint RESTFUL API.
+    :param filters: Filters to use when executing queries.
+    :return: JSON response from the endpoint RESTFUL API.
+    """
     try:
         if not path:
             raise ValueError("No path provided")

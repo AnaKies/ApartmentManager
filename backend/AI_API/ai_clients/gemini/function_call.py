@@ -17,28 +17,12 @@ class FunctionCallService:
         # volatile memory of the conversation
         self.session_contents: list[types.Content] = []
 
-        # version of JSON schema for Gemini's function calling
-        self.execute_restful_api_query_declaration = {
-            "name": self.FUNCTION_TO_CALL.__name__,
-            "description": "Execute a query from AI to an endpoint RESTFUL API and return the response from this endpoint.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {
-                        "type": "string",
-                        "description": "Path to an endpoint RESTFUL API",
-                    },
-                    "filters": {
-                        "type": "array",
-                        "items": {
-                            "type": "string"
-                        },
-                        "description": "Filters to sort the SQL data bank",
-                    },
-                },
-                "required": ["path", "filters"],
-            },
-        }
+        # Generates from the method signature a function as JSON
+        self.execute_restful_api_query_declaration = types.FunctionDeclaration.from_callable(
+            callable=self.FUNCTION_TO_CALL,
+            client=self.client
+        )
+
         # tools object, which contains one or more function declarations for function calling by AI.
         tools = types.Tool(function_declarations=[self.execute_restful_api_query_declaration])
 
