@@ -9,12 +9,12 @@ class AiConversationSession:
     """
     def __init__(self, model_choice):
         self.ai_client = None
-        model_choice = model_choice
+        model = model_choice
 
-        if model_choice == "Gemini":
+        if model == "Gemini":
             self.ai_client = GeminiClient()
             print("Gemini will answer your question.")
-        elif model_choice == "Groq":
+        elif model == "Groq":
             self.ai_client = GroqClient()
             print("Groq will answer your question.")
 
@@ -27,13 +27,31 @@ class AiConversationSession:
         and a string marking the type of the answer.
         """
         # structured output for the later implementation of GUI
-        if user_question == "Show apartments":
+        if user_question.strip().lower() == "show apartments":
             answer_with_apartments = self.ai_client.process_function_call_request(user_question)
-            answer_show = self.ai_client.get_structured_ai_response(answer_with_apartments)
-            print(type(answer_show))
-            return answer_show, "data_answer"
+            data_answer = self.ai_client.get_structured_ai_response(answer_with_apartments)
+            print(type(data_answer))
+
+            return {
+                "type": "data",
+                "result": {
+                    "items": data_answer
+                },
+                "meta": {
+                    "model": {self.model},
+                    "schema": "",
+                }
+            }
 
         # Answer of AI with possible function call inside
         answer_human_like = self.ai_client.process_function_call_request(user_question)
         print(type(answer_human_like))
-        return answer_human_like, "human_like_answer"
+        return {
+            "type": "text",
+            "result": {
+                "message": answer_human_like
+            },
+            "meta": {
+                "model": {self.model},
+            }
+        }

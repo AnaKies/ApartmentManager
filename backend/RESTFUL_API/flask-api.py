@@ -34,6 +34,30 @@ def home():
     return render_template_string(HOME_HTML)
 
 
+@app.route('/api/chat', methods=['POST'])
+def chat_api():
+    """
+    JSON-only endpoint for chat.
+    Request JSON: { "user_input": "<string>" }
+    Response JSON: { "question": "<string>", "answer": "<string>" }
+    """
+    if not request.is_json:
+        return jsonify(error="Content-Type must be application/json"), 415
+
+    data = request.get_json(silent=True) or {}
+    user_input = (data.get('user_input') or '').strip()
+
+    if not user_input:
+        return jsonify(error="`user_input` is required"), 400
+
+    ai_client = AiConversationSession("Gemini")
+    try:
+        model_answer = ai_client.get_ai_answer(user_input)
+        return jsonify(question=user_input, answer=model_answer), 200
+    except Exception:
+        app.logger.exception("chat_api error")
+        return jsonify(error="internal_error"), 500
+
 @app.route('/chat_mode', methods=['GET', 'POST'])
 def chat_mode():
     """
