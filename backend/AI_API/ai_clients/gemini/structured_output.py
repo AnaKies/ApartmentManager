@@ -9,19 +9,21 @@ class StructuredOutput:
         :param model_name: Model name of an AI client.
         """
         self.client = ai_client
-        self.model_name = model_name
+        self.model = model_name
 
         # version of JSON schema for Gemini's structured output
         self.response_schema_gemini = {
+            "title": "apartments",
             "type": "array",
             "items": {
+                "title": "apartment",
                 "type": "object",
                 "properties": {
-                    "address": {"type": "string"},
-                    "area": {"type": "number"},
-                    "id_apartment": {"type": "integer"},
-                    "price_per_square_meter": {"type": "number"},
-                    "utility_billing_provider_id": {"type": "integer"}
+                    "address": {"type": "string", "title": "address"},
+                    "area": {"type": "number", "title": "area (m²)"},
+                    "id_apartment": {"type": "integer", "title": "apartment ID"},
+                    "price_per_square_meter": {"type": "number", "title": "price per square meter"},
+                    "utility_billing_provider_id": {"type": "integer", "title": "utility billing provider ID"}
                 },
                 "required": ["address", "area", "id_apartment"]
             }
@@ -35,13 +37,23 @@ class StructuredOutput:
         :return: JSON scheme containing keywords "path" and "filters for later using in a query.
         """
         json_string_for_sql_query = self.client.models.generate_content(
-            model=self.model_name,
+            model=self.model,
             contents=prompt,
             config={
                 "response_mime_type": "application/json",
                 "response_schema": self.response_schema_gemini
             }
         )
-        # Convert string representation of JSON to dictionary
-        dict_for_sql_query = json_string_for_sql_query.parsed
-        return dict_for_sql_query
+        # Convert string representation of JSON to JSON object
+        answer_as_json = json_string_for_sql_query.parsed
+
+        return {
+            "type": "data",
+            "result": {
+                "payload": answer_as_json,
+                "schema": self.response_schema_gemini
+            },
+            "meta": {
+                "model": self.model,
+            }
+        }

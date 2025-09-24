@@ -39,3 +39,4 @@ class GeminiClient:
 
     def get_textual_ai_response(self, user_question: str) -> str:
         pass
+

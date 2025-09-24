@@ -15,7 +15,7 @@ class FunctionCallService:
         :param model_name: Name of the used AI model
         """
         self.client = ai_client
-        self.model_name = model_name
+        self.model = model_name
         # volatile memory of the conversation
         self.session_contents: list[types.Content] = []
 
@@ -34,37 +34,60 @@ class FunctionCallService:
             system_instruction=[types.Part(text=prompting.system_prompt)]
         )
 
-    def response_with_ai_function_call(self, user_question: str) -> str:
+    def response_with_ai_function_call(self, user_question: str) -> dict:
         """
         Gives the user a response using data, retrieved from a function, being called by AI.
         :param user_question: Question from the user
-        :return: Human like text answer containing the information from the SQL data bank
+        :return: JSON with human like text answer containing the information from the SQL data bank
         """
-        # get the potential function calling response
+        # STEP 1: get the potential function calling response
         response_candidate = self._order_function_calling(user_question)
 
+        # Try to extract a function call from the candidate response
         fn_call = None
         try:
             # functionCall object in an OpenAPI compatible schema specifying how to call one or
             # more of the declared functions to respond to the question in the prompt.
             fn_call = response_candidate.parts[0].function_call
         except Exception:
-            pass
+            pass # if no function call, go further
 
         back_end_response = "---"
-        if fn_call:
-            print(f".... AI want to call the function: {fn_call.name} with arguments: {fn_call.args}")
-            back_end_response = json.dumps(self._do_call_function(fn_call))
+        ai_response_text = ""
 
+        if fn_call:
+            # STEP 2A: the AI model does the function call
+            print(f".... AI want to call the function: {fn_call.name} with arguments: {fn_call.args}")
+            try:
+                # Execute the function and capture the backend payload for logging
+                backend_payload = self._do_call_function(fn_call)
+                back_end_response = json.dumps(backend_payload)
+            except Exception as error:
+                # If the tool call fails, log the error payload and proceed to get a direct model reply
+                back_end_response = json.dumps({"tool_error": str(error)})
+
+            # Ask the model for a final answer that may incorporate the tool results
             final_response_content = self._get_ai_response()
 
-            ai_response = FunctionCallService._filter_text_from_ai_response(final_response_content)
-            add_log.create_new_log_entry(self.model_name, user_question, back_end_response, ai_response)
-            return ai_response
+            # Extract clean text from the model's final response
+            ai_response_text = FunctionCallService._filter_text_from_ai_response(final_response_content)
+        else:
+            # STEP 2B: No function call. Just extract the direct text answer
+            ai_response_text = FunctionCallService._filter_text_from_ai_response(response_candidate)
 
-        ai_response = FunctionCallService._filter_text_from_ai_response(response_candidate)
-        add_log.create_new_log_entry(self.model_name, user_question, back_end_response, ai_response)
-        return ai_response
+        # STEP 3: Unified logging
+        add_log.create_new_log_entry(self.model, user_question, back_end_response, ai_response_text)
+
+        # STEP 4: and return envelope
+        return {
+            "type": "text",
+            "result": {
+                "message": ai_response_text
+            },
+            "meta": {
+                "model": self.model,
+            }
+        }
 
     def _order_function_calling(self, user_question: str) -> genai.types.Content:
         """
@@ -88,7 +111,7 @@ class FunctionCallService:
         :return: Object, containing the information about response from the AI.
         """
         ai_response = self.client.models.generate_content(
-            model=self.model_name,
+            model=self.model,
             config=self.config_ai_function_call,
             contents=self.session_contents,
         )

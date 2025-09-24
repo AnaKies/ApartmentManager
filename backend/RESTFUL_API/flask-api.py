@@ -1,37 +1,22 @@
 from flask import Flask, jsonify, request, render_template_string
+from flask_cors import CORS
 from ApartmentManager.backend.config.server_config import HOST, PORT
 import ApartmentManager.backend.SQL_API.rentral.CRUD.read as read_sql
 from ApartmentManager.backend.AI_API.general.conversation import AiConversationSession
 
 app = Flask(__name__)
 
+# allow rout to the endpoint /api/
+CORS(app, resources={r"/api/*": {"origins": "*"}})
+
 # Controls what the SQL table can return if a query has no parameters/filters.
 DEFAULT_FIELDS_APARTMENT_TABLE = ["area", "address", "price_per_square_meter", "utility_billing_provider_id"]
 ALLOWED_FIELDS = []
 
-HOME_HTML = """
-    <html><body>
-        <h2>Welcome to the apartment manager</h2>
-        <form action="/chat_mode" method="post">
-            Your question: <input type='text' name='user_input'><br>
-            <input type='submit' value='Continue'>
-        </form>
-        {% if question %}
-            <div>
-                <h3>Your Question:</h3>
-                <p>{{ question }}</p>
-            </div>
-            <div>
-                <h3>AI Answer:</h3>
-                <p>{{ answer }}</p>
-            </div>
-        {% endif %}
-    </body></html>"""
-
 
 @app.route('/')
 def home():
-    return render_template_string(HOME_HTML)
+    pass
 
 
 @app.route('/api/chat', methods=['POST'])
@@ -53,33 +38,11 @@ def chat_api():
     ai_client = AiConversationSession("Gemini")
     try:
         model_answer = ai_client.get_ai_answer(user_input)
-        return jsonify(question=user_input, answer=model_answer), 200
+        return model_answer, 200
     except Exception:
         app.logger.exception("chat_api error")
         return jsonify(error="internal_error"), 500
 
-@app.route('/chat_mode', methods=['GET', 'POST'])
-def chat_mode():
-    """
-    Endpoint for conversation between AI and user in chat mode.
-    :param user_input: Input from user.
-    :return: Data with user questions and AI answer in human like format.
-    """
-    ai_client = AiConversationSession("Gemini")
-
-    if request.method == 'POST':
-        # Holen Sie die Benutzereingabe aus dem POST-Formular
-        user_input = request.form.get('user_input')
-        if user_input:
-            model_answer = ai_client.get_ai_answer(user_input)
-            # Rendern Sie die gleiche Seite mit Frage und Antwort
-            return render_template_string(HOME_HTML, question=user_input, answer=model_answer)
-        else:
-            # Falls die Eingabe leer ist
-            return render_template_string(HOME_HTML, answer="Please provide a question.")
-
-    # Für GET-Anfragen (direkter Aufruf oder erster Seitenaufruf)
-    return render_template_string(HOME_HTML)
 
 
 @app.route('/apartments', methods=['GET'])
