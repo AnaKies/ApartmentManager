@@ -31,7 +31,7 @@ class FunctionCallService:
         # Configuration for function call and system instructions
         self.config_ai_function_call = types.GenerateContentConfig(
             tools=[tools],
-            system_instruction=[types.Part(text=prompting.system_prompt)]
+            system_instruction=[types.Part(text=prompting.SYSTEM_PROMPT)]
         )
 
     def response_with_ai_function_call(self, user_question: str) -> dict:

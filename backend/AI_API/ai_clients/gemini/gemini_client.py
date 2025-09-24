@@ -1,6 +1,7 @@
 import os
 from abc import ABC
 
+from ApartmentManager.backend.AI_API.ai_clients.gemini.BooleanOutput import BooleanOutput
 from ApartmentManager.backend.AI_API.ai_clients.gemini.function_call import FunctionCallService
 from ApartmentManager.backend.AI_API.ai_clients.gemini.structured_output import StructuredOutput
 from google import genai
@@ -29,6 +30,9 @@ class GeminiClient:
         # Create an object to let the AI get the answer as predefined JSON
         self.structured_output_service = StructuredOutput(self.client, self.model_name)
 
+        # Create an object to let the AI answer with boolean true/false
+        self.boolean_output_service = BooleanOutput(self.client, self.model_name)
+
     def process_function_call_request(self, user_question):
         ai_response = self.function_call_service.response_with_ai_function_call(user_question)
         return ai_response
@@ -39,4 +43,13 @@ class GeminiClient:
 
     def get_textual_ai_response(self, user_question: str) -> str:
         pass
+
+    def get_boolean_answer(self, user_question: str) -> dict:
+        """
+        Returns the boolean answer True or False.
+        :param user_question: Question from the user.
+        :return: F.e { "result": True }
+        """
+        ai_response = self.boolean_output_service.get_boolean_ai_response(user_question)
+        return ai_response
 

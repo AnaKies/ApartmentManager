@@ -15,7 +15,7 @@ class AiConversationSession:
             self.ai_client = GeminiClient()
             print("Gemini will answer your question.")
         elif self.model == "Groq":
-            self.ai_client = GroqClient()
+            #self.ai_client = GroqClient()
             print("Groq will answer your question.")
 
     def get_ai_answer(self, user_question):
@@ -25,8 +25,12 @@ class AiConversationSession:
         :return: envelope with type: "text" | "data"
         """
 
-        # structured output for the later implementation of GUI
-        if user_question == "show apartments":
+        # STEP 1: AI checks if user asks to show something
+        something_to_show_dict = self.ai_client.get_boolean_answer(user_question)
+        something_to_show = something_to_show_dict.get("result", False)
+
+        # STEP 2: User asked to show some data as structured output
+        if something_to_show:
             answer_envelope = self.ai_client.process_function_call_request(user_question)
             answer_str = answer_envelope.get("result", {}).get("message", {})
             data_answer = self.ai_client.get_structured_ai_response(answer_str)

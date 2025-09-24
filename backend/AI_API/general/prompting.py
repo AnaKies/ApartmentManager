@@ -1,7 +1,7 @@
 from ApartmentManager.backend.config.server_config import HOST, PORT
 import requests
 
-system_prompt = f"""
+SYSTEM_PROMPT= f"""
 You are a function-calling assistant for an apartment rental system. 
 You know the following API paths:
 1. /apartments
@@ -29,6 +29,12 @@ Rules:
     to indicate that this information comes from previous messages and may not be verified.**
 - Do not invent data that is not present in either the function results or previous messages.
 """
+
+BOOLEAN_PROMPT = f"""
+    Decide if the user is asking to show, display, render, illustrate, visualize, 
+    or otherwise present something.  
+    Return true if yes, false if no.
+    """
 
 
 def execute_restful_api_query(path: str, filters: list[str]) -> dict:

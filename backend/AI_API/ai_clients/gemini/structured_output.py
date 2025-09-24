@@ -1,4 +1,3 @@
-import ApartmentManager.backend.AI_API.general.prompting as prompting
 from google import genai
 from google.genai import types
 
@@ -39,7 +38,7 @@ class StructuredOutput:
                     "address": {"type": "string",  "title": "address"},
                     "area":    {"type": "number",  "title": "area (m²)"},
                     "id_apartment":            {"type": "integer", "title": "apartment ID"},
-                    "price_per_square_meter":  {"type": "number",  "title": "price per square meter"},
+                    "price_per_square_meter":  {"type": "number",  "title": "Eur/m²"},
                     "utility_billing_provider_id": {"type": "integer", "title": "utility billing provider ID"}
                 },
                 "required": ["address", "area", "id_apartment"]
