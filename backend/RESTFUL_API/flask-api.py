@@ -6,7 +6,7 @@ from ApartmentManager.backend.AI_API.general.conversation import AiConversationS
 
 app = Flask(__name__)
 
-# allow rout to the endpoint /api/
+# allow route to the endpoint /api/
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # Controls what the SQL table can return if a query has no parameters/filters.
@@ -30,14 +30,14 @@ def chat_api():
         return jsonify(error="Content-Type must be application/json"), 415
 
     data = request.get_json(silent=True) or {}
-    user_input = (data.get('user_input') or '').strip()
+    user_question_str = (data.get('user_input') or '').strip()
 
-    if not user_input:
+    if not user_question_str:
         return jsonify(error="`user_input` is required"), 400
 
     ai_client = AiConversationSession("Gemini")
     try:
-        model_answer = ai_client.get_ai_answer(user_input)
+        model_answer = ai_client.get_ai_answer(user_question_str)
         return model_answer, 200
     except Exception:
         app.logger.exception("chat_api error")
