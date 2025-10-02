@@ -33,8 +33,13 @@ class AiConversationSession:
         if something_to_show:
             answer_envelope = self.ai_client.process_function_call_request(user_question)
             answer_str = answer_envelope.get("result", {}).get("message", {})
-            data_answer = self.ai_client.get_structured_ai_response(answer_str)
-            return data_answer
+
+            # Check if SQL returned some data from the database
+            if answer_str:
+                data_answer = self.ai_client.get_structured_ai_response(answer_str)
+                return data_answer
+            else:
+                return answer_envelope
 
         # Answer of AI with possible function call inside
         answer_human_like = self.ai_client.process_function_call_request(user_question)

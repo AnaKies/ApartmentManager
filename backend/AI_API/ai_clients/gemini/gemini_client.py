@@ -1,4 +1,5 @@
 import os
+from google.genai import types
 from abc import ABC
 
 from ApartmentManager.backend.AI_API.ai_clients.gemini.BooleanOutput import BooleanOutput
@@ -24,8 +25,16 @@ class GeminiClient:
         gemini_api_key = os.getenv("GEMINI_API_KEY")
         self.client = genai.Client(api_key=gemini_api_key)
 
+        # volatile memory of the conversation
+        self.session_contents: list[types.Content] = []
+
+        # volatile memory of the conversation
+        self.session_contents: list[types.Content] = []
+
         # Create an object to let the AI Model call functions
-        self.function_call_service = FunctionCallService(self.client, self.model_name)
+        self.function_call_service = FunctionCallService(self.client,
+                                                         GeminiClient.model_name,
+                                                         self.session_contents)
 
         # Create an object to let the AI get the answer as predefined JSON
         self.structured_output_service = StructuredOutput(self.client, self.model_name)
