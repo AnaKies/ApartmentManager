@@ -28,29 +28,34 @@ class GeminiClient:
         # volatile memory of the conversation
         self.session_contents: list[types.Content] = []
 
-        # volatile memory of the conversation
-        self.session_contents: list[types.Content] = []
-
         # Create an object to let the AI Model call functions
         self.function_call_service = FunctionCallService(self.client,
                                                          GeminiClient.model_name,
                                                          self.session_contents)
 
         # Create an object to let the AI get the answer as predefined JSON
-        self.structured_output_service = StructuredOutput(self.client, self.model_name)
+        self.structured_output_service = StructuredOutput(self.client,
+                                                          GeminiClient.model_name,
+                                                          self.session_contents)
 
         # Create an object to let the AI answer with boolean true/false
-        self.boolean_output_service = BooleanOutput(self.client, self.model_name)
+        self.boolean_output_service = BooleanOutput(self.client,
+                                                    GeminiClient.model_name)
 
-    def process_function_call_request(self, user_question):
-        ai_response = self.function_call_service.response_with_ai_function_call(user_question)
+    def process_function_call_request(self, user_question) -> dict:
+        """
+        Gives the user a response using data, retrieved from a function, being called by AI.
+        :param user_question: Question from the user
+        :return: JSON with human like text answer containing the information from the SQL data bank
+        """
+        ai_response = self.function_call_service.try_response_using_function_call_data(user_question)
         return ai_response
 
     def get_structured_ai_response(self, user_question: str) -> dict:
         ai_response = self.structured_output_service.get_structured_ai_response(user_question)
         return ai_response
 
-    def get_textual_ai_response(self, user_question: str) -> str:
+    def get_textual_ai_response(self, user_question: str) -> dict:
         pass
 
     def get_boolean_answer(self, user_question: str) -> dict:

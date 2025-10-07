@@ -1,15 +1,18 @@
+import json
+
 from google import genai
 from google.genai import types
 
 class StructuredOutput:
-    def __init__(self, ai_client: genai.Client, model_name: str):
+    def __init__(self, ai_client: genai.Client, model_name: str, session_contents: list):
         """
         Service for requesting structured JSON output from the AI model.
         """
         self.client = ai_client
         self.model = model_name
+        self.session_contents = session_contents
 
-        # --- 1) Schema as SDK object (used in request config) ---
+        # Schema as SDK object (used in AI request config)
         self.schema_apartments = types.Schema(
             title="apartments",
             type=types.Type.ARRAY,
@@ -27,7 +30,7 @@ class StructuredOutput:
             )
         )
 
-        # --- 2) Same schema as plain dict (returned to frontend) ---
+        # Same schema as dict (returned to frontend)
         self.schema_apartments_json = {
             "title": "apartments",
             "type": "array",
@@ -45,37 +48,46 @@ class StructuredOutput:
             }
         }
 
-    def get_structured_ai_response(self, prompt: str) -> dict:
+    def get_structured_ai_response(self, user_prompt: str) -> dict:
         """
         Request a structured response that conforms to the schema.
-        Returns envelope with payload + schema for the frontend.
+        Returns envelope with payload and schema for the frontend.
+        :param user_prompt: Question from the user
+        :return: dict with JSON-like answer containing the information from the function call.
         """
-        
         try:
-            # Build proper GenerateContentConfig (no plain dicts here)
-            gen_config = types.GenerateContentConfig(
+            json_config = types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=self.schema_apartments,  # SDK object
             )
 
-            user_content = types.Content(
+            # Add the user prompt to the summary request to AI
+            user_part = types.Part(text=user_prompt)
+            user_part_content = types.Content(
                 role="user",
-                parts=[types.Part(text=prompt)]
+                parts=[user_part]
             )
+            self.session_contents.append(user_part_content)
 
-            resp = self.client.models.generate_content(
+            # get AI response with possible JSON output
+            response = self.client.models.generate_content(
                 model=self.model,
-                contents=[user_content],
-                config=gen_config,
+                config=json_config,
+                contents=self.session_contents
             )
 
-            # Prefer parsed Python structure; fallback to raw text
-            payload = resp.parsed if getattr(resp, "parsed", None) is not None else resp.text
+            response_content = response.candidates[0].content
+            text = response_content.parts[0].text
+
+            try:
+                structured_data = json.loads(text)
+            except json.JSONDecodeError:
+                structured_data = None  # model answered with text, not with JSON
 
             return {
                 "type": "data",
                 "result": {
-                    "payload": payload,
+                    "payload": structured_data,
                     "schema": self.schema_apartments_json   # dict for UI with titles
                 },
                 "meta": {"model": self.model}

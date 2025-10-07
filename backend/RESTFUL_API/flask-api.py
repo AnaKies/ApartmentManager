@@ -2,7 +2,7 @@ from flask import Flask, jsonify, request, render_template_string
 from flask_cors import CORS
 from ApartmentManager.backend.config.server_config import HOST, PORT
 import ApartmentManager.backend.SQL_API.rentral.CRUD.read as read_sql
-from ApartmentManager.backend.AI_API.general.conversation import AiConversationSession
+from ApartmentManager.backend.AI_API.general.conversation import AiClient
 
 app = Flask(__name__)
 
@@ -16,7 +16,7 @@ ALLOWED_FIELDS = []
 
 @app.route('/')
 def home():
-    pass
+    return 'OK'
 
 
 @app.route('/api/chat', methods=['POST'])
@@ -29,13 +29,18 @@ def chat_api():
     if not request.is_json:
         return jsonify(error="Content-Type must be application/json"), 415
 
-    data = request.get_json(silent=True) or {}
-    user_question_str = (data.get('user_input') or '').strip()
+    # silent= True -> try to get JSON from HTTP request
+    data = request.get_json(silent=True)
+    if data is None:
+        data = {}
+
+    value = data.get('user_input')
+    user_question_str = value.strip() if value else ''
 
     if not user_question_str:
         return jsonify(error="`user_input` is required"), 400
 
-    ai_client = AiConversationSession("Gemini")
+    ai_client = AiClient("Gemini")
     try:
         model_answer = ai_client.get_ai_answer(user_question_str)
         return model_answer, 200

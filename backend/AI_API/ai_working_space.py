@@ -1,8 +1,8 @@
-from ApartmentManager.backend.AI_API.general.conversation import AiConversationSession
+from ApartmentManager.backend.AI_API.general.conversation import AiClient
 
 
 def main():
-    ai_client = AiConversationSession("Gemini")
+    ai_client = AiClient("Gemini")
     while True:
         # User asks a question
         user_question = input("Ask me something about apartments: ")
