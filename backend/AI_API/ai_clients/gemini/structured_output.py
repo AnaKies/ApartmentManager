@@ -2,18 +2,22 @@ import json
 
 from google import genai
 from google.genai import types
-
 from ApartmentManager.backend.AI_API.general import prompting
 from ApartmentManager.backend.SQL_API.logs.CRUD.create_table_row import create_new_log_entry
 
 class StructuredOutput:
-    def __init__(self, ai_client: genai.Client, model_name: str, session_contents: list):
+    def __init__(self,
+                 ai_client: genai.Client,
+                 model_name: str,
+                 session_contents: list,
+                 temperature: float):
         """
         Service for requesting structured JSON output from the AI model.
         """
         self.client = ai_client
         self.model = model_name
-        self.session_contents = session_contents
+        self.session_contents = session_contents,
+        self.temperature = temperature
 
         # Schema as SDK object (used in AI request config)
         self.schema_apartments = types.Schema(
@@ -62,6 +66,7 @@ class StructuredOutput:
             json_config = types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=self.schema_apartments,  # SDK object
+                temperature=self.temperature,
                 system_instruction=types.Part(text=prompting.FUNCTION_CALL_PROMPT)
             )
 

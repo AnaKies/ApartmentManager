@@ -7,7 +7,11 @@ from ApartmentManager.backend.SQL_API.logs.CRUD.create_table_row import create_n
 class FunctionCallService:
     FUNCTION_TO_CALL = prompting.execute_restful_api_query
 
-    def __init__(self, ai_client: genai.Client, model_name: str, session_contents: list):
+    def __init__(self,
+                 ai_client: genai.Client,
+                 model_name: str,
+                 session_contents: list,
+                 temperature: float):
         """
         Service that allows the AI model to call functions and then to give to a user a response
         with retrieved data from those functions.
@@ -16,6 +20,7 @@ class FunctionCallService:
         self.client = ai_client
         self.model = model_name
         self.session_contents = session_contents
+        self.temperature = temperature
 
         # Converts the Python function into a JSON schema (FunctionDeclaration)
         # so the Gemini client knows this function exists and how to call it.
@@ -30,6 +35,7 @@ class FunctionCallService:
         # Configuration for function call and system instructions
         self.config_ai_function_call = types.GenerateContentConfig(
             tools=[tools],
+            temperature=self.temperature, # for stable answers
             system_instruction=types.Part(text=prompting.FUNCTION_CALL_PROMPT)
         )
 

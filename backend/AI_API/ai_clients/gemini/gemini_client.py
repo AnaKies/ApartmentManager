@@ -2,7 +2,7 @@ import os
 from google.genai import types
 from abc import ABC
 
-from ApartmentManager.backend.AI_API.ai_clients.gemini.BooleanOutput import BooleanOutput
+from ApartmentManager.backend.AI_API.ai_clients.gemini.booleanOutput import BooleanOutput
 from ApartmentManager.backend.AI_API.ai_clients.gemini.function_call import FunctionCallService
 from ApartmentManager.backend.AI_API.ai_clients.gemini.structured_output import StructuredOutput
 from google import genai
@@ -16,8 +16,6 @@ class GeminiClient:
     This class provides methods to interface with a RESTful API. It inherits from
     the abstract base class AIClient and implements all required methods.
     """
-    # Specify the model to use
-    model_name = "gemini-2.5-flash"
 
     def __init__(self):
         # Load variables from environment
@@ -25,22 +23,31 @@ class GeminiClient:
         gemini_api_key = os.getenv("GEMINI_API_KEY")
         self.client = genai.Client(api_key=gemini_api_key)
 
+        # Specify the model to use
+        self.model_name = "gemini-2.5-flash"
+
+        # Specify creativity of AI answers (0 ... 2)
+        self.temperature = 0.3
+
         # volatile memory of the conversation
         self.session_contents: list[types.Content] = []
 
         # Create an object to let the AI Model call functions
         self.function_call_service = FunctionCallService(self.client,
-                                                         GeminiClient.model_name,
-                                                         self.session_contents)
+                                                         self.model_name,
+                                                         self.session_contents,
+                                                         self.temperature)
 
         # Create an object to let the AI get the answer as predefined JSON
         self.structured_output_service = StructuredOutput(self.client,
-                                                          GeminiClient.model_name,
-                                                          self.session_contents)
+                                                          self.model_name,
+                                                          self.session_contents,
+                                                          self.temperature)
 
         # Create an object to let the AI answer with boolean true/false
         self.boolean_output_service = BooleanOutput(self.client,
-                                                    GeminiClient.model_name)
+                                                    self.model_name,
+                                                    self.temperature)
 
     def process_function_call_request(self, user_question) -> dict:
         """

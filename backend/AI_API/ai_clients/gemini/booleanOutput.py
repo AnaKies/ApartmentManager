@@ -4,12 +4,16 @@ import ApartmentManager.backend.AI_API.general.prompting as prompting
 
 
 class BooleanOutput:
-    def __init__(self, ai_client: genai.Client, model_name: str):
+    def __init__(self,
+                 ai_client: genai.Client,
+                 model_name: str,
+                 temperature: float):
         """
         Service for requesting structured JSON output from the AI model.
         """
         self.client = ai_client
         self.model = model_name
+        self.temperature = temperature
 
         # --- 1) Schema as SDK object (used in request config) ---
         # --- Boolean-only Schema ---
@@ -33,7 +37,8 @@ class BooleanOutput:
             gen_config = types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=self.schema_boolean,  # SDK object
-                system_instruction=[types.Part(text=prompting.BOOLEAN_PROMPT)]
+                temperature=self.temperature,
+                system_instruction=types.Part(text=prompting.BOOLEAN_PROMPT)
             )
 
             user_content = types.Content(
