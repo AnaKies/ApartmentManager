@@ -13,6 +13,7 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 DEFAULT_FIELDS_APARTMENT_TABLE = ["area", "address", "price_per_square_meter", "utility_billing_provider_id"]
 ALLOWED_FIELDS = []
 
+ai_client = AiClient("Gemini")
 
 @app.route('/')
 def home():
@@ -40,14 +41,12 @@ def chat_api():
     if not user_question_str:
         return jsonify(error="`user_input` is required"), 400
 
-    ai_client = AiClient("Gemini")
     try:
         model_answer = ai_client.get_ai_answer(user_question_str)
         return model_answer, 200
     except Exception:
         app.logger.exception("chat_api error")
         return jsonify(error="internal_error"), 500
-
 
 
 @app.route('/apartments', methods=['GET'])
