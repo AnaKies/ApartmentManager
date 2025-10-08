@@ -2,6 +2,7 @@ import json
 
 from google import genai
 from google.genai import types
+from ApartmentManager.backend.SQL_API.logs.CRUD.create_table_row import create_new_log_entry
 
 class StructuredOutput:
     def __init__(self, ai_client: genai.Client, model_name: str, session_contents: list):
@@ -77,31 +78,44 @@ class StructuredOutput:
             )
 
             response_content = response.candidates[0].content
-            text = response_content.parts[0].text
+            ai_response = response_content.parts[0].text
 
             try:
-                structured_data = json.loads(text)
-            except json.JSONDecodeError:
-                structured_data = None  # model answered with text, not with JSON
+                structured_data = json.loads(ai_response)
+                return {
+                    "type": "data",
+                    "result": {
+                        "payload": structured_data,
+                        "schema": self.schema_apartments_json  # dict for UI with titles
+                    },
+                    "meta": {"model": self.model}
+                }
+            except json.JSONDecodeError as e:
+                print("StructuredOutput error:", repr(e))
+                return {
+                    "type": "text",
+                    "result": {
+                        "message": ai_response
+                    },
+                    "meta": {
+                        "model": self.model
+                    },
+                    "error": {"code": "STRUCTURED_OUTPUT_FAILED", "message": str(e)}
+                }
 
-            return {
-                "type": "data",
-                "result": {
-                    "payload": structured_data,
-                    "schema": self.schema_apartments_json   # dict for UI with titles
-                },
-                "meta": {"model": self.model}
-            }
+            # Unified logging
+            create_new_log_entry(self.model, user_prompt, "---",structured_data)
 
         except Exception as e:
             # Log and return controlled error so UI can show a modal, not 500
             print("StructuredOutput error:", repr(e))
             return {
-                "type": "data",
+                "type": "text",
                 "result": {
-                    "payload": None,
-                    "schema": self.schema_apartments_json
+                    "message": ai_response
                 },
-                "meta": {"model": self.model},
+                "meta": {
+                    "model": self.model
+                },
                 "error": {"code": "STRUCTURED_OUTPUT_FAILED", "message": str(e)}
             }

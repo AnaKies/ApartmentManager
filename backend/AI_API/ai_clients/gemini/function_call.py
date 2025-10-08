@@ -163,6 +163,7 @@ class FunctionCallService:
         return {
             "type": "text",
             "result": {
+                "function_call": bool(func_call_obj),
                 "message": ai_response_text
             },
             "meta": {

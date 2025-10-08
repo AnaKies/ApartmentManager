@@ -31,10 +31,8 @@ class AiClient:
         answer = self.ai_client.process_function_call_request(user_question)
 
         if something_to_show:
-            answer_str = answer.get("result", {}).get("message", {})
-
-            # Check if SQL returned some data from the database
-            if answer_str:
+            # Check if function call was done
+            if (answer or {}).get("result").get("function_call"):
                 data_answer = self.ai_client.get_structured_ai_response(user_question)
                 return data_answer
         return answer
