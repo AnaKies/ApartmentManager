@@ -48,6 +48,34 @@ def chat_api():
         app.logger.exception("chat_api error")
         return jsonify(error="internal_error"), 500
 
+@app.route('/tenancies', methods=['GET'])
+def get_tenancies():
+    """
+     Returns a JSON list of tenancies.
+    :return:
+    """
+    try:
+        tenancies = read_sql.get_tenancies()
+        tenancies_to_json = [tenancy.to_dict() for tenancy in tenancies]
+        return jsonify(tenancies_to_json)
+    except Exception as error:
+        return jsonify({"error": "Internal server error", "message": str(error)}), 500
+
+
+@app.route('/rent_data', methods=['GET'])
+def get_rent_data():
+    """
+     Returns a JSON list of rent_data.
+    :return:
+    """
+    try:
+        rent_data = read_sql.get_rent_data()
+        rent_data_to_json = [data.to_dict() for data in rent_data]
+        return jsonify(rent_data_to_json)
+    except Exception as error:
+        return jsonify({"error": "Internal server error", "message": str(error)}), 500
+
+
 @app.route('/persons', methods=['GET'])
 def get_persons():
     """
@@ -56,7 +84,7 @@ def get_persons():
     """
     try:
         persons = read_sql.get_persons()
-        persons_to_json = [persons.to_dict() for persons in persons]
+        persons_to_json = [person.to_dict() for person in persons]
         return jsonify(persons_to_json)
     except Exception as error:
         return jsonify({"error": "Internal server error", "message": str(error)}), 500
