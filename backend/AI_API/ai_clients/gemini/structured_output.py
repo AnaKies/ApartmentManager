@@ -16,7 +16,7 @@ class StructuredOutput:
         """
         self.client = ai_client
         self.model = model_name
-        self.session_contents = session_contents,
+        self.session_contents = session_contents
         self.temperature = temperature
 
         # Schema as SDK object (used in AI request config)
@@ -62,6 +62,7 @@ class StructuredOutput:
         :param user_prompt: Question from the user
         :return: dict with JSON-like answer containing the information from the function call.
         """
+        ai_response = "---"
         try:
             json_config = types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -88,9 +89,10 @@ class StructuredOutput:
             response_content = response.candidates[0].content
             ai_response = response_content.parts[0].text
 
+            structured_data = None
             try:
                 structured_data = json.loads(ai_response)
-                return {
+                result =  {
                     "type": "data",
                     "result": {
                         "payload": structured_data,
@@ -100,7 +102,7 @@ class StructuredOutput:
                 }
             except json.JSONDecodeError as e:
                 print("StructuredOutput error:", repr(e))
-                return {
+                result = {
                     "type": "text",
                     "result": {
                         "message": ai_response
@@ -110,9 +112,14 @@ class StructuredOutput:
                     },
                     "error": {"code": "STRUCTURED_OUTPUT_FAILED", "message": str(e)}
                 }
-
-            # Unified logging
-            create_new_log_entry(self.model, user_prompt, "---",structured_data)
+            # Add AI answer to logs
+            create_new_log_entry(
+                self.model,
+                user_prompt or "",
+                "no function call planned",
+                structured_data or "no structured AI answer"
+            )
+            return result
 
         except Exception as e:
             # Log and return controlled error so UI can show a modal, not 500

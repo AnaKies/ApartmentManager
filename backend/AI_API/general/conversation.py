@@ -25,7 +25,9 @@ class AiClient:
 
         # STEP 1: AI checks if user asks to show something True/False
         something_to_show_dict = self.ai_client.get_boolean_answer(user_question)
-        something_to_show = something_to_show_dict.get("result", False)
+
+        if something_to_show_dict:
+            something_to_show = something_to_show_dict.get("result", False)
 
         # STEP 2: AI generates an answer with possible function call inside
         answer = self.ai_client.process_function_call_request(user_question)

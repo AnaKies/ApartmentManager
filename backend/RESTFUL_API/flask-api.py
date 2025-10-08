@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, render_template_string
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from ApartmentManager.backend.config.server_config import HOST, PORT
 import ApartmentManager.backend.SQL_API.rentral.CRUD.read as read_sql
@@ -48,11 +48,23 @@ def chat_api():
         app.logger.exception("chat_api error")
         return jsonify(error="internal_error"), 500
 
+@app.route('/persons', methods=['GET'])
+def get_persons():
+    """
+     Returns a JSON list of persons.
+    :return:
+    """
+    try:
+        persons = read_sql.get_persons()
+        persons_to_json = [persons.to_dict() for persons in persons]
+        return jsonify(persons_to_json)
+    except Exception as error:
+        return jsonify({"error": "Internal server error", "message": str(error)}), 500
 
 @app.route('/apartments', methods=['GET'])
 def get_apartments():
     """
-    Returns a JSON list of apartments with
+    Returns a JSON list of apartments.
     :return:
     """
     try:

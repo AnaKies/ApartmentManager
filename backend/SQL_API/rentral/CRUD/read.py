@@ -1,8 +1,10 @@
 import traceback
-from ApartmentManager.backend.SQL_API.rentral.rental_orm_models import Apartment, Session
+from ApartmentManager.backend.SQL_API.rentral.rental_orm_models import Apartment, Session, PersonalData
+
 
 def get_apartments():
     session = Session()
+    apartments = None
     try:
         # Get all apartment data
         apartments = session.query(Apartment).all()
@@ -52,8 +54,15 @@ def get_apartments():
         session.close()
     return apartments
 
-"""
-apartments = get_apartments()
-for apartment in apartments:
-    print(apartment)
-"""
+def get_persons():
+    session = Session()
+    persons = None
+    try:
+        persons = session.query(PersonalData).all()
+    except Exception as error:
+        print(f"Error reading database: {error}")
+        traceback.print_exc()
+        session.rollback()
+    finally:
+        session.close()
+    return persons

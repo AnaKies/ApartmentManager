@@ -39,7 +39,7 @@ class FunctionCallService:
             system_instruction=types.Part(text=prompting.FUNCTION_CALL_PROMPT)
         )
 
-    def _order_potential_function_call(self, user_question: str) -> genai.types.Content:
+    def _define_potential_function_call(self, user_question: str) -> genai.types.Content:
         """
         Analyzes the user’s question and proposes a function to retrieve the relevant data.
         :param user_question: Question from the user
@@ -71,7 +71,6 @@ class FunctionCallService:
             contents=self.session_contents
         )
         response_content = ai_response.candidates[0].content
-
         # Place the answer of the AI in the conversation history.
         self.session_contents.append(response_content)
 
@@ -87,6 +86,7 @@ class FunctionCallService:
         func_calling_result = None
         # Calls the function, to get the data
         if function_call_obj.name == self.FUNCTION_TO_CALL.__name__:
+            # use for function calling the arguments saved by the AI in the function call object
             func_calling_result = prompting.execute_restful_api_query(**function_call_obj.args)
             print(".... SQL answer: ", func_calling_result)
 
@@ -127,7 +127,7 @@ class FunctionCallService:
         :return: dict with human like text answer containing the information from the function call.
         """
         # STEP 1: get the potential function calling response
-        response_func_candidate = self._order_potential_function_call(user_question)
+        response_func_candidate = self._define_potential_function_call(user_question)
 
         # Try to extract a function call from the candidate response
         func_call_obj = None
@@ -145,10 +145,11 @@ class FunctionCallService:
             # STEP 2A: the AI model does the function call
             print(f".... AI want to call the function: {func_call_obj.name} with arguments: {func_call_obj.args}")
             try:
-                # Execute the function and capture it for later logging
+                # Execute the function with its parameters and capture it for later logging
                 func_calling_result = self._do_call_function(func_call_obj)
                 func_calling_result_str = json.dumps(func_calling_result)
             except Exception as error:
+                print("error doing function call by AI: ", error)
                 # If the tool call fails, log the error payload and proceed to get a direct model reply
                 func_calling_result_str = json.dumps({"tool_error": str(error)})
 
@@ -163,7 +164,12 @@ class FunctionCallService:
             ai_response_text = FunctionCallService._filter_text_from_ai_response(response_func_candidate)
 
         # STEP 3: Unified logging
-        create_new_log_entry(self.model, user_question, func_calling_result_str, ai_response_text)
+        create_new_log_entry(
+            self.model,
+            user_question or "",
+            func_calling_result_str or "no function calling",
+            ai_response_text or "no AI answer"
+        )
 
         # STEP 4: Return envelope
         return {

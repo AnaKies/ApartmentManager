@@ -47,6 +47,7 @@ class GeminiClient:
         # Create an object to let the AI answer with boolean true/false
         self.boolean_output_service = BooleanOutput(self.client,
                                                     self.model_name,
+                                                    self.session_contents,
                                                     self.temperature)
 
     def process_function_call_request(self, user_question) -> dict:

@@ -66,6 +66,18 @@ class Tenancy(Rental_Base):
                 f"deposit={self.deposit}, "
                 f"comment={self.comment})")
 
+    def to_dict(self):
+        return {
+            "id_tenancy": self.id_tenancy,
+            "id_apartment": self.id_apartment,
+            "id_tenant_personal_data": self.id_tenant_personal_data,
+            "id_rent_data": self.id_rent_data,
+            "move_in_date": self.move_in_date,
+            "move_out_date": self.move_out_date,
+            "deposit": self.deposit,
+            "comment": self.comment
+        }
+
 class PersonalData(Rental_Base):
     __tablename__ = "personal_data"
     # automatically autoincrement for infinity number of persons
@@ -87,6 +99,17 @@ class PersonalData(Rental_Base):
                 f"email={self.email}, "
                 f"comment={self.comment})")
 
+    def to_dict(self):
+        return {
+            "id_personal_data": self.id_personal_data,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "bank_data": self.bank_data,
+            "phone_number": self.phone_number,
+            "email": self.email,
+            "comment": self.comment
+        }
+
 class RentData(Rental_Base):
     __tablename__ = "rent_data"
     # automatically autoincrement for infinity number of rents
@@ -97,3 +120,24 @@ class RentData(Rental_Base):
     garage = Column(Float)
     parking_spot = Column(Float)
     comment = Column(String)
+
+    def __repr__(self):
+        return (f"Apartment ("
+                f"id_rent_data={self.id_rent_data}, "
+                f"net_rent={self.net_rent}, "
+                f"utility_costs={self.utility_costs}, "
+                f"vat={self.vat}, "
+                f"garage={self.garage}, "
+                f"parking_spot={self.parking_spot}, "
+                f"comment={self.comment})")
+
+    def to_dict(self):
+        return {
+            "id_rent_data": self.id_rent_data,
+            "net_rent": self.net_rent,
+            "utility_costs": self.utility_costs,
+            "vat": self.vat,
+            "garage": self.garage,
+            "parking_spot": self.parking_spot,
+            "comment": self.comment
+        }

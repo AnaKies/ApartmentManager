@@ -16,7 +16,7 @@ Important:
 - Never change or omit the leading slash in the path.
 
 Rules:
-- Only call functions when clearly relevant to the user's request about apartments or rentals.
+- Only call functions when clearly relevant to the user's request about apartments or persons.
 - If the request is related to the apartment domain but does not require a function 
   (e.g., switching languages, clarifying the question, or guidance), respond naturally.
 - Only refuse requests that are completely unrelated to apartments and rentals.
@@ -53,8 +53,7 @@ BOOLEAN_PROMPT = f"""
     Return true if yes, false if no.
     """
 
-
-def execute_restful_api_query(path: str, filters: list[str]) -> dict:
+def execute_restful_api_query(path: str) -> dict:
     """
     Executes a query from AI to an endpoint RESTFUL API and returns the response.
     :param path: Path to the endpoint RESTFUL API.
@@ -68,7 +67,7 @@ def execute_restful_api_query(path: str, filters: list[str]) -> dict:
         url = f"http://{HOST}:{PORT}{path}"
 
         # get response from the endpoint of RESTful API
-        response = requests.get(url, params=filters)
+        response = requests.get(url, timeout=10)
         response.raise_for_status()  # raises an HTTPError if the server responds with a failed status code.
         return response.json()
 
