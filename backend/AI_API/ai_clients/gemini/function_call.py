@@ -30,7 +30,7 @@ class FunctionCallService:
         # Configuration for function call and system instructions
         self.config_ai_function_call = types.GenerateContentConfig(
             tools=[tools],
-            system_instruction=[types.Part(text=prompting.SYSTEM_PROMPT)]
+            system_instruction=types.Part(text=prompting.FUNCTION_CALL_PROMPT)
         )
 
     def _order_potential_function_call(self, user_question: str) -> genai.types.Content:

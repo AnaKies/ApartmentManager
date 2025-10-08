@@ -2,6 +2,8 @@ import json
 
 from google import genai
 from google.genai import types
+
+from ApartmentManager.backend.AI_API.general import prompting
 from ApartmentManager.backend.SQL_API.logs.CRUD.create_table_row import create_new_log_entry
 
 class StructuredOutput:
@@ -60,6 +62,7 @@ class StructuredOutput:
             json_config = types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=self.schema_apartments,  # SDK object
+                system_instruction=types.Part(text=prompting.FUNCTION_CALL_PROMPT)
             )
 
             # Add the user prompt to the summary request to AI
