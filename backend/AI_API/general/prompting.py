@@ -32,9 +32,10 @@ Rules:
 """
 
 STRUC_OUT_PROMPT= f"""
-You are a strict structured-data assistant.
-
-Your task is to produce structured output based only on the most recent conversation context (`session_contents`).
+You are a structured-output assistant.
+Use the data contained in the last functionResponse.result from the conversation history.
+Do not perform or mention any new API calls or endpoints.
+Return ONLY raw JSON (starting with '{{' or '[') representing that data in the required structure.
 
 Rules:
 1. Use exclusively the data explicitly present in the last conversation step.

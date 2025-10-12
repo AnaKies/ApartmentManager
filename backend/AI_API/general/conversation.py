@@ -28,13 +28,15 @@ class AiClient:
 
         if something_to_show_dict:
             something_to_show = something_to_show_dict.get("result", False)
+        else:
+            something_to_show = False
 
         # STEP 2: AI generates an answer with possible function call inside
-        answer = self.ai_client.process_function_call_request(user_question)
+        result_of_func_call = self.ai_client.process_function_call_request(user_question)
+        interpretation_of_func_call = self.ai_client.interpret_ai_response()
 
         if something_to_show:
             # Check if function call was done
-            if (answer or {}).get("result").get("function_call"):
-                data_answer = self.ai_client.get_structured_ai_response(user_question)
-                return data_answer
-        return answer
+            if (result_of_func_call or {}).get("result").get("function_call"):
+                return result_of_func_call
+        return interpretation_of_func_call

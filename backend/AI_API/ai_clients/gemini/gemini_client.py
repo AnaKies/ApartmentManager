@@ -54,10 +54,12 @@ class GeminiClient:
         """
         Gives the user a response using data, retrieved from a function, being called by AI.
         :param user_question: Question from the user
-        :return: JSON with human like text answer containing the information from the SQL data bank
+        :return: JSON with human like text answer containing the data retrieved from the function.
+        If no function call is made, returns a plain text answer with the reason why it was not possible.
         """
-        ai_response = self.function_call_service.try_response_using_function_call_data(user_question)
-        return ai_response
+        func_call_response = self.function_call_service.try_call_function(user_question)
+
+        return func_call_response
 
     def get_structured_ai_response(self, user_question: str) -> dict:
         ai_response = self.structured_output_service.get_structured_ai_response(user_question)
@@ -65,6 +67,44 @@ class GeminiClient:
 
     def get_textual_ai_response(self, user_question: str) -> dict:
         pass
+
+    def interpret_ai_response(self) -> dict:
+        """
+        Interprets the structured output data from the conversation history and
+        retrieve a response with human-like text.
+        :return: Interpretation of a machine like response from the AI (struct output).
+        """
+
+        # Configuration of the creativity
+        config_ai_text_answer = types.GenerateContentConfig(
+            temperature=self.temperature # for stable answers
+        )
+
+        ai_response_with_text_answer = self.client.models.generate_content(
+            model=self.model_name,
+            config=config_ai_text_answer,
+            contents=self.session_contents
+        )
+        text_answer = ai_response_with_text_answer.candidates[0].content
+        # Place the answer of the AI in the conversation history.
+        self.session_contents.append(text_answer)
+        ai_answer = None
+
+        for part in text_answer.parts:
+            # part can be text, function_call, thought_signature etc.
+            if hasattr(part, "text") and part.text:
+                ai_answer = part.text
+                break
+
+        return {
+            "type": "text",
+            "result": {
+                "message": ai_answer
+            },
+            "meta": {
+                "model": self.model_name
+            }
+        }
 
     def get_boolean_answer(self, user_question: str) -> dict:
         """
