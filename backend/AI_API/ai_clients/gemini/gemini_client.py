@@ -1,3 +1,4 @@
+import json
 import os
 from google.genai import types
 from abc import ABC
@@ -80,21 +81,35 @@ class GeminiClient:
             temperature=self.temperature # for stable answers
         )
 
-        ai_response_with_text_answer = self.client.models.generate_content(
-            model=self.model_name,
-            config=config_ai_text_answer,
-            contents=self.session_contents
-        )
-        text_answer = ai_response_with_text_answer.candidates[0].content
-        # Place the answer of the AI in the conversation history.
-        self.session_contents.append(text_answer)
         ai_answer = None
+        try:
+            ai_response_with_text_answer = self.client.models.generate_content(
+                model=self.model_name,
+                config=config_ai_text_answer,
+                contents=self.session_contents
+            )
+            text_answer = ai_response_with_text_answer.candidates[0].content
+            # Place the answer of the AI in the conversation history.
+            self.session_contents.append(text_answer)
 
-        for part in text_answer.parts:
-            # part can be text, function_call, thought_signature etc.
-            if hasattr(part, "text") and part.text:
-                ai_answer = part.text
-                break
+            if text_answer:
+                for part in text_answer.parts:
+                    # part can be text, function_call, thought_signature etc.
+                    if hasattr(part, "text") and part.text:
+                        ai_answer = part.text
+                        break
+        except Exception as error:
+            print("error interpreting AI response: ", error)
+            return {
+                "type": "text",
+                "result": {
+                    "message": ai_answer
+                },
+                "meta": {
+                    "model": self.model_name
+                },
+                "error": {"code": "AI_DATA_INTERPRETATION_ERROR", "message": str(error)}
+            }
 
         return {
             "type": "text",

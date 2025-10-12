@@ -3,7 +3,6 @@ from google import genai
 from google.genai import types
 import ApartmentManager.backend.AI_API.general.prompting as prompting
 from ApartmentManager.backend.RESTFUL_API import execute
-from ApartmentManager.backend.SQL_API.logs.CRUD.create_table_row import create_new_log_entry
 
 class FunctionCallService:
     FUNCTION_TO_CALL = execute.make_restful_api_query
@@ -104,10 +103,11 @@ class FunctionCallService:
         :param ai_response_content: Content response returned by the AI.
         :return: Text part of an AI response.
         """
-        for part in ai_response_content.parts:
-            # part can be text, function_call, thought_signature etc.
-            if hasattr(part, "text") and part.text:
-                return part.text
+        if ai_response_content:
+            for part in ai_response_content.parts:
+                # part can be text, function_call, thought_signature etc.
+                if hasattr(part, "text") and part.text:
+                    return part.text
         return None
 
     def try_call_function(self, user_question: str) -> dict:
@@ -145,18 +145,7 @@ class FunctionCallService:
                 # If the tool call fails, log the error payload and proceed to get a direct model reply
                 func_calling_result_str = json.dumps({"tool_error": str(error)})
 
-            # STEP 3: Unified logging
-            try:
-                create_new_log_entry(
-                    self.model,
-                    user_question or "",
-                    func_calling_result_str or "no function calling",
-                    "no AI answer planned"
-                )
-            except Exception as e:
-                print("log write failed:", repr(e))
-
-            # STEP 4a: Return envelope for the AI answers
+            # STEP 3: Return envelope for the AI answers
             # The answer can contain the data from the function call.
             return {
                 "type": "data",
@@ -175,7 +164,7 @@ class FunctionCallService:
 
             ai_answer_without_func_call = FunctionCallService._filter_text_from_ai_response(response_func_candidate)
             return {
-                "type": "data",
+                "type": "text",
                 "result": {
                     "function_call": False,
                     "message": ai_answer_without_func_call
