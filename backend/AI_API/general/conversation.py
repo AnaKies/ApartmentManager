@@ -33,7 +33,9 @@ class AiClient:
 
         # STEP 2: AI generates an answer with possible function call inside
         result_of_func_call = self.ai_client.process_function_call_request(user_question)
-        interpretation_of_func_call = self.ai_client.interpret_ai_response()
+
+        # The data for the interpretation are used from the conversation history
+        interpretation_of_func_call = self.ai_client.interpret_ai_response_from_conversation()
 
         if something_to_show:
             # Check if function call was done

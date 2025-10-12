@@ -68,7 +68,7 @@ class GeminiClient:
     def get_textual_ai_response(self, user_question: str) -> dict:
         pass
 
-    def interpret_ai_response(self) -> dict:
+    def interpret_ai_response_from_conversation(self) -> dict:
         """
         Interprets the structured output data from the conversation history and
         retrieve a response with human-like text.

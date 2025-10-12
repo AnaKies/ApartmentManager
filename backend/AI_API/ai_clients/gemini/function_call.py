@@ -2,10 +2,11 @@ import json
 from google import genai
 from google.genai import types
 import ApartmentManager.backend.AI_API.general.prompting as prompting
+from ApartmentManager.backend.RESTFUL_API import execute
 from ApartmentManager.backend.SQL_API.logs.CRUD.create_table_row import create_new_log_entry
 
 class FunctionCallService:
-    FUNCTION_TO_CALL = prompting.execute_restful_api_query
+    FUNCTION_TO_CALL = execute.make_restful_api_query
 
     def __init__(self,
                  ai_client: genai.Client,
@@ -77,7 +78,7 @@ class FunctionCallService:
         # Calls the function, to get the data
         if function_call_obj.name == self.FUNCTION_TO_CALL.__name__:
             # use for function calling the arguments saved by the AI in the function call object
-            func_calling_result = prompting.execute_restful_api_query(**function_call_obj.args)
+            func_calling_result = execute.make_restful_api_query(**function_call_obj.args)
             print(".... SQL answer: ", func_calling_result)
 
         # Creates a function response part.
