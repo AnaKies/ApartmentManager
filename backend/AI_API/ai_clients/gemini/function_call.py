@@ -41,7 +41,8 @@ class FunctionCallService:
 
     def _define_potential_function_call(self, user_question: str) -> genai.types.Content:
         """
-        Analyzes the user’s question and proposes a function to retrieve the relevant data.
+        Analyzes the user’s question, saves it to the conversation history
+        and proposes a function to retrieve the relevant data.
         :param user_question: Question from the user
         :return: An object containing the information to the function being called
         """
@@ -91,7 +92,8 @@ class FunctionCallService:
             print(".... SQL answer: ", func_calling_result)
 
         # Creates a function response part.
-        # Gives the row answer from the called function back to the conversation.
+        # Gives the row answer from the called function.
+        # It has to be added to the conversation.
         function_response_part = types.Part.from_function_response(
             name=function_call_obj.name,
             response={"result": func_calling_result},
@@ -145,8 +147,10 @@ class FunctionCallService:
             # STEP 2A: the AI model does the function call
             print(f".... AI want to call the function: {func_call_obj.name} with arguments: {func_call_obj.args}")
             try:
-                # Execute the function with its parameters and capture it for later logging
+                # Execute the function with its parameters
+                # and save the function call result to the conversation.
                 func_calling_result = self._do_call_function(func_call_obj)
+                # Capture the results of the function calling for later logging
                 func_calling_result_str = json.dumps(func_calling_result)
             except Exception as error:
                 print("error doing function call by AI: ", error)

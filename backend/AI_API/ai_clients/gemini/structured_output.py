@@ -1,5 +1,4 @@
 import json
-
 from google import genai
 from google.genai import types
 from ApartmentManager.backend.AI_API.general import prompting
@@ -19,42 +18,6 @@ class StructuredOutput:
         self.session_contents = session_contents
         self.temperature = temperature
 
-        # Schema as SDK object (used in AI request config)
-        self.schema_apartments = types.Schema(
-            title="apartments",
-            type=types.Type.ARRAY,
-            items=types.Schema(
-                title="apartment",
-                type=types.Type.OBJECT,
-                properties={
-                    "address": types.Schema(type=types.Type.STRING,  title="address"),
-                    "area":    types.Schema(type=types.Type.NUMBER,  title="area (m²)"),
-                    "id_apartment":              types.Schema(type=types.Type.INTEGER, title="apartment ID"),
-                    "price_per_square_meter":    types.Schema(type=types.Type.NUMBER,  title="price per square meter"),
-                    "utility_billing_provider_id": types.Schema(type=types.Type.INTEGER, title="utility billing provider ID"),
-                },
-                required=["address", "area", "id_apartment"],
-            )
-        )
-
-        # Same schema as dict (returned to frontend)
-        self.schema_apartments_json = {
-            "title": "apartments",
-            "type": "array",
-            "items": {
-                "title": "apartment",
-                "type": "object",
-                "properties": {
-                    "address": {"type": "string",  "title": "address"},
-                    "area":    {"type": "number",  "title": "area (m²)"},
-                    "id_apartment":            {"type": "integer", "title": "apartment ID"},
-                    "price_per_square_meter":  {"type": "number",  "title": "Eur/m²"},
-                    "utility_billing_provider_id": {"type": "integer", "title": "utility billing provider ID"}
-                },
-                "required": ["address", "area", "id_apartment"]
-            }
-        }
-
     def get_structured_ai_response(self, user_prompt: str) -> dict:
         """
         Request a structured response that conforms to the schema.
@@ -66,9 +29,8 @@ class StructuredOutput:
         try:
             json_config = types.GenerateContentConfig(
                 response_mime_type="application/json",
-                response_schema=self.schema_apartments,  # SDK object
                 temperature=self.temperature,
-                system_instruction=types.Part(text=prompting.FUNCTION_CALL_PROMPT)
+                system_instruction=types.Part(text=prompting.STRUC_OUT_PROMPT)
             )
 
             # Add the user prompt to the summary request to AI
@@ -95,10 +57,11 @@ class StructuredOutput:
                 result =  {
                     "type": "data",
                     "result": {
-                        "payload": structured_data,
-                        "schema": self.schema_apartments_json  # dict for UI with titles
+                        "payload": structured_data
                     },
-                    "meta": {"model": self.model}
+                    "meta": {
+                        "model": self.model
+                    }
                 }
             except json.JSONDecodeError as e:
                 print("StructuredOutput error:", repr(e))
@@ -113,11 +76,16 @@ class StructuredOutput:
                     "error": {"code": "STRUCTURED_OUTPUT_FAILED", "message": str(e)}
                 }
             # Add AI answer to logs
+            if structured_data:
+                data_to_log = json.dumps(structured_data, ensure_ascii=False)
+            else:
+                data_to_log = "no structured AI answer"
+
             create_new_log_entry(
                 self.model,
                 user_prompt or "",
-                "no function call planned",
-                structured_data or "no structured AI answer"
+                "called structured output",
+                data_to_log
             )
             return result
 

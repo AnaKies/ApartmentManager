@@ -4,7 +4,10 @@ from ApartmentManager.backend.SQL_API.logs.logs_orm_models import Log, Session
 
 session = Session()
 
-def create_new_log_entry(ai_model: str, user_question: str, backend_response: str, ai_answer: str):
+def create_new_log_entry(ai_model: str,
+                         user_question: str,
+                         backend_response: str,
+                         ai_answer: str):
     try:
         log_entry = Log(ai_model=ai_model,
                         user_question=user_question,
