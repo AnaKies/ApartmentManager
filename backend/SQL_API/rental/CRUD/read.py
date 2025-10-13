@@ -1,10 +1,9 @@
 import traceback
-from ApartmentManager.backend.SQL_API.rentral.rental_orm_models import (Apartment,
-                                                                        Session,
-                                                                        PersonalData,
-                                                                        Tenancy,
-                                                                        RentData)
-
+from ApartmentManager.backend.SQL_API.rental.rental_orm_models import (Apartment,
+                                                                       Session,
+                                                                       PersonalData,
+                                                                       Tenancy,
+                                                                       RentData)
 
 def get_apartments():
     session = Session()

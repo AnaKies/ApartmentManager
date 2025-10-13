@@ -8,6 +8,8 @@ from ApartmentManager.backend.AI_API.ai_clients.gemini.function_call import Func
 from ApartmentManager.backend.AI_API.ai_clients.gemini.structured_output import StructuredOutput
 from google import genai
 from dotenv import load_dotenv
+
+from ApartmentManager.backend.AI_API.general import prompting
 from ApartmentManager.backend.AI_API.general.ai_client import AIClient
 
 class GeminiClient:
@@ -61,6 +63,9 @@ class GeminiClient:
         func_call_response = self.function_call_service.try_call_function(user_question)
 
         return func_call_response
+
+    def add_new_entry_to_database(self, user_question) -> dict:
+        added_data =
 
     def get_structured_ai_response(self, user_question: str) -> dict:
         ai_response = self.structured_output_service.get_structured_ai_response(user_question)
@@ -121,12 +126,22 @@ class GeminiClient:
             }
         }
 
-    def get_boolean_answer(self, user_question: str) -> dict:
+    def show_request_in_user_question(self, user_question: str) -> dict:
         """
-        Returns the boolean answer True or False.
+        Returns the boolean answer True or False if the user asked to show something.
         :param user_question: Question from the user.
-        :return: F.e { "result": True }
+        :return: Boolean value True or False.
         """
-        ai_response = self.boolean_output_service.get_boolean_ai_response(user_question)
-        return ai_response
+        is_show_request = self.boolean_output_service.get_boolean_ai_response(user_question,
+                                                                              prompting.SHOW_BOOLEAN_PROMPT)
+        return is_show_request
 
+    def add_request_in_user_question(self, user_question: str) -> dict:
+        """
+        Returns the boolean answer True or False if the user asked to add some data to a database.
+        :param user_question: Question from the user.
+        :return: Boolean value True or False.
+        """
+        is_add_request = self.boolean_output_service.get_boolean_ai_response(user_question,
+                                                                             prompting.ADD_BOOLEAN_PROMPT)
+        return is_add_request

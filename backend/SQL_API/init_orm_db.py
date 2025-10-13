@@ -1,4 +1,4 @@
-from ApartmentManager.backend.SQL_API.rentral.rental_orm_models import Rental_Base, rental_engine
+from ApartmentManager.backend.SQL_API.rental.rental_orm_models import Rental_Base, rental_engine
 from ApartmentManager.backend.SQL_API.logs.logs_orm_models import Log_Base, log_engine
 
 

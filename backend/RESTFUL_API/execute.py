@@ -1,7 +1,10 @@
 from ApartmentManager.backend.config.server_config import HOST, PORT
 import requests
 
-def make_restful_api_query(path: str) -> dict:
+def add_data_restful_api_query(path: str) -> dict:
+    pass
+
+def get_data_restful_api_query(path: str) -> dict:
     """
     Executes a query from AI to an endpoint RESTFUL API and returns the response.
     :param path: Path to the endpoint RESTFUL API.

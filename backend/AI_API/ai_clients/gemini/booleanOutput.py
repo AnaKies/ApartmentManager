@@ -10,7 +10,7 @@ class BooleanOutput:
                  session_contents: list,
                  temperature: float):
         """
-        Service for requesting structured JSON output from the AI model.
+        Service for requesting boolean output from the AI model.
         """
         self.client = ai_client
         self.model = model_name
@@ -24,20 +24,21 @@ class BooleanOutput:
             type=types.Type.BOOLEAN
         )
 
-        # Configuration for the AI call
-        self.boolean_ai_config = types.GenerateContentConfig(
-            response_mime_type="application/json",
-            response_schema=self.schema_boolean,  # SDK object
-            temperature=self.temperature,
-            system_instruction=types.Part(text=prompting.BOOLEAN_PROMPT)
-        )
-
-    def get_boolean_ai_response(self, user_question: str) -> dict | None:
+    def get_boolean_ai_response(self, user_question: str, system_prompt: str) -> dict | None:
         """
         Requests at AI a structured response that conforms to the JSON schema.
         Then extracts from the JSON scheme the boolean value.
         Returns boolean value (True or False).
         """
+
+        # Configuration for the AI call
+        boolean_ai_config = types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=self.schema_boolean,  # SDK object
+            temperature=self.temperature,
+            system_instruction=system_prompt
+        )
+
         try:
             user_content = types.Content(
                 role="user",
@@ -47,7 +48,7 @@ class BooleanOutput:
             ai_answer = self.client.models.generate_content(
                 model=self.model,
                 contents=[user_content],
-                config=self.boolean_ai_config,
+                config=boolean_ai_config,
             )
         except ValueError as boolean_error:
             print("Error at boolean AI response", repr(boolean_error))

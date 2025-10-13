@@ -1,7 +1,9 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+
+from ApartmentManager.backend.SQL_API.rental.CRUD import create
 from ApartmentManager.backend.config.server_config import HOST, PORT
-import ApartmentManager.backend.SQL_API.rentral.CRUD.read as read_sql
+import ApartmentManager.backend.SQL_API.rental.CRUD.read as read_sql
 from ApartmentManager.backend.AI_API.general.conversation import AiClient
 
 app = Flask(__name__)
@@ -88,6 +90,34 @@ def get_persons():
         return jsonify(persons_to_json)
     except Exception as error:
         return jsonify({"error": "Internal server error", "message": str(error)}), 500
+
+@app.route('/persons', methods=['POST'])
+def get_persons():
+    """
+    Adds new entry with personal data to the table with persons.
+    Returns a status.
+    :return:
+    """
+    if not request.is_json:
+        return jsonify(error="Content-Type must be application/json"), 415
+
+    # silent= True -> try to get JSON from HTTP request
+    data = request.get_json(silent=True)
+    if data is None:
+        data = {}
+
+    value = data.get('data_to_add')
+    personal_data = value.strip() if value else ''
+
+    if not personal_data:
+        return jsonify(error="`data_to_add` is required"), 400
+
+    try:
+        create.create_person(personal_data)
+        return model_answer, 200
+    except Exception:
+        app.logger.exception("chat_api error")
+        return jsonify(error="internal_error"), 500
 
 @app.route('/apartments', methods=['GET'])
 def get_apartments():

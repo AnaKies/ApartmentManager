@@ -45,8 +45,30 @@ Rules:
 Your response must remain faithful to the provided conversation state and may never contain imagined values.
 """
 
-BOOLEAN_PROMPT = f"""
+SHOW_BOOLEAN_PROMPT = f"""
     Decide if the user is asking to show, display, render, illustrate, visualize, 
     or otherwise present something.  
     Return true if yes, false if no.
+    """
+
+ADD_BOOLEAN_PROMPT = f"""
+    You are a reasoning engine that decides if the user's message expresses an intention
+    to ADD or INSERT new data into an existing database or dataset.
+    
+    Return **true** if the user's request semantically means creating, registering,
+    saving, or adding something new to the system — for example:
+    - creating a new user, tenant, person, or record;
+    - adding a new apartment, contract, rental, or item;
+    - registering a new entry, saving new information, uploading data;
+    - or any other action that increases the number of records.
+    
+    Return **false** if the user only wants to:
+    - read, view, search, or list data (e.g. “show me all apartments”);
+    - update, edit, modify existing data;
+    - delete or remove data;
+    - ask a general question or explanation.
+    
+    Your answer must be a single JSON boolean literal:
+    true  — if the user wants to add something to the database;
+    false — otherwise.
     """

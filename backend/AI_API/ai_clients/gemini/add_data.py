@@ -4,8 +4,8 @@ from google.genai import types
 import ApartmentManager.backend.AI_API.general.prompting as prompting
 from ApartmentManager.backend.RESTFUL_API import execute
 
-class FunctionCallService:
-    FUNCTION_TO_CALL = execute.get_data_restful_api_query
+class AddDataService:
+    FUNCTION_TO_CALL = execute.add_data_restful_api_query
 
     def __init__(self,
                  ai_client: genai.Client,

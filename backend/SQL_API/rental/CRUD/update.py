@@ -1,6 +1,6 @@
 import traceback
 
-from ApartmentManager.backend.SQL_API.rentral.rental_orm_models import PersonalData, Session
+from ApartmentManager.backend.SQL_API.rental.rental_orm_models import PersonalData, Session
 
 session = Session()
 
