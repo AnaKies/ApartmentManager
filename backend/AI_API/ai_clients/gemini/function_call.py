@@ -138,12 +138,9 @@ class FunctionCallService:
                 # Execute the function with its parameters
                 # and save the function call result to the conversation history.
                 func_calling_result = self._do_call_function(func_call_obj)
-                # Capture the results of the function calling for later logging
-                func_calling_result_str = json.dumps(func_calling_result, ensure_ascii=False, default=str)
+
             except Exception as error:
                 print("error doing function call by AI: ", error)
-                # If the tool call fails, log the error payload and proceed to get a direct model reply
-                func_calling_result_str = json.dumps({"tool_error": str(error)})
 
             # STEP 3: Return envelope for the AI answers
             # The answer can contain the data from the function call.

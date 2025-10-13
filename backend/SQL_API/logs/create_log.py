@@ -6,11 +6,13 @@ session = Session()
 
 def create_new_log_entry(ai_model: str,
                          user_question: str,
+                         request_type: str,
                          backend_response: str,
                          ai_answer: str):
     try:
         log_entry = Log(ai_model=ai_model,
                         user_question=user_question,
+                        request_type=request_type,
                         back_end_response=backend_response,
                         ai_answer=ai_answer)
         session.add(log_entry)

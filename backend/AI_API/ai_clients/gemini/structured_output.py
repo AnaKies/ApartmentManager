@@ -2,7 +2,7 @@ import json
 from google import genai
 from google.genai import types
 from ApartmentManager.backend.AI_API.general import prompting
-from ApartmentManager.backend.SQL_API.logs.CRUD.create_table_row import create_new_log_entry
+from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
 
 class StructuredOutput:
     def __init__(self,
@@ -77,15 +77,16 @@ class StructuredOutput:
                 }
             # Add AI answer to logs
             if structured_data:
-                data_to_log = json.dumps(structured_data, ensure_ascii=False)
+                struct_output_str = json.dumps(structured_data, ensure_ascii=False)
             else:
-                data_to_log = "no structured AI answer"
+                struct_output_str = "no structured AI answer"
 
             create_new_log_entry(
-                self.model,
-                user_prompt or "",
-                "called structured output",
-                data_to_log
+                ai_model=self.model,
+                user_question=user_prompt or "",
+                request_type="structured output request",
+                backend_response="---",
+                ai_answer=struct_output_str
             )
             return result
 

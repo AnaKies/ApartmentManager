@@ -1,8 +1,7 @@
 import json
 
 from ApartmentManager.backend.AI_API.ai_clients.gemini.gemini_client import GeminiClient
-from ApartmentManager.backend.AI_API.ai_clients.groq.groq_client import GroqClient
-from ApartmentManager.backend.SQL_API.logs.CRUD.create_table_row import create_new_log_entry
+from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
 
 
 class AiClient:
@@ -28,22 +27,17 @@ class AiClient:
         """
 
         # STEP 1: AI checks if user asks to show something True/False
-        something_to_show_dict = self.ai_client.get_boolean_answer(user_question)
-
-        if something_to_show_dict:
-            data_to_show = something_to_show_dict.get("result", False)
-        else:
-            data_to_show = False
+        data_to_show = self.ai_client.get_boolean_answer(user_question)
 
         # STEP 2: AI generates an answer with possible function call inside
-        func_call_data_or_ai_text = self.ai_client.process_function_call_request(user_question)
+        func_call_data_or_ai_text_dict = self.ai_client.process_function_call_request(user_question)
 
-        ai_answer_in_text_format = not func_call_data_or_ai_text.get("result").get("function_call")
+        ai_answer_in_text_format = not func_call_data_or_ai_text_dict.get("result").get("function_call")
 
         # Returns the structured output to be displayed by UI or
         # a text with reason why the AI decided not to call a function.
         if ai_answer_in_text_format or data_to_show:
-            result = func_call_data_or_ai_text
+            result = func_call_data_or_ai_text_dict
         else:
             # AI is interpreting the data from function call to the human language.
             # Data for the interpretation are taken from the conversation history.
@@ -52,9 +46,14 @@ class AiClient:
         # STEP 3: Unified logging
         ai_answer_str = json.dumps(result, ensure_ascii=False, default=str)
         try:
+            func_result = func_call_data_or_ai_text_dict.get("result", {})
+            is_func_call = func_result.get("function_call")
+            request_type = "function call" if is_func_call else "plain text"
+
             create_new_log_entry(
                 ai_model=self.model,
                 user_question=user_question or "---",
+                request_type=request_type,
                 backend_response=ai_answer_str or "---",
                 ai_answer=ai_answer_str
             )

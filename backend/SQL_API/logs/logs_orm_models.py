@@ -21,10 +21,7 @@ class Log(Log_Base):
     id_log = Column(Integer, primary_key=True, autoincrement=True)
     ai_model = Column(String)
     user_question = Column(String)
+    request_type = Column(String)
     back_end_response = Column(String)
     ai_answer = Column(String)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
-
-    def __repr__(self):
-        return (f"User question: {self.user_question}, "
-                f"AI answer: {self.ai_answer}")
