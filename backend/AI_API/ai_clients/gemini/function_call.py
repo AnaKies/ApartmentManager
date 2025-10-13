@@ -5,7 +5,6 @@ import ApartmentManager.backend.AI_API.general.prompting as prompting
 from ApartmentManager.backend.RESTFUL_API import execute
 
 class FunctionCallService:
-    FUNCTION_TO_CALL = execute.get_data_restful_api_query
 
     def __init__(self,
                  ai_client: genai.Client,
@@ -37,20 +36,27 @@ class FunctionCallService:
         )
         self.session_contents.append(user_part_content)
 
-        # Describe the function to call
-        func_execute_restful_api_query = types.FunctionDeclaration.from_callable(
-            callable=self.FUNCTION_TO_CALL,
+        # Function declaration for GET
+        func_get = types.FunctionDeclaration.from_callable(
+            callable=execute.make_restful_api_get,
             client=self.client
         )
 
-        # Tools object, which contains one or more function declarations for function calling by AI.
-        rest_endpoint_tool = types.Tool(function_declarations=[func_execute_restful_api_query])
+        # Function declaration for POST
+        func_post = types.FunctionDeclaration.from_callable(
+            callable=execute.make_restful_api_post,
+            client=self.client
+        )
+
+        # Tools to choose different functions that AI should propose
+        get_tool = types.Tool(function_declarations=[func_get])
+        post_tool = types.Tool(function_declarations=[func_post])
 
         # Configuration for function call and system instructions
         config_ai_function_call = types.GenerateContentConfig(
             temperature=self.temperature,  # for stable answers
-            system_instruction=types.Part(text=prompting.FUNCTION_CALL_PROMPT),
-            tools=[rest_endpoint_tool]
+            system_instruction=types.Part(text=prompting.GET_FUNCTION_CALL_PROMPT),
+            tools=[get_tool, post_tool]
         )
 
         # Ask AI to answer the user question with a function calling
@@ -74,10 +80,20 @@ class FunctionCallService:
         :return: Object containing the SQL data to the AI.
         """
         func_calling_result = None
-        # Calls the function, to get the data
-        if function_call_obj.name == self.FUNCTION_TO_CALL.__name__:
-            # use for function calling the arguments saved by the AI in the function call object
-            func_calling_result = execute.get_data_restful_api_query(**function_call_obj.args)
+
+        # Single-dispatch map by function name (as returned by the model)
+        dispatch = {
+            execute.make_restful_api_get.__name__: execute.make_restful_api_get,
+            execute.make_restful_api_post.__name__: execute.make_restful_api_post,
+        }
+
+        func = dispatch.get(function_call_obj.name)
+        if func is None:
+            print(f"Unknown function requested by AI: {function_call_obj.name}")
+        else:
+            # Ensure args is a dict before unpacking
+            call_args = getattr(function_call_obj, "args", {}) or {}
+            func_calling_result = func(**call_args)
             print(".... SQL answer: ", func_calling_result)
 
         # Creates a function response part.
@@ -128,7 +144,7 @@ class FunctionCallService:
             func_call_obj = response_func_candidate.parts[0].function_call
 
         except Exception:
-            pass # if no function call go further, don't throw an exception!!!
+            pass # if no function call goes further, don't throw an exception!!!
 
         # STEP 2: the AI model does the function call
         if func_call_obj:

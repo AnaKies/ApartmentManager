@@ -65,7 +65,7 @@ class GeminiClient:
         return func_call_response
 
     def add_new_entry_to_database(self, user_question) -> dict:
-        added_data =
+        return {}
 
     def get_structured_ai_response(self, user_question: str) -> dict:
         ai_response = self.structured_output_service.get_structured_ai_response(user_question)

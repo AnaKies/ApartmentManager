@@ -91,10 +91,12 @@ def get_persons():
     except Exception as error:
         return jsonify({"error": "Internal server error", "message": str(error)}), 500
 
+
 @app.route('/persons', methods=['POST'])
-def get_persons():
+def add_person():
     """
     Adds new entry with personal data to the table with persons.
+    The data to add are sent in the request body.
     Returns a status.
     :return:
     """
@@ -102,19 +104,12 @@ def get_persons():
         return jsonify(error="Content-Type must be application/json"), 415
 
     # silent= True -> try to get JSON from HTTP request
-    data = request.get_json(silent=True)
-    if data is None:
-        data = {}
-
-    value = data.get('data_to_add')
-    personal_data = value.strip() if value else ''
-
-    if not personal_data:
-        return jsonify(error="`data_to_add` is required"), 400
+    # get payload from the body
+    data_dict = request.get_json(silent=True)
 
     try:
-        create.create_person(personal_data)
-        return model_answer, 200
+        result = create.create_person(**data_dict) # unpack dictionary into function parameters
+        return result, 200
     except Exception:
         app.logger.exception("chat_api error")
         return jsonify(error="internal_error"), 500

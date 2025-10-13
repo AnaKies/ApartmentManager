@@ -29,7 +29,7 @@ def create_person(first_name: str,
 
         session.add(person)
         session.commit()
-        return {"result": "OK"}
+        return {"result": "OK", "id_personal_data": getattr(person, "id_personal_data", None)}
     except Exception as error:
         print(f"Error reading database: ", repr(error))
         session.rollback()
