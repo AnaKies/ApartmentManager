@@ -1,3 +1,5 @@
+import json
+
 from google import genai
 from google.genai import types
 import ApartmentManager.backend.AI_API.general.prompting as prompting
@@ -17,26 +19,33 @@ class BooleanOutput:
         self.session_contents = session_contents
         self.temperature = temperature
 
-        # --- 1) Schema as SDK object (used in request config) ---
-        # --- Boolean-only Schema ---
+        # Schema as SDK object (used in request config)
         self.schema_boolean = types.Schema(
-            title="boolean_response",
-            type=types.Type.BOOLEAN
+            title="intent_flags",
+            type=types.Type.OBJECT,
+            properties={
+                "create": types.Schema(type=types.Type.BOOLEAN),
+                "show": types.Schema(type=types.Type.BOOLEAN),
+                "update": types.Schema(type=types.Type.BOOLEAN),
+                "delete": types.Schema(type=types.Type.BOOLEAN),
+            },
+            required=["create", "show", "update", "delete"]
         )
 
-    def get_boolean_ai_response(self, user_question: str, system_prompt: str) -> dict | None:
+    def get_boolean_ai_response(self, user_question: str) -> dict | None:
         """
         Requests at AI a structured response that conforms to the JSON schema.
         Then extracts from the JSON scheme the boolean value.
         Returns boolean value (True or False).
         """
+        system_prompt_crud_intent = json.dumps(prompting.CRUD_INTENT_PROMPT, indent=2, ensure_ascii=False)
 
         # Configuration for the AI call
         boolean_ai_config = types.GenerateContentConfig(
             response_mime_type="application/json",
             response_schema=self.schema_boolean,  # SDK object
             temperature=self.temperature,
-            system_instruction=system_prompt
+            system_instruction=system_prompt_crud_intent
         )
 
         try:

@@ -1,6 +1,7 @@
 import json
 
 from ApartmentManager.backend.AI_API.ai_clients.gemini.gemini_client import GeminiClient
+from ApartmentManager.backend.AI_API.general import prompting
 from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
 
 
@@ -26,16 +27,24 @@ class AiClient:
         :return: envelope with type: "text" | "data"
         """
 
-        # STEP 1b: AI checks if user asks to show something True/False
-        is_request_to_show_data = self.ai_client.show_request_in_user_question(user_question)
+        # STEP 1b: AI checks if user asks for one of CRUD operations
+        crud_intent = self.ai_client.get_crud_in_user_question(user_question)
+
+        # Extend the base read-only GET prompt to the POST prompt to add an entry in the SQL table
+        system_prompt_extended = ""
+        if crud_intent.get("create", False):
+            system_prompt_extended = prompting.combine_get_and_post()
 
         # STEP 2: AI generates an answer with possible function call inside
-        func_call_data_or_ai_text_dict = self.ai_client.process_function_call_request(user_question)
+        func_call_data_or_ai_text_dict = self.ai_client.process_function_call_request(user_question,
+                                                                                      system_prompt_extended)
 
         ai_answer_in_text_format = not func_call_data_or_ai_text_dict.get("result").get("function_call")
 
+        something_to_show = crud_intent.get("show", False)
+
         # Scenario 1: AI answered with plain text or raw data should be retrieved
-        if ai_answer_in_text_format or is_request_to_show_data:
+        if ai_answer_in_text_format or something_to_show:
             # Returns the structured output or
             # a text with reason why the AI decided not to call a function.
             result = func_call_data_or_ai_text_dict
@@ -47,12 +56,12 @@ class AiClient:
             result = self.ai_client.interpret_ai_response_from_conversation()
 
         # STEP 3: Unified logging
-        ai_answer_str = json.dumps(result, ensure_ascii=False, default=str)
+        ai_answer_str = json.dumps(result, indent=2, ensure_ascii=False, default=str)
         try:
             func_result = func_call_data_or_ai_text_dict.get("result", {})
             is_func_call = func_result.get("function_call")
             request_type = "function call" if is_func_call else "plain text"
-            backend_has_answered = ai_answer_str if is_func_call else "---"
+            backend_has_answered = func_result.get("payload") if is_func_call else "---"
 
             create_new_log_entry(
                 ai_model=self.model,

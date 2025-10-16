@@ -24,11 +24,12 @@ class FunctionCallService:
         # Convert dict to the string with indentation, so that AI can read it better
         self.system_prompt = json.dumps(prompting.GET_FUNCTION_CALL_PROMPT, indent=2)
 
-    def _define_potential_function_call(self, user_question: str) -> genai.types.Content:
+    def _define_potential_function_call(self, user_question: str, system_prompt: str) -> genai.types.Content:
         """
         Retrieves a response from AI with a proposal of function calling.
         Saves the user question to the conversation history.
         :param user_question: Question from the user
+        :param system_prompt: Combined system prompt
         :return: An object containing the information to the function being called
         """
         # Add the user prompt to the summary request to AI
@@ -58,7 +59,7 @@ class FunctionCallService:
         # Configuration for function call and system instructions
         config_ai_function_call = types.GenerateContentConfig(
             temperature=self.temperature,  # for stable answers
-            system_instruction=self.system_prompt,
+            system_instruction=system_prompt,
             tools=[get_tool, post_tool]
         )
 
@@ -129,15 +130,16 @@ class FunctionCallService:
                     return part.text
         return None
 
-    def try_call_function(self, user_question: str) -> dict:
+    def try_call_function(self, user_question: str, system_prompt: str) -> dict:
         """
         Gives the user a response using data, retrieved from a function, being called by AI.
         If AI decides not to call the function, the answer of the AI is returned instead.
         :param user_question: Question from the user
+        :param system_prompt: Combined system prompt
         :return: dict with function call as string or AI answer as Content.
         """
         # STEP 1: get the potential function calling response
-        response_func_candidate = self._define_potential_function_call(user_question)
+        response_func_candidate = self._define_potential_function_call(user_question, system_prompt)
 
         # Try to extract a function call from the candidate response
         func_call_obj = None

@@ -53,14 +53,15 @@ class GeminiClient:
                                                     self.session_contents,
                                                     self.temperature)
 
-    def process_function_call_request(self, user_question) -> dict:
+    def process_function_call_request(self, user_question, system_prompt: str) -> dict:
         """
         Gives the user a response using data, retrieved from a function, being called by AI.
         :param user_question: Question from the user
+        :param system_prompt: Combined system prompt
         :return: JSON with human like text answer containing the data retrieved from the function.
         If no function call is made, returns a plain text answer with the reason why it was not possible.
         """
-        func_call_response = self.function_call_service.try_call_function(user_question)
+        func_call_response = self.function_call_service.try_call_function(user_question, system_prompt)
 
         return func_call_response
 
@@ -125,22 +126,13 @@ class GeminiClient:
                 "error": {"code": "AI_DATA_INTERPRETATION_ERROR", "message": str(error)}
             }
 
-    def show_request_in_user_question(self, user_question: str) -> dict:
+    def get_crud_in_user_question(self, user_question: str) -> dict:
         """
-        Returns the boolean answer True or False if the user asked to show something.
+        Returns the boolean answer True or False for every CRUD
+        operation possibly noticed in the user question.
         :param user_question: Question from the user.
-        :return: Boolean value True or False.
-        """
-        is_show_request = self.boolean_output_service.get_boolean_ai_response(user_question,
-                                                                              prompting.SHOW_BOOLEAN_PROMPT)
-        return is_show_request
+        :return: Boolean value True or False for keys "add", "delete", "update", "show".
 
-    def add_request_in_user_question(self, user_question: str) -> dict:
         """
-        Returns the boolean answer True or False if the user asked to add some data to a database.
-        :param user_question: Question from the user.
-        :return: Boolean value True or False.
-        """
-        is_add_request = self.boolean_output_service.get_boolean_ai_response(user_question,
-                                                                             prompting.ADD_BOOLEAN_PROMPT)
-        return is_add_request
+        crud_intent_dict = self.boolean_output_service.get_boolean_ai_response(user_question)
+        return crud_intent_dict
