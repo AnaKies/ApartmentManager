@@ -52,10 +52,13 @@ class FunctionCallService:
         get_tool = types.Tool(function_declarations=[func_get])
         post_tool = types.Tool(function_declarations=[func_post])
 
+        # Convert system prompt fron dict to string
+        system_prompt_str = json.dumps(prompting.GET_FUNCTION_CALL_PROMPT)
+
         # Configuration for function call and system instructions
         config_ai_function_call = types.GenerateContentConfig(
             temperature=self.temperature,  # for stable answers
-            system_instruction=types.Part(text=prompting.GET_FUNCTION_CALL_PROMPT),
+            system_instruction=types.Part(text=system_prompt_str),
             tools=[get_tool, post_tool]
         )
 

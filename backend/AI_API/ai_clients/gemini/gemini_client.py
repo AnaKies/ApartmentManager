@@ -103,6 +103,15 @@ class GeminiClient:
                     if hasattr(part, "text") and part.text:
                         ai_answer = part.text
                         break
+            return {
+                "type": "text",
+                "result": {
+                    "message": ai_answer
+                },
+                "meta": {
+                    "model": self.model_name
+                }
+            }
         except Exception as error:
             print("error interpreting AI response: ", error)
             return {
@@ -115,16 +124,6 @@ class GeminiClient:
                 },
                 "error": {"code": "AI_DATA_INTERPRETATION_ERROR", "message": str(error)}
             }
-
-        return {
-            "type": "text",
-            "result": {
-                "message": ai_answer
-            },
-            "meta": {
-                "model": self.model_name
-            }
-        }
 
     def show_request_in_user_question(self, user_question: str) -> dict:
         """

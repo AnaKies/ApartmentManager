@@ -26,9 +26,6 @@ class AiClient:
         :return: envelope with type: "text" | "data"
         """
 
-        # STEP 1a: AI checks if user asks to add something True/False
-        #is_request_to_add_data = self.ai_client.add_request_in_user_question(user_question)
-
         # STEP 1b: AI checks if user asks to show something True/False
         is_request_to_show_data = self.ai_client.show_request_in_user_question(user_question)
 
