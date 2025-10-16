@@ -21,6 +21,9 @@ class FunctionCallService:
         self.session_contents = session_contents
         self.temperature = temperature
 
+        # Convert dict to the string with indentation, so that AI can read it better
+        self.system_prompt = json.dumps(prompting.GET_FUNCTION_CALL_PROMPT, indent=2)
+
     def _define_potential_function_call(self, user_question: str) -> genai.types.Content:
         """
         Retrieves a response from AI with a proposal of function calling.
@@ -52,13 +55,10 @@ class FunctionCallService:
         get_tool = types.Tool(function_declarations=[func_get])
         post_tool = types.Tool(function_declarations=[func_post])
 
-        # Convert system prompt fron dict to string
-        system_prompt_str = json.dumps(prompting.GET_FUNCTION_CALL_PROMPT)
-
         # Configuration for function call and system instructions
         config_ai_function_call = types.GenerateContentConfig(
             temperature=self.temperature,  # for stable answers
-            system_instruction=types.Part(text=system_prompt_str),
+            system_instruction=self.system_prompt,
             tools=[get_tool, post_tool]
         )
 
