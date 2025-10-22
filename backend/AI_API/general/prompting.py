@@ -61,7 +61,6 @@ GET_FUNCTION_CALL_PROMPT = {
 POST_FUNCTION_CALL_PROMPT = {
   "POST": {
     "intent": "create new record",
-    "trigger_words": ["add", "create", "insert", "register", "save"],
     "rules": [
       "Perform POST only when the intent to create is clear.",
       "Ask the user only for missing required fields.",
@@ -98,30 +97,69 @@ CRUD_INTENT_PROMPT = {
     "task": "Return ONLY a single JSON object with four booleans: {\"create\":bool, \"update\":bool, \"delete\":bool, \"show\":bool}. No prose.",
     "decision_logic": "XOR across C/U/D/SHOW for explicit CRUD/SHOW commands only. If the user asks an informational/analytical question (QA, count, sum, average, compare) without an explicit display verb, then ALL FOUR MUST BE FALSE (handled by the general QA pipeline). Priority if multiple explicit commands: delete > update > create > show.",
     "schema": {
-      "create": "Create/register a NEW record.",
-      "update": "Modify an EXISTING record.",
-      "delete": "Remove/terminate an EXISTING record.",
-      "show":   "Explicit UI display command (show/display/list/render/visualize/print/output). Not used for neutral questions like 'how many...'."
+      "create": {"value": "Create/register a NEW record.", "type": "type of record"},
+      "update": {"value": "Modify an EXISTING record.", "type": "type of record"},
+      "delete": {"value": "Remove/terminate an EXISTING record.", "type": "type of record"},
+      "show": {"value": "Explicit UI display command (show/display/list/render/visualize/print/output). Not used for neutral questions like 'how many...'.", "type": "type of record"},
     },
     "examples": [
-      {"input": "How many apartments?", "output": {"create": False, "update": False, "delete": False, "show": False}},
-      {"input": "Show all apartments in Munich", "output": {"create": False, "update": False, "delete": False, "show": True}},
-      {"input": "List tenants with unpaid rent", "output": {"create": False, "update": False, "delete": False, "show": True}},
-      {"input": "Add a new tenant", "output": {"create": True, "update": False, "delete": False, "show": False}},
-      {"input": "Delete contract #42", "output": {"create": False, "update": False, "delete": True, "show": False}}
+      {
+        "input": "How many apartments?",
+        "output": {
+          "create": { "value": False, "type": "" },
+          "update": { "value": False, "type": "" },
+          "delete": { "value": False, "type": "" },
+          "show":   { "value": False, "type": "" }
+        }
+      },
+      {
+        "input": "Show all apartments in Munich",
+        "output": {
+          "create": { "value": False, "type": "" },
+          "update": { "value": False, "type": "" },
+          "delete": { "value": False, "type": "" },
+          "show":   { "value": True,  "type": "apartment" }
+        }
+      },
+      {
+        "input": "Add a new tenant",
+        "output": {
+          "create": { "value": True,  "type": "person" },
+          "update": { "value": False, "type": "" },
+          "delete": { "value": False, "type": "" },
+          "show":   { "value": False, "type": "" }
+        }
+      },
+      {
+        "input": "Delete contract",
+        "output": {
+          "create": { "value": False, "type": "" },
+          "update": { "value": False, "type": "" },
+          "delete": { "value": True,  "type": "rent" },
+          "show":   { "value": False, "type": "" }
+        }
+      }
     ]
   }
 }
 
-def combine_get_and_post() -> str:
+def combine_get_and_post(class_fields: str) -> str:
   """
   Combines prompts for GET and POST tools together.
   :return: Prompt as dict, that contains tools for GET and POST.
   """
-  # create a copy and do not touch the oroginals
+  # create a copy and do not touch the originals
   combined_prompt = copy.deepcopy(GET_FUNCTION_CALL_PROMPT)
 
-  # Add rules for POST to the level rules
+  combined_prompt["instructions"]["payload_template"] = class_fields
+  combined_prompt["instructions"]["guidance_for_payload_template"] = [
+    "Use payload_template as the single source of truth for fields to collect.",
+    "Do not invent values. Ask the user only for fields that are null or empty.",
+    "Echo the payload_template back to the user for confirmation before POST.",
+    "Never add fields that are not present in payload_template."
+  ]
+
+  # Add rules for POST to the level rules of the GET prompt
   combined_prompt["instructions"]["rules"]["POST"] = copy.deepcopy(
     POST_FUNCTION_CALL_PROMPT["POST"]
   )

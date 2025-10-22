@@ -24,10 +24,30 @@ class BooleanOutput:
             title="intent_flags",
             type=types.Type.OBJECT,
             properties={
-                "create": types.Schema(type=types.Type.BOOLEAN),
-                "show": types.Schema(type=types.Type.BOOLEAN),
-                "update": types.Schema(type=types.Type.BOOLEAN),
-                "delete": types.Schema(type=types.Type.BOOLEAN),
+                "create": types.Schema(
+                    type=types.Type.OBJECT,
+                    properties={
+                        "value": types.Schema(type=types.Type.BOOLEAN),
+                        "type": types.Schema(type=types.Type.STRING)
+                    }),
+                "show": types.Schema(
+                    type=types.Type.OBJECT,
+                    properties={
+                        "value": types.Schema(type=types.Type.BOOLEAN),
+                        "type": types.Schema(type=types.Type.STRING)
+                    }),
+                "update": types.Schema(
+                    type=types.Type.OBJECT,
+                    properties={
+                        "value": types.Schema(type=types.Type.BOOLEAN),
+                        "type": types.Schema(type=types.Type.STRING)
+                    }),
+                "delete": types.Schema(
+                    type=types.Type.OBJECT,
+                    properties={
+                        "value": types.Schema(type=types.Type.BOOLEAN),
+                        "type": types.Schema(type=types.Type.STRING)
+                    }),
             },
             required=["create", "show", "update", "delete"]
         )

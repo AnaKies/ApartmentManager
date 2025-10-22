@@ -9,7 +9,7 @@ from ApartmentManager.backend.AI_API.ai_clients.gemini.structured_output import 
 from google import genai
 from dotenv import load_dotenv
 
-from ApartmentManager.backend.AI_API.general.errors import ErrorCode
+from ApartmentManager.backend.AI_API.general.errors_backend import ErrorCode
 from ApartmentManager.backend.AI_API.general.ai_client import LlmClient
 
 class GeminiClient:

@@ -3,7 +3,7 @@ from ApartmentManager.backend.SQL_API.rental.rental_orm_models import (Apartment
                                                                        Session,
                                                                        PersonalData,
                                                                        Tenancy,
-                                                                       RentData)
+                                                                       Contract)
 
 def get_apartments():
     session = Session()
@@ -87,7 +87,7 @@ def get_rent_data():
     session = Session()
     rent_data = None
     try:
-        rent_data = session.query(RentData).all()
+        rent_data = session.query(Contract).all()
     except Exception as error:
         print(f"Error reading database: {error}")
         traceback.print_exc()

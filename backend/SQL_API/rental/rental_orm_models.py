@@ -42,6 +42,19 @@ class Apartment(Rental_Base):
             "utility_billing_provider_id": self.utility_billing_provider_id
         }
 
+    @staticmethod
+    def fields_dict():
+        """
+        Used to get all class fields as string without creating a class object.
+        :return:
+        """
+        return {
+            "area": None,
+            "address": None,
+            "price_per_square_meter": None,
+            "utility_billing_provider_id": None
+        }
+
 class Tenancy(Rental_Base):
     __tablename__ = "tenancy"
     # automatically autoincrement for infinity number of tenancies
@@ -78,6 +91,22 @@ class Tenancy(Rental_Base):
             "comment": self.comment
         }
 
+    @staticmethod
+    def fields_dict():
+        """
+        Used to get all class fields as string without creating a class object.
+        :return:
+        """
+        return {
+            "id_apartment": None,
+            "id_tenant_personal_data": None,
+            "id_rent_data": None,
+            "move_in_date": None,
+            "move_out_date": None,
+            "deposit": None,
+            "comment": None
+        }
+
 class PersonalData(Rental_Base):
     __tablename__ = "personal_data"
     # automatically autoincrement for infinity number of persons
@@ -110,7 +139,22 @@ class PersonalData(Rental_Base):
             "comment": self.comment
         }
 
-class RentData(Rental_Base):
+    @staticmethod
+    def fields_dict():
+        """
+        Used to get all class fields as string without creating a class object.
+        :return:
+        """
+        return {
+            "first_name": None,
+            "last_name": None,
+            "bank_data": None,
+            "phone_number": None,
+            "email": None,
+            "comment": None
+        }
+
+class Contract(Rental_Base):
     __tablename__ = "rent_data"
     # automatically autoincrement for infinity number of rents
     id_rent_data = Column(Integer, primary_key=True, autoincrement=True)
@@ -140,4 +184,19 @@ class RentData(Rental_Base):
             "garage": self.garage,
             "parking_spot": self.parking_spot,
             "comment": self.comment
+        }
+
+    @staticmethod
+    def fields_dict():
+        """
+        Used to get all class fields as string without creating a class object.
+        :return:
+        """
+        return {
+            "net_rent": None,
+            "utility_costs": None,
+            "vat": None,
+            "garage": None,
+            "parking_spot": None,
+            "comment": None
         }

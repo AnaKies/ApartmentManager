@@ -3,6 +3,7 @@ import json
 from ApartmentManager.backend.AI_API.ai_clients.gemini.gemini_client import GeminiClient
 from ApartmentManager.backend.AI_API.general import prompting
 from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
+from ApartmentManager.backend.SQL_API.rental.rental_orm_models import PersonalData
 
 
 class LlmClient:
@@ -34,8 +35,13 @@ class LlmClient:
         system_prompt = json.dumps(prompting.GET_FUNCTION_CALL_PROMPT, indent=2, ensure_ascii=False)
 
         # Extend the base read-only GET prompt to the POST prompt to add an entry in the SQL table
-        if crud_intent.get("create", False):
-            system_prompt = prompting.combine_get_and_post()
+        if crud_intent.get("create", False).get("value", False):
+            type_of_data = crud_intent["create"].get("type", "")
+            if type_of_data == "person":
+                class_fields = PersonalData.fields_dict()
+            elif type_of_data == "contract":
+                class_fields = PersonalData.fields_dict()
+            system_prompt = prompting.combine_get_and_post(class_fields)
 
         # STEP 2: LLM generates an answer with possible function call inside
         func_call_data_or_llm_text_dict = self.llm_client.process_function_call_request(user_question,
@@ -43,7 +49,7 @@ class LlmClient:
 
         llm_answer_in_text_format = not func_call_data_or_llm_text_dict.get("result").get("function_call")
 
-        something_to_show = crud_intent.get("show", False)
+        something_to_show = crud_intent.get("show", False).get("value", False)
 
         # Scenario 1: LLM answered with plain text or raw data should be retrieved
         if llm_answer_in_text_format or something_to_show:

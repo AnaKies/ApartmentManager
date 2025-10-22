@@ -1,3 +1,5 @@
+import inspect
+
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
@@ -108,7 +110,12 @@ def add_person():
     data_dict = request.get_json(silent=True)
 
     try:
-        result = create.create_person(**data_dict) # unpack dictionary into function parameters
+        # get arguments from the signature of a function
+        signature = inspect.signature(create.create_person)
+        valid_params = signature.parameters.keys()
+        filtered_params = {key: value for key, value in data_dict.items() if key in valid_params}
+
+        result = create.create_person(**filtered_params) # unpack dictionary into function parameters
         return result, 200
     except Exception:
         app.logger.exception("chat_api error")
