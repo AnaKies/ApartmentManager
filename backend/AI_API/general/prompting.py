@@ -95,18 +95,21 @@ POST_FUNCTION_CALL_PROMPT = {
 CRUD_INTENT_PROMPT = {
   "role": "system",
   "instructions": {
-    "task": "Return ONLY a single JSON object with four booleans: "
-            "{\"create\":bool, \"update\":bool, \"delete\":bool, \"show\":bool}. No prose.",
-    "decision_logic": "XOR: exactly one of add/update/delete/show must be true; all others false. "
-                      "If intent is unclear → all false. "
-                      "If multiple signals detected, resolve by priority: delete > update > add > show.",
+    "task": "Return ONLY a single JSON object with four booleans: {\"create\":bool, \"update\":bool, \"delete\":bool, \"show\":bool}. No prose.",
+    "decision_logic": "XOR across C/U/D/SHOW for explicit CRUD/SHOW commands only. If the user asks an informational/analytical question (QA, count, sum, average, compare) without an explicit display verb, then ALL FOUR MUST BE FALSE (handled by the general QA pipeline). Priority if multiple explicit commands: delete > update > create > show.",
     "schema": {
-      "create":   "Create/register/insert/save a NEW record (e.g., new tenant/contract/rent entry).",
-      "update":"Modify/edit/correct an EXISTING record’s fields (no new record).",
-      "delete":"Remove/terminate/cancel an EXISTING record.",
-      "show":  "Display/list/view/retrieve existing data WITHOUT changing it."
+      "create": "Create/register a NEW record.",
+      "update": "Modify an EXISTING record.",
+      "delete": "Remove/terminate an EXISTING record.",
+      "show":   "Explicit UI display command (show/display/list/render/visualize/print/output). Not used for neutral questions like 'how many...'."
     },
-    "example": {"create": False, "update": False, "delete": False, "show": True}
+    "examples": [
+      {"input": "How many apartments?", "output": {"create": False, "update": False, "delete": False, "show": False}},
+      {"input": "Show all apartments in Munich", "output": {"create": False, "update": False, "delete": False, "show": True}},
+      {"input": "List tenants with unpaid rent", "output": {"create": False, "update": False, "delete": False, "show": True}},
+      {"input": "Add a new tenant", "output": {"create": True, "update": False, "delete": False, "show": False}},
+      {"input": "Delete contract #42", "output": {"create": False, "update": False, "delete": True, "show": False}}
+    ]
   }
 }
 
