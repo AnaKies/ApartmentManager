@@ -12,13 +12,14 @@ GET_FUNCTION_CALL_PROMPT = {
         "intent": "retrieve existing data",
         "must": [
           "Use the exact endpoint path with leading slash (e.g., /apartments).",
-          "Never add filters, WHERE clauses, or SQL-like conditions.",
-          "Return data only directly retrievable from the API.",
-          "If the API returns no data, you may recall facts mentioned earlier by the user and prefix them with 'unverified:'."
+          "Do not add filters or conditions.",
+          "Return only data directly retrievable from the API.",
+          "If no data is returned, you may prefix recalled facts with 'unverified:'."
         ],
         "baseline": True,
-        "note": "GET is the default retrieval behavior and must operate without any selectors or trigger words."
+        "note": "GET is the default retrieval behavior without selectors or trigger words."
       },
+
       "validation": {
         "confirmation_required": True,
         "missing_fields_prompt": "Ask user only for missing fields.",
@@ -27,11 +28,11 @@ GET_FUNCTION_CALL_PROMPT = {
       },
 
       "common": {
-        "paths": "Always use the exact endpoint paths with leading slash.",
-        "never_both": "Never perform both GET and POST in one message — if such ambiguity appears, choose only one action.",
-        "clarify_if_unsure": "If unsure whether GET or POST applies, ask for clarification instead of guessing.",
-        "unrelated_requests": "If the request is outside the apartment rental domain, respond naturally and conversationally — not with JSON or refusal message.",
-        "no_invention": "Do not modify or invent any data; use only data from the API response or user-provided context."
+        "paths": "Always use exact endpoint paths with leading slash.",
+        "never_both": "Never perform both GET and POST in one message; choose one action if ambiguous.",
+        "clarify_if_unsure": "Ask for clarification if unsure whether GET or POST applies.",
+        "unrelated_requests": "Respond naturally if request is outside apartment rental domain; avoid JSON or refusals.",
+        "no_invention": "Use only data from API response or user context; do not invent or modify data."
       }
     },
 
@@ -60,13 +61,12 @@ GET_FUNCTION_CALL_PROMPT = {
 
 POST_FUNCTION_CALL_PROMPT = {
   "POST": {
-    "intent": "create new record",
+    "intent": "create new record after explicit confirmation",
     "rules": [
-      "Perform POST only when the intent to create is clear.",
-      "Ask the user only for missing required fields.",
-      "Before calling POST, display the JSON payload for confirmation.",
-      "Never invent values; use only user-provided fields.",
-      "Execute one POST call per turn."
+      "Ask for only missing required fields.",
+      "Show payload for user confirmation before POST.",
+      "Never invent or autofill data.",
+      "Execute POST only after explicit confirmation."
     ]
   },
 
@@ -160,6 +160,7 @@ def combine_get_and_post(class_fields: str) -> str:
   ]
 
   # Add rules for POST to the level rules of the GET prompt
+  # This prevents premature POST calls and ensures confirmation
   combined_prompt["instructions"]["rules"]["POST"] = copy.deepcopy(
     POST_FUNCTION_CALL_PROMPT["POST"]
   )
