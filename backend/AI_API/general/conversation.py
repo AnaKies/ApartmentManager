@@ -66,7 +66,8 @@ class LlmClient:
 
             if is_func_call:
                 payload_result = func_result.get("payload")
-                backend_response_str = str(payload_result) if payload_result is not None else "---"
+                payload_result_str = json.dumps(payload_result, indent=2, ensure_ascii=False, default=str)
+                backend_response_str = payload_result_str if payload_result_str is not None else "---"
             else:
                 backend_response_str = "---"
 

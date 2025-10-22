@@ -81,13 +81,14 @@ class BooleanOutput:
             return None
 
         try:
+            llm_answer_crud_str = json.dumps(llm_answer_crud, indent=2, ensure_ascii=False, default=str)
             # Add LLM response to log
             create_new_log_entry(
                 llm_model=self.model,
                 user_question=user_question or "",
                 request_type="boolean request",
                 backend_response="---",
-                llm_answer=str(llm_answer_crud)
+                llm_answer=llm_answer_crud_str
             )
         except Exception as log_error:
             # Log and return controlled error so UI can show a modal, not 500
