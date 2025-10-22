@@ -58,8 +58,6 @@ GET_FUNCTION_CALL_PROMPT = {
   }
 }
 
-# prompting.py
-
 POST_FUNCTION_CALL_PROMPT = {
   "POST": {
     "intent": "create new record",
@@ -97,15 +95,18 @@ POST_FUNCTION_CALL_PROMPT = {
 CRUD_INTENT_PROMPT = {
   "role": "system",
   "instructions": {
-    "task": "Return ONLY a single JSON object with four booleans: {\"add\":bool, \"update\":bool, \"delete\":bool, \"show\":bool}. No prose.",
-    "decision_logic": "XOR: exactly one of add/update/delete/show must be true; all others false. If intent is unclear → all false. If multiple signals detected, resolve by priority: delete > update > add > show.",
+    "task": "Return ONLY a single JSON object with four booleans: "
+            "{\"create\":bool, \"update\":bool, \"delete\":bool, \"show\":bool}. No prose.",
+    "decision_logic": "XOR: exactly one of add/update/delete/show must be true; all others false. "
+                      "If intent is unclear → all false. "
+                      "If multiple signals detected, resolve by priority: delete > update > add > show.",
     "schema": {
-      "add":   "Create/register/insert/save a NEW record (e.g., new tenant/contract/rent entry).",
+      "create":   "Create/register/insert/save a NEW record (e.g., new tenant/contract/rent entry).",
       "update":"Modify/edit/correct an EXISTING record’s fields (no new record).",
       "delete":"Remove/terminate/cancel an EXISTING record.",
       "show":  "Display/list/view/retrieve existing data WITHOUT changing it."
     },
-    "example": {"add": False, "update": False, "delete": False, "show": True}
+    "example": {"create": False, "update": False, "delete": False, "show": True}
   }
 }
 

@@ -6,26 +6,26 @@ from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entr
 
 class StructuredOutput:
     def __init__(self,
-                 ai_client: genai.Client,
+                 llm_client: genai.Client,
                  model_name: str,
                  session_contents: list,
                  temperature: float):
         """
-        Service for requesting structured JSON output from the AI model.
+        Service for requesting structured JSON output from the LLM model.
         """
-        self.client = ai_client
+        self.client = llm_client
         self.model = model_name
         self.session_contents = session_contents
         self.temperature = temperature
 
-    def get_structured_ai_response(self, user_prompt: str) -> dict:
+    def get_structured_llm_response(self, user_prompt: str) -> dict:
         """
         Request a structured response that conforms to the schema.
         Returns envelope with payload and schema for the frontend.
         :param user_prompt: Question from the user
         :return: dict with JSON-like answer containing the information from the function call.
         """
-        ai_response = "---"
+        llm_response = "---"
         try:
             json_config = types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -33,7 +33,7 @@ class StructuredOutput:
                 system_instruction=types.Part(text=prompting.STRUC_OUT_PROMPT)
             )
 
-            # Add the user prompt to the summary request to AI
+            # Add the user prompt to the summary request to LLM
             user_part = types.Part(text=user_prompt)
             user_part_content = types.Content(
                 role="user",
@@ -41,7 +41,7 @@ class StructuredOutput:
             )
             self.session_contents.append(user_part_content)
 
-            # get AI response with possible JSON output
+            # get LLM response with possible JSON output
             response = self.client.models.generate_content(
                 model=self.model,
                 config=json_config,
@@ -49,11 +49,11 @@ class StructuredOutput:
             )
 
             response_content = response.candidates[0].content
-            ai_response = response_content.parts[0].text
+            llm_response = response_content.parts[0].text
 
             structured_data = None
             try:
-                structured_data = json.loads(ai_response)
+                structured_data = json.loads(llm_response)
                 result =  {
                     "type": "data",
                     "result": {
@@ -68,7 +68,7 @@ class StructuredOutput:
                 result = {
                     "type": "text",
                     "result": {
-                        "message": ai_response
+                        "message": llm_response
                     },
                     "meta": {
                         "model": self.model
@@ -82,11 +82,11 @@ class StructuredOutput:
                 struct_output_str = "no structured AI answer"
 
             create_new_log_entry(
-                ai_model=self.model,
+                llm_model=self.model,
                 user_question=user_prompt or "",
                 request_type="structured output request",
                 backend_response="---",
-                ai_answer=struct_output_str
+                llm_answer=struct_output_str
             )
             return result
 
@@ -96,7 +96,7 @@ class StructuredOutput:
             return {
                 "type": "text",
                 "result": {
-                    "message": ai_response
+                    "message": llm_response
                 },
                 "meta": {
                     "model": self.model

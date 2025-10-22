@@ -4,7 +4,7 @@ from flask_cors import CORS
 from ApartmentManager.backend.SQL_API.rental.CRUD import create
 from ApartmentManager.backend.config.server_config import HOST, PORT
 import ApartmentManager.backend.SQL_API.rental.CRUD.read as read_sql
-from ApartmentManager.backend.AI_API.general.conversation import AiClient
+from ApartmentManager.backend.AI_API.general.conversation import LlmClient
 
 app = Flask(__name__)
 
@@ -15,7 +15,7 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 DEFAULT_FIELDS_APARTMENT_TABLE = ["area", "address", "price_per_square_meter", "utility_billing_provider_id"]
 ALLOWED_FIELDS = []
 
-ai_client = AiClient("Gemini")
+ai_client = LlmClient("Gemini")
 
 @app.route('/')
 def home():
@@ -44,7 +44,7 @@ def chat_api():
         return jsonify(error="`user_input` is required"), 400
 
     try:
-        model_answer = ai_client.get_ai_answer(user_question_str)
+        model_answer = ai_client.get_llm_answer(user_question_str)
         return model_answer, 200
     except Exception:
         app.logger.exception("chat_api error")

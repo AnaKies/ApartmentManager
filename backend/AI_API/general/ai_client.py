@@ -1,16 +1,16 @@
 from abc import ABC, abstractmethod
 
-class AIClient(ABC):
+class LlmClient(ABC):
     @abstractmethod
     def process_function_call_request(self, user_question: str) -> dict:
         """
         Generates an answer to the users question due retrieving data from the SQL database.
         :param: user_question: The prompt for the user.
-        :return: Answer from the AI model in textual form.
+        :return: Answer from the LLM model in textual form.
         """
 
     @abstractmethod
-    def get_structured_ai_response(self, user_question: str) -> dict:
+    def get_structured_llm_response(self, user_question: str) -> dict:
         """
         Generates a structured response according to the given JSON scheme.
         :param: user_question: The prompt for the user.
@@ -18,7 +18,7 @@ class AIClient(ABC):
         """
 
     @abstractmethod
-    def get_textual_ai_response(self, user_question: str) -> str:
+    def get_textual_llm_response(self, user_question: str) -> str:
         """
         Generates a human like response to the user's question
         without fetching data from the SQL data bank.

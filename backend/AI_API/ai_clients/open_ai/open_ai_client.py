@@ -1,9 +1,9 @@
 import os
 from dotenv import load_dotenv
 from openai import OpenAI
-from ApartmentManager.backend.AI_API.general.ai_client import AIClient
+from ApartmentManager.backend.AI_API.general.ai_client import LlmClient
 
-class OpenAiClient(AIClient):
+class OpenAiClient(LlmClient):
     # Specify the model to use
     model_name = "gpt-5"
     client = None
@@ -17,7 +17,7 @@ class OpenAiClient(AIClient):
 
         self.client = OpenAI(api_key=open_ai_api_key)
 
-    def get_structured_ai_response(self, ai_role_prompt: str, user_question: str) -> dict:
+    def get_structured_llm_response(self, ai_role_prompt: str, user_question: str) -> dict:
         """
         Generates a structured response according to the given JSON scheme.
         :param: ai_role_prompt: The prompt for the AI behavior.

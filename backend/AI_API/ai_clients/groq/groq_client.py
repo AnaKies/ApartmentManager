@@ -3,11 +3,11 @@ import json
 from groq import Groq
 from dotenv import load_dotenv
 import ApartmentManager.backend.AI_API.general.prompting as prompting
-from ApartmentManager.backend.AI_API.general.ai_client import AIClient
+from ApartmentManager.backend.AI_API.general.ai_client import LlmClient
 from ApartmentManager.backend.AI_API.general.json_groq import response_schema_groq, QuerySchema
 
 
-class GroqClient(AIClient):
+class GroqClient(LlmClient):
     # Specify the model to use
     model_name = "openai/gpt-oss-20b"
     client = None
@@ -22,7 +22,7 @@ class GroqClient(AIClient):
         # Initialize the Groq client
         self.client = Groq(api_key=groq_api_key)
 
-    def get_structured_ai_response(self, ai_role_prompt: str, user_question: str) -> dict:
+    def get_structured_llm_response(self, ai_role_prompt: str, user_question: str) -> dict:
         """
         Generates a structured response according to the given JSON scheme.
         :param: ai_role_prompt: The prompt for the AI behavior.
@@ -76,7 +76,7 @@ class GroqClient(AIClient):
         """
 
         generated_query_as_json =  prompting.ai_generate_query(user_question,
-                                                               self.get_structured_ai_response)
+                                                               self.get_structured_llm_response)
         return generated_query_as_json
 
 

@@ -9,15 +9,15 @@ from ApartmentManager.backend.AI_API.ai_clients.gemini.structured_output import 
 from google import genai
 from dotenv import load_dotenv
 
-from ApartmentManager.backend.AI_API.general import prompting
-from ApartmentManager.backend.AI_API.general.ai_client import AIClient
+from ApartmentManager.backend.AI_API.general.errors import ErrorCode
+from ApartmentManager.backend.AI_API.general.ai_client import LlmClient
 
 class GeminiClient:
     #class GeminiClient(AIClient, ABC):
     """
-    Client implementation for interacting with the Gemini AI model.
+    Client implementation for interacting with the Gemini LLM model.
     This class provides methods to interface with a RESTful API. It inherits from
-    the abstract base class AIClient and implements all required methods.
+    the abstract base class LLM-Client and implements all required methods.
     """
 
     def __init__(self):
@@ -29,25 +29,25 @@ class GeminiClient:
         # Specify the model to use
         self.model_name = "gemini-2.5-flash"
 
-        # Specify creativity of AI answers (0 ... 2)
+        # Specify creativity of LLM answers (0 ... 2)
         self.temperature = 0.3
 
         # volatile memory of the conversation
         self.session_contents: list[types.Content] = []
 
-        # Create an object to let the AI Model call functions
+        # Create an object to let the LLM Model call functions
         self.function_call_service = FunctionCallService(self.client,
                                                          self.model_name,
                                                          self.session_contents,
                                                          self.temperature)
 
-        # Create an object to let the AI get the answer as predefined JSON
+        # Create an object to let the LLM get the answer as predefined JSON
         self.structured_output_service = StructuredOutput(self.client,
                                                           self.model_name,
                                                           self.session_contents,
                                                           self.temperature)
 
-        # Create an object to let the AI answer with boolean true/false
+        # Create an object to let the LLM answer with boolean true/false
         self.boolean_output_service = BooleanOutput(self.client,
                                                     self.model_name,
                                                     self.session_contents,
@@ -55,7 +55,7 @@ class GeminiClient:
 
     def process_function_call_request(self, user_question, system_prompt: str) -> dict:
         """
-        Gives the user a response using data, retrieved from a function, being called by AI.
+        Gives the user a response using data, retrieved from a function, being called by LLM.
         :param user_question: Question from the user
         :param system_prompt: Combined system prompt
         :return: JSON with human like text answer containing the data retrieved from the function.
@@ -68,62 +68,62 @@ class GeminiClient:
     def add_new_entry_to_database(self, user_question) -> dict:
         return {}
 
-    def get_structured_ai_response(self, user_question: str) -> dict:
-        ai_response = self.structured_output_service.get_structured_ai_response(user_question)
-        return ai_response
+    def get_structured_llm_response(self, user_question: str) -> dict:
+        llm_response = self.structured_output_service.get_structured_llm_response(user_question)
+        return llm_response
 
-    def get_textual_ai_response(self, user_question: str) -> dict:
+    def get_textual_llm_response(self, user_question: str) -> dict:
         pass
 
-    def interpret_ai_response_from_conversation(self) -> dict:
+    def interpret_llm_response_from_conversation(self) -> dict:
         """
         Interprets the structured output data from the conversation history and
         retrieve a response with human-like text.
-        :return: Interpretation of a machine like response from the AI (struct output).
+        :return: Interpretation of a machine like response from the LLM (struct output).
         """
 
         # Configuration of the creativity
-        config_ai_text_answer = types.GenerateContentConfig(
+        config_llm_text_answer = types.GenerateContentConfig(
             temperature=self.temperature # for stable answers
         )
 
-        ai_answer = None
+        llm_answer = None
         try:
-            ai_response_with_text_answer = self.client.models.generate_content(
+            llm_response_with_text_answer = self.client.models.generate_content(
                 model=self.model_name,
-                config=config_ai_text_answer,
+                config=config_llm_text_answer,
                 contents=self.session_contents
             )
-            text_answer = ai_response_with_text_answer.candidates[0].content
-            # Place the answer of the AI in the conversation history.
+            text_answer = llm_response_with_text_answer.candidates[0].content
+            # Place the answer of the LLM in the conversation history.
             self.session_contents.append(text_answer)
 
             if text_answer:
                 for part in text_answer.parts:
                     # part can be text, function_call, thought_signature etc.
                     if hasattr(part, "text") and part.text:
-                        ai_answer = part.text
+                        llm_answer = part.text
                         break
             return {
                 "type": "text",
                 "result": {
-                    "message": ai_answer
+                    "message": llm_answer
                 },
                 "meta": {
                     "model": self.model_name
                 }
             }
         except Exception as error:
-            print("error interpreting AI response: ", error)
+            print(ErrorCode.LLM_RESPONSE_INTERPRETATION_ERROR, ": ", error)
             return {
                 "type": "text",
                 "result": {
-                    "message": ai_answer
+                    "message": llm_answer
                 },
                 "meta": {
                     "model": self.model_name
                 },
-                "error": {"code": "AI_DATA_INTERPRETATION_ERROR", "message": str(error)}
+                "error": {"code": ErrorCode.LLM_RESPONSE_INTERPRETATION_ERROR, "message": str(error)}
             }
 
     def get_crud_in_user_question(self, user_question: str) -> dict:
@@ -134,5 +134,5 @@ class GeminiClient:
         :return: Boolean value True or False for keys "add", "delete", "update", "show".
 
         """
-        crud_intent_dict = self.boolean_output_service.get_boolean_ai_response(user_question)
+        crud_intent_dict = self.boolean_output_service.get_boolean_llm_response(user_question)
         return crud_intent_dict

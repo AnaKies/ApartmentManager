@@ -5,70 +5,77 @@ from ApartmentManager.backend.AI_API.general import prompting
 from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
 
 
-class AiClient:
+class LlmClient:
     """
-    Initializes an AI client and offers methods to open conversation with it.
+    Initializes an LLM client and offers methods to open conversation with it.
     """
     def __init__(self, model_choice):
-        self.ai_client = None
+        self.llm_client = None
         self.model = model_choice
 
         if self.model == "Gemini":
-            self.ai_client = GeminiClient()
+            self.llm_client = GeminiClient()
             print("Gemini will answer your question.")
         elif self.model == "Groq":
-            #self.ai_client = GroqClient()
+            #self.llm_client = GroqClient()
             print("Groq will answer your question.")
 
-    def get_ai_answer(self, user_question) -> dict:
+    def get_llm_answer(self, user_question) -> dict:
         """
          JSON-only endpoint for chat.
         :param user_question: { "user_input": "<string>" }
         :return: envelope with type: "text" | "data"
         """
 
-        # STEP 1b: AI checks if user asks for one of CRUD operations
-        crud_intent = self.ai_client.get_crud_in_user_question(user_question)
+        # STEP 1b: LLM checks if user asks for one of CRUD operations
+        crud_intent = self.llm_client.get_crud_in_user_question(user_question)
+
+        # Default prompt allows read-only operations (GET)
+        system_prompt = json.dumps(prompting.GET_FUNCTION_CALL_PROMPT, indent=2, ensure_ascii=False)
 
         # Extend the base read-only GET prompt to the POST prompt to add an entry in the SQL table
-        system_prompt_extended = ""
         if crud_intent.get("create", False):
-            system_prompt_extended = prompting.combine_get_and_post()
+            system_prompt = prompting.combine_get_and_post()
 
-        # STEP 2: AI generates an answer with possible function call inside
-        func_call_data_or_ai_text_dict = self.ai_client.process_function_call_request(user_question,
-                                                                                      system_prompt_extended)
+        # STEP 2: LLM generates an answer with possible function call inside
+        func_call_data_or_llm_text_dict = self.llm_client.process_function_call_request(user_question,
+                                                                                       system_prompt)
 
-        ai_answer_in_text_format = not func_call_data_or_ai_text_dict.get("result").get("function_call")
+        llm_answer_in_text_format = not func_call_data_or_llm_text_dict.get("result").get("function_call")
 
         something_to_show = crud_intent.get("show", False)
 
-        # Scenario 1: AI answered with plain text or raw data should be retrieved
-        if ai_answer_in_text_format or something_to_show:
+        # Scenario 1: LLM answered with plain text or raw data should be retrieved
+        if llm_answer_in_text_format or something_to_show:
             # Returns the structured output or
-            # a text with reason why the AI decided not to call a function.
-            result = func_call_data_or_ai_text_dict
+            # a text with reason why the LLM decided not to call a function.
+            result = func_call_data_or_llm_text_dict
 
-        # Scenario 2: AI answered with function call and this answer should be interpreted
+        # Scenario 2: LLM answered with function call and this answer should be interpreted
         else:
-            # AI is interpreting the data from function call to the human language.
+            # LLM is interpreting the data from function call to the human language.
             # Data for the interpretation are taken from the conversation history.
-            result = self.ai_client.interpret_ai_response_from_conversation()
+            result = self.llm_client.interpret_llm_response_from_conversation()
 
         # STEP 3: Unified logging
-        ai_answer_str = json.dumps(result, indent=2, ensure_ascii=False, default=str)
+        llm_answer_str = json.dumps(result, indent=2, ensure_ascii=False, default=str)
         try:
-            func_result = func_call_data_or_ai_text_dict.get("result", {})
+            func_result = func_call_data_or_llm_text_dict.get("result", {})
             is_func_call = func_result.get("function_call")
             request_type = "function call" if is_func_call else "plain text"
-            backend_has_answered = func_result.get("payload") if is_func_call else "---"
+
+            if is_func_call:
+                payload_result = func_result.get("payload")
+                backend_response_str = str(payload_result) if payload_result is not None else "---"
+            else:
+                backend_response_str = "---"
 
             create_new_log_entry(
-                ai_model=self.model,
+                llm_model=self.model,
                 user_question=user_question or "---",
                 request_type=request_type,
-                backend_response=backend_has_answered,
-                ai_answer=ai_answer_str
+                backend_response=backend_response_str,
+                llm_answer=llm_answer_str
             )
         except Exception as e:
             print("log write failed:", repr(e))
