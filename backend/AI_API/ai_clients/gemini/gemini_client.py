@@ -9,7 +9,10 @@ from ApartmentManager.backend.AI_API.ai_clients.gemini.structured_output import 
 from google import genai
 from dotenv import load_dotenv
 
+from ApartmentManager.backend.AI_API.general import prompting
 from ApartmentManager.backend.AI_API.general.errors_backend import ErrorCode
+from ApartmentManager.backend.SQL_API.rental.rental_orm_models import PersonalData, Contract, Tenancy, Apartment
+from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
 from ApartmentManager.backend.AI_API.general.ai_client import LlmClient
 
 class GeminiClient:
@@ -68,23 +71,29 @@ class GeminiClient:
     def add_new_entry_to_database(self, user_question) -> dict:
         return {}
 
-    def get_structured_llm_response(self, user_question: str) -> dict:
-        llm_response = self.structured_output_service.get_structured_llm_response(user_question)
-        return llm_response
+    def get_textual_llm_response(self, user_question: str, system_prompt: str) -> dict:
+        # Add the user prompt to the summary request to LLM
+        user_part = types.Part(text=user_question)
+        user_part_content = types.Content(
+            role="user",
+            parts=[user_part]
+        )
+        self.session_contents.append(user_part_content)
+        result = self.interpret_llm_response_from_conversation(system_prompt=system_prompt)
 
-    def get_textual_llm_response(self, user_question: str) -> dict:
-        pass
+        return result
 
-    def interpret_llm_response_from_conversation(self) -> dict:
+    def interpret_llm_response_from_conversation(self, system_prompt="") -> dict:
         """
         Interprets the structured output data from the conversation history and
         retrieve a response with human-like text.
         :return: Interpretation of a machine like response from the LLM (struct output).
         """
 
-        # Configuration of the creativity
+        # Configuration of the LLM answer
         config_llm_text_answer = types.GenerateContentConfig(
-            temperature=self.temperature # for stable answers
+            temperature=self.temperature, # for stable answers
+            system_instruction=types.Part(text=system_prompt)
         )
 
         llm_answer = None
@@ -136,3 +145,160 @@ class GeminiClient:
         """
         crud_intent_dict = self.boolean_output_service.get_boolean_llm_response(user_question)
         return crud_intent_dict
+
+    def generate_prompt_for_create_entity(self, crud_intent: dict) -> str | None:
+        """
+        Analyzes the CRUD intent for creation an entity (person, contract ect.)
+        and generates a system prompt containing dynamic fields for an entity.
+        :param crud_intent: Dictionary containing which CRUD operations should be done.
+        When an operation is "CREATE" = True, then which entity should be created.
+        :return: System prompt extended with fields
+        """
+        create_entity_active = (crud_intent.get("create") or {}).get("value", False)
+        system_prompt = None
+        try:
+            #Analyze the CRUD intention and inject appropriates fields into the prompt for CREATE operation
+            if create_entity_active:
+                type_of_data = crud_intent["create"].get("type", "")
+                if type_of_data == "person":
+                    class_fields = PersonalData.fields_dict()
+                elif type_of_data == "contract":
+                    class_fields = Contract.fields_dict()
+                elif type_of_data == "tenancy":
+                    class_fields = Tenancy.fields_dict()
+                elif type_of_data == "apartment":
+                    class_fields = Apartment.fields_dict()
+                else:
+                    raise Exception("Error: not allowed fields for creating new entry in database.")
+
+                if class_fields:
+                    # Inject the class fields in a prompt
+                    system_prompt = prompting.inject_fields_to_create_prompt(class_fields)
+
+                return system_prompt
+            return None
+        except Exception as error:
+            print(ErrorCode.ERROR_INJECTING_FIELDS_TO_PROMPT + " :", repr(error))
+            return None
+
+    def answer_general_questions(self, user_question: str, system_prompt: str) -> dict:
+        """
+        Analyzes if the GET operation is required and performs the function call to retrieve the data from the databank.
+        Then convert the data to the plain text. If no data bank calling was done, then it response is directly.
+        :param user_question: Question from the user.
+        :param system_prompt: System prompt with instructions for function calling.
+        :return: Data from the database as dictionary.
+        """
+        result = None
+        llm_answer_in_text_format = None
+        func_call_data_or_llm_text_dict = None
+
+        try:
+            # STEP 1: LLM generates an answer as dict with possible function call inside using POST or GET tool
+            func_call_data_or_llm_text_dict = self.process_function_call_request(user_question, system_prompt)
+
+            llm_answer_in_text_format = not func_call_data_or_llm_text_dict.get("result").get("function_call")
+
+        except Exception as error:
+            print(ErrorCode.ERROR_CALLING_FUNCTION + " :", repr(error))
+
+        try:
+            # Scenario 1: LLM answered with plain text or raw data should be retrieved
+            if llm_answer_in_text_format:
+                # Returns the structured output or
+                # Dictionary with reason why the LLM decided not to call a function.
+                result = func_call_data_or_llm_text_dict
+
+            # Scenario 2: LLM answered with function call and this answer should be interpreted
+            else:
+                # LLM is interpreting the data from function call to the human language.
+                # Dictionary with data for the interpretation is taken from the conversation history.
+                result = self.interpret_llm_response_from_conversation()
+        except Exception as error:
+            print(ErrorCode.ERROR_INTERPRETING_THE_FUNCTION_CALL + " :",repr(error))
+
+        # STEP 2: Unified logging
+        llm_answer_str = json.dumps(result, indent=2, ensure_ascii=False, default=str)
+        try:
+            func_result = func_call_data_or_llm_text_dict.get("result", {})
+            is_func_call = func_result.get("function_call")
+            request_type = "function call" if is_func_call else "plain text"
+
+            if is_func_call:
+                payload_result = func_result.get("payload")
+                payload_result_str = json.dumps(payload_result, indent=2, ensure_ascii=False, default=str)
+                backend_response_str = payload_result_str if payload_result_str is not None else "---"
+            else:
+                backend_response_str = "---"
+
+            create_new_log_entry(
+                llm_model=self.model_name,
+                user_question=user_question or "---",
+                request_type=request_type,
+                backend_response=backend_response_str,
+                llm_answer=llm_answer_str
+            )
+        except Exception as error:
+            print(ErrorCode.LOG_ERROR_FOR_FUNCTION_CALLING + " :",repr(error))
+
+        return result
+
+    def process_show_request(self, user_question: str, system_prompt: str) -> dict | None:
+        """
+        Analyzes if the user question contains the data type, that should be shown.
+        Asks the user for missing data type if it is not in the show request.
+        :param user_question: Question from the user.
+        :param system_prompt: System prompt with instructions for gathering missing data.
+        :return: Dictionary with check status and data type.
+        """
+        display_data_scheme = types.Schema(
+            title="data_to_show",
+            type=types.Type.OBJECT,
+            properties={
+                "checked": types.Schema(type=types.Type.BOOLEAN),
+                "type": types.Schema(
+                    any_of=[
+                        types.Schema(type=types.Type.STRING),
+                        types.Schema(type=types.Type.NULL)
+                    ]
+                )
+            },
+            required=["checked", "type"]
+        )
+        try:
+            llm_response = self.structured_output_service.get_structured_llm_response(user_question,
+                                                                                      system_prompt,
+                                                                                      display_data_scheme)
+            return llm_response
+
+        except Exception as error:
+            print(ErrorCode.LLM_ERROR_COLLECTING_TYPE_OF_DATA_TO_SHOW + " :", repr(error))
+        return None
+
+    def process_create_request(self, user_question: str, system_prompt: str) -> dict | None:
+        """
+        Calls the LLM with the system prompt extended to the class fields.
+        :param user_question: Question from the user.
+        :param system_prompt: System prompt with instructions for gathering missing data.
+        :return: Dictionary with check status and data type.
+        """
+        create_data_scheme = types.Schema(
+            title="create_entity",
+            type=types.Type.OBJECT,
+            properties={
+                "ready_to_post": types.Schema(type=types.Type.BOOLEAN),
+                "payload": types.Schema(type=types.Type.STRING),
+                "message": types.Schema(type=types.Type.STRING),
+            },
+            required=["ready_to_post", "payload", "message"]
+        )
+
+        try:
+            llm_response = self.structured_output_service.get_structured_llm_response(user_question,
+                                                                                      system_prompt,
+                                                                                      create_data_scheme)
+            return llm_response
+
+        except Exception as error:
+            print(ErrorCode.LLM_ERROR_COLLECTING_DATA_TO_CREATE_ENTITY + " :", repr(error))
+        return None

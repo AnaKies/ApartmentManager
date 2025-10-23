@@ -67,13 +67,13 @@ def get_tenancies():
 
 
 @app.route('/rent_data', methods=['GET'])
-def get_rent_data():
+def get_contract():
     """
      Returns a JSON list of rent_data.
     :return:
     """
     try:
-        rent_data = read_sql.get_rent_data()
+        rent_data = read_sql.get_contract()
         rent_data_to_json = [data.to_dict() for data in rent_data]
         return jsonify(rent_data_to_json)
     except Exception as error:

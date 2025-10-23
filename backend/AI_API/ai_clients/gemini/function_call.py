@@ -45,7 +45,7 @@ class FunctionCallService:
             callable=execute.make_restful_api_get,
             client=self.client
         )
-
+        # TODO check if POST is relevant for other operations
         # Function declaration for POST
         func_post = types.FunctionDeclaration.from_callable(
             callable=execute.make_restful_api_post,
@@ -54,13 +54,14 @@ class FunctionCallService:
 
         # Tools to choose different functions that LLM should propose
         get_tool = types.Tool(function_declarations=[func_get])
+        #TODO check if POST is relevant for other operations
         post_tool = types.Tool(function_declarations=[func_post])
 
         # Configuration for function call and system instructions
         config_llm_function_call = types.GenerateContentConfig(
             temperature=self.temperature,  # for stable answers
             system_instruction=types.Part(text=system_prompt),
-            tools=[get_tool, post_tool]
+            tools=[get_tool]
         )
 
         # Ask LLM to answer the user question with a function calling

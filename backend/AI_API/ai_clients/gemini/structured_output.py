@@ -18,19 +18,22 @@ class StructuredOutput:
         self.session_contents = session_contents
         self.temperature = temperature
 
-    def get_structured_llm_response(self, user_prompt: str) -> dict:
+    def get_structured_llm_response(self, user_prompt: str, system_prompt: str, json_schema: types.Schema) -> dict:
         """
         Request a structured response that conforms to the schema.
-        Returns envelope with payload and schema for the frontend.
+        :param system_prompt: Instructions how the LLM model should respond.
+        :param json_schema: Scheme for the LLM structured response.
         :param user_prompt: Question from the user
-        :return: dict with JSON-like answer containing the information from the function call.
+        :return: Envelope-dictionary with answer as payload of the envelope.
+        The payload is in JSON format corresponded to the given scheme.
         """
         llm_response = "---"
         try:
             json_config = types.GenerateContentConfig(
                 response_mime_type="application/json",
+                response_schema=json_schema,
                 temperature=self.temperature,
-                system_instruction=types.Part(text=prompting.STRUC_OUT_PROMPT)
+                system_instruction=types.Part(text=system_prompt)
             )
 
             # Add the user prompt to the summary request to LLM

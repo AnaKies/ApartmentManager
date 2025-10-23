@@ -1,10 +1,20 @@
 import json
 
+from flask import jsonify
+
 from ApartmentManager.backend.AI_API.ai_clients.gemini.gemini_client import GeminiClient
 from ApartmentManager.backend.AI_API.general import prompting
 from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
-from ApartmentManager.backend.SQL_API.rental.rental_orm_models import PersonalData, Contract, Tenancy, Apartment
 from ApartmentManager.backend.AI_API.general.errors_backend import ErrorCode
+from ApartmentManager.backend.SQL_API.rental.CRUD.read import get_persons, get_apartments, get_tenancies, get_contract
+from ApartmentManager.backend.SQL_API.rental.CRUD.create import create_person
+
+class ConversationState:
+    show_state = False
+    update_state = False
+    delete_state = False
+    create_state = False
+    default_state = False
 
 class LlmClient:
     """
@@ -21,93 +31,116 @@ class LlmClient:
             #self.llm_client = GroqClient()
             print("Groq will answer your question.")
 
-    def get_llm_answer(self, user_question) -> dict:
+    def get_llm_answer(self, user_question: str) -> dict:
         """
-         JSON-only endpoint for chat.
-        :param user_question: { "user_input": "<string>" }
-        :return: envelope with type: "text" | "data"
+        Get response of the LLM model on user's question.
+        :param user_question: User question.
+        :return: Envelope with type: "text" | "data"
         """
-        # Default prompt allows read-only operations (GET)
-        system_prompt = json.dumps(prompting.GET_FUNCTION_CALL_PROMPT, indent=2, ensure_ascii=False)
+        crud_intent = None
+        result = None
 
         try:
-            # STEP 1b: LLM checks if user asks for one of CRUD operations
-            crud_intent = self.llm_client.get_crud_in_user_question(user_question)
+            if (not ConversationState.show_state or
+                    not ConversationState.create_state or
+                    not ConversationState.update_state or
+                    not ConversationState.delete_state):
+                # STEP 1: LLM checks if user asks for one of CRUD operations
+                crud_intent = self.llm_client.get_crud_in_user_question(user_question)
+
+            # actualize the state of the state machine
+            if ((crud_intent or {}).get("create") or {}).get("value"):
+                ConversationState.create_state = True
+            elif ((crud_intent or {}).get("update") or {}).get("value"):
+                ConversationState.update_state = True
+            elif ((crud_intent or {}).get("delete") or {}).get("value"):
+                ConversationState.delete_state = True
+            elif ((crud_intent or {}).get("show") or {}).get("value"):
+                ConversationState.show_state = True
+            else:
+                ConversationState.default_state = True
+
         except Exception as error:
             print(ErrorCode.LLM_ERROR_GETTING_CRUD_RESULT + " :",repr(error))
 
-        try:
-            # Extend the base read-only GET prompt to the POST prompt to add an entry in the SQL table
-            if crud_intent.get("create", False).get("value", False):
-                type_of_data = crud_intent["create"].get("type", "")
-                if type_of_data == "person":
-                    class_fields = PersonalData.fields_dict()
-                elif type_of_data == "contract":
-                    class_fields = Contract.fields_dict()
-                elif type_of_data == "tenancy":
-                    class_fields = Tenancy.fields_dict()
-                elif type_of_data == "apartment":
-                    class_fields = Apartment.fields_dict()
-                else:
-                    class_fields = None
+        # STEP 2: do action depending on CRUD operation
+        if ConversationState.create_state:
+            # Generate prompt for CREATE operation
+            prompt_for_entity_creation = self.llm_client.generate_prompt_for_create_entity(crud_intent)
+            system_prompt = json.dumps(prompt_for_entity_creation, indent=2, ensure_ascii=False)
+            response = self.llm_client.process_create_request(user_question, system_prompt)
 
-                if class_fields:
-                    # Inject the class fields in a prompt
-                    system_prompt = prompting.combine_get_and_post(class_fields)
-                else:
-                    raise Exception("Error: not allowed fields for creating new entry in database.")
-        except Exception as error:
-            print(ErrorCode.ERROR_INJECTING_FIELDS_TO_PROMPT + " :",repr(error))
+            result = (response.get("result" or {}).get("payload") or {}).get("message")
 
+            if response.get("ready_to_post"):
+                # Extract fields from dictionary and give them the function
+                args = response.get("payload")
+                parsed_args= json.loads(args)
+                result = create_person(**parsed_args)
 
-        try:
-            # STEP 2: LLM generates an answer with possible function call inside
-            func_call_data_or_llm_text_dict = self.llm_client.process_function_call_request(user_question,
-                                                                                           system_prompt)
+                ConversationState.create_state = False
 
-            llm_answer_in_text_format = not func_call_data_or_llm_text_dict.get("result").get("function_call")
+            result = {
+                "type": "text",
+                "result": {
+                    "message": result
+                },
+                "meta": {
+                    "model": self.model
+                }
+            }
 
-            something_to_show = crud_intent.get("show", False).get("value", False)
-        except Exception as error:
-            print(ErrorCode.ERROR_AT_CALLING_FUNCTION + " :", repr(error))
+        elif ConversationState.delete_state:
+            # Generate prompt for DELETE operation
+            if result:
+                ConversationState.delete_state = False
 
-        try:
-            # Scenario 1: LLM answered with plain text or raw data should be retrieved
-            if llm_answer_in_text_format or something_to_show:
-                # Returns the structured output or
-                # a text with reason why the LLM decided not to call a function.
-                result = func_call_data_or_llm_text_dict
+        elif ConversationState.update_state:
+            # Generate prompt for UPDATE operation
+            if result:
+                ConversationState.update_state = False
 
-            # Scenario 2: LLM answered with function call and this answer should be interpreted
+        elif ConversationState.show_state:
+            sql_answer = None
+            payload = None
+
+            # Default prompt allows possible function call as read-only operation (GET)
+            system_prompt = json.dumps(prompting.SHOW_TYPE_CLASSIFIER_PROMPT, indent=2, ensure_ascii=False)
+            # LLM checks if the data type to show is provided by the user
+            prepare_data_to_show = self.llm_client.process_show_request(user_question, system_prompt)
+
+            # Analyzes what type of data should be shown and show it
+            if ((prepare_data_to_show.get("result") or {}).get("payload") or {}).get("checked"):
+                data_type_to_show = ((prepare_data_to_show.get("result") or {}).get("payload") or {}).get("type")
+                if data_type_to_show == "person":
+                    sql_answer = get_persons()
+                elif data_type_to_show == "apartment":
+                    sql_answer = get_apartments()
+                elif data_type_to_show == "tenancy":
+                    sql_answer = get_tenancies()
+                elif data_type_to_show == "contract":
+                    sql_answer = get_contract()
             else:
-                # LLM is interpreting the data from function call to the human language.
-                # Data for the interpretation are taken from the conversation history.
-                result = self.llm_client.interpret_llm_response_from_conversation()
-        except Exception as error:
-            print(ErrorCode.ERROR_INTERPRETING_THE_FUNCTION_CALL + " :",repr(error))
+                payload = ((prepare_data_to_show.get("result") or {}).get("payload") or {}).get("message")
 
-        # STEP 3: Unified logging
-        llm_answer_str = json.dumps(result, indent=2, ensure_ascii=False, default=str)
-        try:
-            func_result = func_call_data_or_llm_text_dict.get("result", {})
-            is_func_call = func_result.get("function_call")
-            request_type = "function call" if is_func_call else "plain text"
+            if sql_answer :
+                payload = [element.to_dict() for element in sql_answer]
+                ConversationState.show_state = False
 
-            if is_func_call:
-                payload_result = func_result.get("payload")
-                payload_result_str = json.dumps(payload_result, indent=2, ensure_ascii=False, default=str)
-                backend_response_str = payload_result_str if payload_result_str is not None else "---"
-            else:
-                backend_response_str = "---"
+            result = {
+                "type": "data",
+                "result": {
+                    "payload": payload
+                },
+                "meta": {
+                    "model": self.model
+                }
+            }
 
-            create_new_log_entry(
-                llm_model=self.model,
-                user_question=user_question or "---",
-                request_type=request_type,
-                backend_response=backend_response_str,
-                llm_answer=llm_answer_str
-            )
-        except Exception as error:
-            print(ErrorCode.LOG_ERROR_FOR_FUNCTION_CALLING + " :",repr(error))
+        elif ConversationState.default_state:
+            # Default prompt allows possible function call as read-only operation (GET)
+            system_prompt = json.dumps(prompting.GET_FUNCTION_CALL_PROMPT, indent=2, ensure_ascii=False)
+            # State machine for general questions
+            result = self.llm_client.answer_general_questions(user_question, system_prompt)
 
         return result

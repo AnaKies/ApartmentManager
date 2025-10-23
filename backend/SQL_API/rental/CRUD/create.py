@@ -15,7 +15,7 @@ def create_person(first_name: str,
     :param phone_number:
     :param email:
     :param comment:
-    :return: Dictionary {"result": "OK"} or {"result": "error", "message": ...}
+    :return: Dictionary {"result": "OK", "id_personal_data": ...} or {"result": "error", "message": ...}
     """
     session = Session()
     try:
@@ -33,7 +33,7 @@ def create_person(first_name: str,
     except Exception as error:
         print(f"Error reading database: ", repr(error))
         session.rollback()
-        return {"result": "error", "message": str(error)}
+        return {"result": "error", "message": repr(error)}
     finally:
         session.close()
 

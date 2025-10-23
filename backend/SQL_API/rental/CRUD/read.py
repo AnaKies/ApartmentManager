@@ -83,7 +83,7 @@ def get_tenancies():
         session.close()
     return tenancies
 
-def get_rent_data():
+def get_contract():
     session = Session()
     rent_data = None
     try:
