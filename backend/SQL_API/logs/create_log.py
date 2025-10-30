@@ -2,8 +2,6 @@ import traceback
 
 from ApartmentManager.backend.SQL_API.logs.logs_orm_models import Log, Session
 
-session = Session()
-
 def create_new_log_entry(llm_model: str,
                          user_question: str,
                          request_type: str,
@@ -18,6 +16,9 @@ def create_new_log_entry(llm_model: str,
         "llm_answer": llm_answer
     }
     try:
+        # create the Session only for one log
+        session = Session()
+
         # Input check
         for name, value in args.items():
             if not isinstance(value, str):
