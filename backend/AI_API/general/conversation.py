@@ -101,11 +101,31 @@ class LlmClient:
                 # Generate prompt for DELETE operation
                 if result:
                     ConversationState.delete_state = False
+                    result = {
+                        "type": "error",
+                        "result": {
+                            "message": "Not implemented"
+                        },
+                        "meta": {
+                            "model": self.model
+                        },
+                        "error": {"code": ErrorCode.WARNING_NOT_IMPLEMENTED}
+                    }
 
             elif ConversationState.update_state:
                 # Generate prompt for UPDATE operation
                 if result:
                     ConversationState.update_state = False
+                    result = {
+                        "type": "error",
+                        "result": {
+                            "message": "Not implemented"
+                        },
+                        "meta": {
+                            "model": self.model
+                        },
+                        "error": {"code": ErrorCode.WARNING_NOT_IMPLEMENTED}
+                    }
 
             elif ConversationState.show_state:
                 sql_answer = None
@@ -161,6 +181,19 @@ class LlmClient:
                     "model": self.model
                 },
                 "error": {"code": ErrorCode.ERROR_PERFORMING_CRUD_OPERATION +" :" + repr(error)}
+            }
+
+        if not result:
+            print(ErrorCode.LLM_ERROR_EMPTY_ANSWER)
+            result = {
+                "type": "error",
+                "result": {
+                    "message": "Empty LLM answer"
+                },
+                "meta": {
+                    "model": self.model
+                },
+                "error": {"code": ErrorCode.LLM_ERROR_EMPTY_ANSWER}
             }
 
         return result

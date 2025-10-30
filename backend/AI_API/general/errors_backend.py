@@ -10,6 +10,7 @@ class ErrorCode(str, Enum):
     LLM_ERROR_RETRIEVING_BOOLEAN_RESPONSE = "Failed retrieving boolean response."
     LLM_ERROR_RETRIEVING_STRUCTURED_RESPONSE = "Failed retrieving structured response."
     LLM_ERROR_GETTING_LLM_ANSWER = "Failed getting LLM answer."
+    LLM_ERROR_EMPTY_ANSWER = "Empty LLM answer."
 
     SQL_ERROR_RETRIEVING_TENANCIES = "Failed retrieving tenancies from SQL database."
     SQL_ERROR_RETRIEVING_CONTRACTS = "Failed retrieving contracts from SQL database."
@@ -26,3 +27,5 @@ class ErrorCode(str, Enum):
     ERROR_INTERPRETING_THE_FUNCTION_CALL = "Error interpreting the LLM response."
     ERROR_DECODING_THE_STRUCT_ANSWER_TO_JSON = "Error decoding the LLM response."
     ERROR_PERFORMING_CRUD_OPERATION = "Failed performing CRUD operations."
+
+    WARNING_NOT_IMPLEMENTED = "Not implemented."

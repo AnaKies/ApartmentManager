@@ -379,13 +379,19 @@ function App(){
       clearTimeout(timeoutId);
       if(!res.ok){ const errText = res.status===400? '`user_input` is required' : res.status===415? 'Content-Type must be application/json' : 'internal_error'; throw new Error(errText); }
       const data = await res.json();
-      if (data && data.type==='error' && data.result && data.error){
-        // First show the message with normal background
-        if (data.result.message) {
+      if (data && data.type==='error'){
+        // First show the message with normal background if it exists
+        if (data.result && data.result.message) {
           addMessage('assistant', data.result.message, false);
         }
         // Then show the error code with pink background
-        addMessage('assistant', `Error: ${data.error.code || data.error}`, true);
+        let errorCode = '';
+        if (data.error) {
+          errorCode = typeof data.error === 'object' && data.error.code ? data.error.code : data.error;
+        } else {
+          errorCode = 'Unknown error';
+        }
+        addMessage('assistant', `Error: ${errorCode}`, true);
       } else if (data && data.type==='text' && data.result && typeof data.result.message==='string'){
         addMessage('assistant', data.result.message);
       } else if (data && data.type==='data' && data.result){
