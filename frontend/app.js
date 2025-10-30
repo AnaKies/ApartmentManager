@@ -1,6 +1,4 @@
-const API_BASE = (typeof window !== 'undefined' && window.location && window.location.port === '3000')
-  ? 'http://127.0.0.1:5003'
-  : '';
+const API_BASE = 'http://127.0.0.1:5003';
 
 const { useState, useEffect, useRef, useMemo } = React;
 
@@ -339,7 +337,7 @@ function ChatPanel({ onSend, messages, loading }){
 
   return React.createElement('div',{className:'panel-inner chat-container'},
     React.createElement('div',{className:'messages'},
-      messages.map((m,idx)=> React.createElement('div',{key:idx,className:classNames('msg', m.role)}, React.createElement('div',{dangerouslySetInnerHTML:{__html:renderBasicMarkdown(m.content)}}))),
+      messages.map((m,idx)=> React.createElement('div',{key:idx,className:classNames('msg', m.role, m.isError && 'error')}, React.createElement('div',{dangerouslySetInnerHTML:{__html:renderBasicMarkdown(m.content)}}))),
       loading ? React.createElement('div',{className:'msg system'},'Assistant is thinking…') : null,
       React.createElement('div',{ref:messagesEndRef})
     ),
@@ -369,7 +367,7 @@ function App(){
   const [loading,setLoading] = useState(false);
   const [modal,setModal] = useState({open:false,title:'',message:''});
 
-  function addMessage(role, content){ setMessages(prev=>[...prev,{role,content}]); }
+  function addMessage(role, content, isError = false){ setMessages(prev=>[...prev,{role, content, isError}]); }
 
   async function sendToApi(userText){
     const controller = new AbortController();
@@ -381,7 +379,14 @@ function App(){
       clearTimeout(timeoutId);
       if(!res.ok){ const errText = res.status===400? '`user_input` is required' : res.status===415? 'Content-Type must be application/json' : 'internal_error'; throw new Error(errText); }
       const data = await res.json();
-      if (data && data.type==='text' && data.result && typeof data.result.message==='string'){
+      if (data && data.type==='error' && data.result && data.error){
+        // First show the message with normal background
+        if (data.result.message) {
+          addMessage('assistant', data.result.message, false);
+        }
+        // Then show the error code with pink background
+        addMessage('assistant', `Error: ${data.error.code || data.error}`, true);
+      } else if (data && data.type==='text' && data.result && typeof data.result.message==='string'){
         addMessage('assistant', data.result.message);
       } else if (data && data.type==='data' && data.result){
         try {

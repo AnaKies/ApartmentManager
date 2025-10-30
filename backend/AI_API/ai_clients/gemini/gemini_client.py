@@ -124,16 +124,16 @@ class GeminiClient:
                 }
             }
         except Exception as error:
-            print(ErrorCode.LLM_RESPONSE_INTERPRETATION_ERROR, ": ", error)
+            print(ErrorCode.LLM_RESPONSE_INTERPRETATION_ERROR, ": ", repr(error))
             return {
-                "type": "text",
+                "type": "error",
                 "result": {
                     "message": llm_answer
                 },
                 "meta": {
                     "model": self.model_name
                 },
-                "error": {"code": ErrorCode.LLM_RESPONSE_INTERPRETATION_ERROR, "message": str(error)}
+                "error": {"code": ErrorCode.LLM_RESPONSE_INTERPRETATION_ERROR + ": " + repr(error)}
             }
 
     def get_crud_in_user_question(self, user_question: str) -> dict:
@@ -147,7 +147,7 @@ class GeminiClient:
         crud_intent_dict = self.boolean_output_service.get_boolean_llm_response(user_question)
         return crud_intent_dict
 
-    def generate_prompt_for_create_entity(self, crud_intent: dict) -> str | None:
+    def generate_prompt_for_create_entity(self, crud_intent: dict) -> str | dict:
         """
         Analyzes the CRUD intent for creation an entity (person, contract ect.)
         and generates a system prompt containing dynamic fields for an entity.
@@ -180,7 +180,16 @@ class GeminiClient:
             return None
         except Exception as error:
             print(ErrorCode.ERROR_INJECTING_FIELDS_TO_PROMPT + " :", repr(error))
-            return None
+            return {
+                "type": "error",
+                "result": {
+                    "message": system_prompt
+                },
+                "meta": {
+                    "model": self.model_name
+                },
+                "error": {"code": ErrorCode.ERROR_INJECTING_FIELDS_TO_PROMPT + ": " + repr(error)}
+            }
 
     def answer_general_questions(self, user_question: str, system_prompt: str) -> dict:
         """
@@ -205,6 +214,16 @@ class GeminiClient:
 
         except Exception as error:
             print(ErrorCode.ERROR_CALLING_FUNCTION + " :", repr(error))
+            return {
+                "type": "error",
+                "result": {
+                    "message": func_call_data_or_llm_text_dict
+                },
+                "meta": {
+                    "model": self.model_name
+                },
+                "error": {"code": ErrorCode.ERROR_CALLING_FUNCTION + ": " + repr(error)}
+            }
 
         try:
             # Scenario 1: LLM answered with plain text without function call
@@ -221,12 +240,22 @@ class GeminiClient:
                 result = self.get_textual_llm_response(user_question, system_prompt)
         except Exception as error:
             print(ErrorCode.ERROR_INTERPRETING_THE_FUNCTION_CALL + " :",repr(error))
+            return {
+                "type": "error",
+                "result": {
+                    "message": result
+                },
+                "meta": {
+                    "model": self.model_name
+                },
+                "error": {"code": ErrorCode.ERROR_INTERPRETING_THE_FUNCTION_CALL +" :" + repr(error)}
+            }
 
         # STEP 2: Unified logging
         llm_answer_str = json.dumps(result, indent=2, ensure_ascii=False, default=str)
         try:
-            func_result = func_call_data_or_llm_text_dict.get("result", {})
-            is_func_call = func_result.get("function_call")
+            func_result = (func_call_data_or_llm_text_dict or {}).get("result", {})
+            is_func_call = (func_result or {}).get("function_call")
             request_type = "function call" if is_func_call else "plain text"
 
             if is_func_call:
@@ -278,7 +307,16 @@ class GeminiClient:
 
         except Exception as error:
             print(ErrorCode.LLM_ERROR_COLLECTING_TYPE_OF_DATA_TO_SHOW + " :", repr(error))
-        return None
+            return {
+                "type": "error",
+                "result": {
+                    "message": llm_response
+                },
+                "meta": {
+                    "model": self.model_name
+                },
+                "error": {"code": ErrorCode.LLM_ERROR_COLLECTING_TYPE_OF_DATA_TO_SHOW + " :" + repr(error)}
+            }
 
     def process_create_request(self, user_question: str, system_prompt: str) -> dict | None:
         """
@@ -306,4 +344,13 @@ class GeminiClient:
 
         except Exception as error:
             print(ErrorCode.LLM_ERROR_COLLECTING_DATA_TO_CREATE_ENTITY + " :", repr(error))
-        return None
+            return {
+                "type": "error",
+                "result": {
+                    "message": None
+                },
+                "meta": {
+                    "model": self.model_name
+                },
+                "error": {"code": ErrorCode.LLM_ERROR_COLLECTING_DATA_TO_CREATE_ENTITY + " :" + repr(error)}
+            }

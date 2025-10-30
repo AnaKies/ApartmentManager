@@ -1,7 +1,7 @@
 import json
 from google import genai
 from google.genai import types
-from ApartmentManager.backend.AI_API.general import prompting
+from ApartmentManager.backend.AI_API.general.errors_backend import ErrorCode
 from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
 
 class StructuredOutput:
@@ -18,7 +18,9 @@ class StructuredOutput:
         self.session_contents = session_contents
         self.temperature = temperature
 
-    def get_structured_llm_response(self, user_prompt: str, system_prompt: str, json_schema: types.Schema) -> dict:
+    def get_structured_llm_response(self, user_prompt: str,
+                                    system_prompt: str,
+                                    json_schema: types.Schema) -> dict:
         """
         Request a structured response that conforms to the schema.
         :param system_prompt: Instructions how the LLM model should respond.
@@ -54,30 +56,46 @@ class StructuredOutput:
             response_content = response.candidates[0].content
             llm_response = response_content.parts[0].text
 
-            structured_data = None
-            try:
-                structured_data = json.loads(llm_response)
-                result =  {
-                    "type": "data",
-                    "result": {
-                        "payload": structured_data
-                    },
-                    "meta": {
-                        "model": self.model
-                    }
+        except Exception as error:
+            # Log and return controlled error
+            print(ErrorCode.LLM_ERROR_RETRIEVING_STRUCTURED_RESPONSE, repr(error))
+            return {
+                "type": "text",
+                "result": {
+                    "message": llm_response
+                },
+                "meta": {
+                    "model": self.model
+                },
+                "error": {"code": ErrorCode.LLM_ERROR_RETRIEVING_STRUCTURED_RESPONSE +" :" + repr(error)}
+            }
+
+        structured_data = None
+        try:
+            structured_data = json.loads(llm_response)
+            result =  {
+                "type": "data",
+                "result": {
+                    "payload": structured_data
+                },
+                "meta": {
+                    "model": self.model
                 }
-            except json.JSONDecodeError as e:
-                print("StructuredOutput error:", repr(e))
-                result = {
-                    "type": "text",
-                    "result": {
-                        "message": llm_response
-                    },
-                    "meta": {
-                        "model": self.model
-                    },
-                    "error": {"code": "STRUCTURED_OUTPUT_FAILED", "message": str(e)}
-                }
+            }
+        except json.JSONDecodeError as error:
+            print(ErrorCode.ERROR_DECODING_THE_STRUCT_ANSWER_TO_JSON, repr(error))
+            result = {
+                "type": "error",
+                "result": {
+                    "message": llm_response
+                },
+                "meta": {
+                    "model": self.model
+                },
+                "error": {"code": ErrorCode.ERROR_DECODING_THE_STRUCT_ANSWER_TO_JSON +" :" + repr(error)}
+            }
+
+        try:
             # Add AI answer to logs
             if structured_data:
                 struct_output_str = json.dumps(structured_data, ensure_ascii=False)
@@ -91,18 +109,7 @@ class StructuredOutput:
                 backend_response="---",
                 llm_answer=struct_output_str
             )
-            return result
+        except Exception as error:
+            print(ErrorCode.LOG_ERROR_FOR_STRUCTURED_RESPONSE, repr(error))
 
-        except Exception as e:
-            # Log and return controlled error so UI can show a modal, not 500
-            print("StructuredOutput error:", repr(e))
-            return {
-                "type": "text",
-                "result": {
-                    "message": llm_response
-                },
-                "meta": {
-                    "model": self.model
-                },
-                "error": {"code": "STRUCTURED_OUTPUT_FAILED", "message": str(e)}
-            }
+        return result

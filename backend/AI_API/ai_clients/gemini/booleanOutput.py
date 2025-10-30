@@ -3,6 +3,7 @@ import json
 from google import genai
 from google.genai import types
 import ApartmentManager.backend.AI_API.general.prompting as prompting
+from ApartmentManager.backend.AI_API.general.errors_backend import ErrorCode
 from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
 
 class BooleanOutput:
@@ -81,8 +82,13 @@ class BooleanOutput:
                 config=boolean_llm_config,
             )
         except ValueError as boolean_error:
-            print("Error retrieving LLM boolean response", repr(boolean_error))
-            return None
+            print(ErrorCode.LLM_ERROR_RETRIEVING_BOOLEAN_RESPONSE, repr(boolean_error))
+            return {
+                "type": "error",
+                "result": {"message": "Sorry, I couldn’t craft a response this time."},
+                "meta": {"model": self.model},
+                "error": {"code": ErrorCode.LLM_ERROR_RETRIEVING_BOOLEAN_RESPONSE +" :" + repr(boolean_error)}
+            }
 
         try:
             # Scenario 1: SDK has the parsed version of the answer, get it
@@ -90,15 +96,17 @@ class BooleanOutput:
 
             # Scenario 2: SDK does not have the parsed version of the answer
             if llm_answer_crud is None:
-                try:
-                    llm_answer_text = llm_answer.candidates[0].content.parts[0].text
-                    llm_answer_crud = json.loads(llm_answer_text)
-                except Exception:
-                    llm_answer_crud = None
+                llm_answer_text = llm_answer.candidates[0].content.parts[0].text
+                llm_answer_crud = json.loads(llm_answer_text)
 
         except Exception as parsing_error:
-            print("Error parsing LLM boolean response", repr(parsing_error))
-            return None
+            print(ErrorCode.ERROR_PARSING_BOOLEAN_RESPONSE, repr(parsing_error))
+            return {
+                "type": "error",
+                "result": {"message": "Sorry, I couldn’t craft a response this time."},
+                "meta": {"model": self.model},
+                "error": {"code": ErrorCode.ERROR_PARSING_BOOLEAN_RESPONSE +" :" + repr(parsing_error)}
+            }
 
         try:
             llm_answer_crud_str = json.dumps(llm_answer_crud, indent=2, ensure_ascii=False, default=str)
@@ -111,8 +119,7 @@ class BooleanOutput:
                 llm_answer=llm_answer_crud_str
             )
         except Exception as log_error:
-            # Log and return controlled error so UI can show a modal, not 500
-            print("Error logging the LLM boolean response:", repr(log_error))
-            return None
+            # Log and return controlled error
+            print(ErrorCode.LOG_ERROR_FOR_BOOLEAN_RESPONSE, repr(log_error))
 
         return llm_answer_crud

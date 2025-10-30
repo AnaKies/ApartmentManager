@@ -2,6 +2,7 @@ import json
 from google import genai
 from google.genai import types
 import ApartmentManager.backend.AI_API.general.prompting as prompting
+from ApartmentManager.backend.AI_API.general.errors_backend import ErrorCode
 from ApartmentManager.backend.RESTFUL_API import execute
 
 class FunctionCallService:
@@ -162,11 +163,17 @@ class FunctionCallService:
                 func_calling_result = self._do_call_function(func_call_obj)
 
             except Exception as error:
-                print("error doing function call by LLM: ", error)
+                print(ErrorCode.LLM_ERROR_DOING_FUNCTION_CALL, repr(error))
+                return {
+                    "type": "error",
+                    "result": {"message": "Sorry, I couldn’t craft a response this time."},
+                    "meta": {"model": self.model},
+                    "error": {"code": ErrorCode.LLM_ERROR_DOING_FUNCTION_CALL +" :" + repr(error)}
+                }
 
             # STEP 3: Return envelope for the LLM answers
             # The answer can contain the data from the function call.
-            return {
+            result = {
                 "type": "data",
                 "result": {
                     "function_call": True,
@@ -182,7 +189,7 @@ class FunctionCallService:
             # as the LLM decided to don't call the function.
 
             llm_answer_without_func_call = FunctionCallService._filter_text_from_llm_response(response_func_candidate)
-            return {
+            result = {
                 "type": "text",
                 "result": {
                     "function_call": False,
@@ -192,3 +199,4 @@ class FunctionCallService:
                     "model": self.model
                 }
             }
+        return result

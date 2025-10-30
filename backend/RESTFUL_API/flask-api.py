@@ -3,6 +3,7 @@ import inspect
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
+from ApartmentManager.backend.AI_API.general.errors_backend import ErrorCode
 from ApartmentManager.backend.SQL_API.rental.CRUD import create
 from ApartmentManager.backend.config.server_config import HOST, PORT
 import ApartmentManager.backend.SQL_API.rental.CRUD.read as read_sql
@@ -41,18 +42,30 @@ def chat_api():
 
     value = data.get('user_input')
     user_question_str = value.strip() if value else ''
+    print(user_question_str)
 
     if not user_question_str:
-        print(user_question_str)
         return jsonify(error="`user_input` is required"), 400
 
     try:
         model_answer = ai_client.get_llm_answer(user_question_str)
         print(model_answer)
         return model_answer, 200
-    except Exception:
-        app.logger.exception("chat_api error")
-        return jsonify(error="internal_error"), 500
+    except Exception as error:
+        print(ErrorCode.LLM_ERROR_GETTING_LLM_ANSWER, repr(error))
+        error_payload = {
+            "type": "error",
+            "result": {
+                "message": "internal_error"
+            },
+            "meta": {
+                "model": ai_client.model
+            },
+            "error": {
+                "code": ErrorCode.LLM_ERROR_GETTING_LLM_ANSWER + ": " + repr(error)
+            }
+        }
+        return jsonify(error_payload), 500
 
 @app.route('/tenancies', methods=['GET'])
 def get_tenancies():
@@ -64,8 +77,22 @@ def get_tenancies():
         tenancies = read_sql.get_tenancies()
         tenancies_to_json = [tenancy.to_dict() for tenancy in tenancies]
         return jsonify(tenancies_to_json)
+
     except Exception as error:
-        return jsonify({"error": "Internal server error", "message": str(error)}), 500
+        print(ErrorCode.SQL_ERROR_RETRIEVING_TENANCIES, repr(error))
+        error_payload = {
+            "type": "error",
+            "result": {
+                "message": "internal_error"
+            },
+            "meta": {
+                "model": ai_client.model
+            },
+            "error": {
+                "code": ErrorCode.SQL_ERROR_RETRIEVING_TENANCIES + ": " + repr(error)
+            }
+        }
+        return jsonify(error_payload), 500
 
 
 @app.route('/rent_data', methods=['GET'])
@@ -79,7 +106,20 @@ def get_contract():
         rent_data_to_json = [data.to_dict() for data in rent_data]
         return jsonify(rent_data_to_json)
     except Exception as error:
-        return jsonify({"error": "Internal server error", "message": str(error)}), 500
+        print(ErrorCode.SQL_ERROR_RETRIEVING_CONTRACTS, repr(error))
+        error_payload = {
+            "type": "error",
+            "result": {
+                "message": "internal_error"
+            },
+            "meta": {
+                "model": ai_client.model
+            },
+            "error": {
+                "code": ErrorCode.SQL_ERROR_RETRIEVING_CONTRACTS + ": " + repr(error)
+            }
+        }
+        return jsonify(error_payload), 500
 
 
 @app.route('/persons', methods=['GET'])
@@ -93,7 +133,20 @@ def get_persons():
         persons_to_json = [person.to_dict() for person in persons]
         return jsonify(persons_to_json)
     except Exception as error:
-        return jsonify({"error": "Internal server error", "message": str(error)}), 500
+        print(ErrorCode.SQL_ERROR_RETRIEVING_PERSONS, repr(error))
+        error_payload = {
+            "type": "error",
+            "result": {
+                "message": "internal_error"
+            },
+            "meta": {
+                "model": ai_client.model
+            },
+            "error": {
+                "code": ErrorCode.SQL_ERROR_RETRIEVING_PERSONS + ": " + repr(error)
+            }
+        }
+        return jsonify(error_payload), 500
 
 
 @app.route('/persons', methods=['POST'])
@@ -119,9 +172,21 @@ def add_person():
 
         result = create.create_person(**filtered_params) # unpack dictionary into function parameters
         return result, 200
-    except Exception:
-        app.logger.exception("chat_api error")
-        return jsonify(error="internal_error"), 500
+    except Exception as error:
+        print(ErrorCode.SQL_ERROR_ADDING_PERSON, repr(error))
+        error_payload = {
+            "type": "error",
+            "result": {
+                "message": "internal_error"
+            },
+            "meta": {
+                "model": ai_client.model
+            },
+            "error": {
+                "code": ErrorCode.SQL_ERROR_ADDING_PERSON + ": " + repr(error)
+            }
+        }
+        return jsonify(error_payload), 500
 
 @app.route('/apartments', methods=['GET'])
 def get_apartments():
@@ -134,7 +199,20 @@ def get_apartments():
         apartments_to_json = [apartment.to_dict() for apartment in apartments]
         return jsonify(apartments_to_json)
     except Exception as error:
-        return jsonify({"error": "Internal server error", "message": str(error)}), 500
+        print(ErrorCode.SQL_ERROR_RETRIEVING_APARTMENT, repr(error))
+        error_payload = {
+            "type": "error",
+            "result": {
+                "message": "internal_error"
+            },
+            "meta": {
+                "model": ai_client.model
+            },
+            "error": {
+                "code": ErrorCode.SQL_ERROR_RETRIEVING_APARTMENT + ": " + repr(error)
+            }
+        }
+        return jsonify(error_payload), 500
 
     """
     # SEARCHING FILTERS with values (restrict which rows are included in the result set. SQL: WHERE area = '60')

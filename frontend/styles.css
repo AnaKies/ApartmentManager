@@ -51,6 +51,7 @@ body {
 .msg { padding: 8px 10px; border-radius: 10px; max-width: 85%; white-space: pre-wrap; }
 .msg.user { align-self: flex-end; background: #e0f2fe; }
 .msg.assistant { align-self: flex-start; background: #f3f4f6; }
+.msg.assistant.error { background: #fce7f3; }
 .msg.system { align-self: center; background: #fef9c3; }
 .chat-input { display: grid; grid-template-columns: 1fr auto auto; align-items: end; gap: 8px; margin-top: 10px; }
 .chat-input textarea { resize: vertical; min-height: 44px; max-height: 50vh; padding: 10px 12px; border-radius: 10px; border: 1px solid #e5e7eb; font-family: inherit; }
