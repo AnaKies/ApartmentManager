@@ -43,10 +43,12 @@ def chat_api():
     user_question_str = value.strip() if value else ''
 
     if not user_question_str:
+        print(user_question_str)
         return jsonify(error="`user_input` is required"), 400
 
     try:
         model_answer = ai_client.get_llm_answer(user_question_str)
+        print(model_answer)
         return model_answer, 200
     except Exception:
         app.logger.exception("chat_api error")

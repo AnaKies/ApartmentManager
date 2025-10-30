@@ -83,14 +83,15 @@ class GeminiClient:
 
         return result
 
-    def interpret_llm_response_from_conversation(self, system_prompt="") -> dict:
+    def interpret_llm_response_from_conversation(self, system_prompt: str) -> dict:
         """
         Interprets the structured output data from the conversation history and
         retrieve a response with human-like text.
+        :param system_prompt:
         :return: Interpretation of a machine like response from the LLM (struct output).
         """
 
-        # Configuration of the LLM answer
+        # Configuration of the LLM answer with a new system instruction
         config_llm_text_answer = types.GenerateContentConfig(
             temperature=self.temperature, # for stable answers
             system_instruction=types.Part(text=system_prompt)
@@ -184,7 +185,8 @@ class GeminiClient:
     def answer_general_questions(self, user_question: str, system_prompt: str) -> dict:
         """
         Analyzes if the GET operation is required and performs the function call to retrieve the data from the databank.
-        Then convert the data to the plain text. If no data bank calling was done, then it response is directly.
+        Then convert the data to the plain text.
+        If no data bank calling was done, then it responds to the question directly.
         :param user_question: Question from the user.
         :param system_prompt: System prompt with instructions for function calling.
         :return: Data from the database as dictionary.
@@ -194,16 +196,19 @@ class GeminiClient:
         func_call_data_or_llm_text_dict = None
 
         try:
-            # STEP 1: LLM generates an answer as dict with possible function call inside using POST or GET tool
+            # STEP 1: LLM generates an answer as dict with possible function call inside using GET tool
             func_call_data_or_llm_text_dict = self.process_function_call_request(user_question, system_prompt)
 
-            llm_answer_in_text_format = not func_call_data_or_llm_text_dict.get("result").get("function_call")
+            func_result = (func_call_data_or_llm_text_dict or {}).get("result")
+            has_func_call_flag = (func_result or{}).get("function_call")
+            llm_answer_in_text_format = not has_func_call_flag
 
         except Exception as error:
             print(ErrorCode.ERROR_CALLING_FUNCTION + " :", repr(error))
 
         try:
-            # Scenario 1: LLM answered with plain text or raw data should be retrieved
+            # Scenario 1: LLM answered with plain text without function call
+            # or result of answer were the structured data.
             if llm_answer_in_text_format:
                 # Returns the structured output or
                 # Dictionary with reason why the LLM decided not to call a function.
@@ -213,7 +218,7 @@ class GeminiClient:
             else:
                 # LLM is interpreting the data from function call to the human language.
                 # Dictionary with data for the interpretation is taken from the conversation history.
-                result = self.interpret_llm_response_from_conversation()
+                result = self.get_textual_llm_response(user_question, system_prompt)
         except Exception as error:
             print(ErrorCode.ERROR_INTERPRETING_THE_FUNCTION_CALL + " :",repr(error))
 
