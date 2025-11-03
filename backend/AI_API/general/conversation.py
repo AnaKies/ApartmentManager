@@ -19,6 +19,7 @@ class LlmClient:
     def __init__(self, model_choice):
         self.llm_client = None
         self.model = model_choice
+        self.crud_intent = None
 
         if self.model == "Gemini":
             self.llm_client = GeminiClient()
@@ -33,35 +34,69 @@ class LlmClient:
         :param user_question: User question.
         :return: Envelope with type: "text" | "data"
         """
-        crud_intent = None
         result = None
+        ran_crud_check = False
 
+        # TODO CRUD Check: check for a shorter way with default state only
         try:
-            if (not ConversationState.show_state or
-                    not ConversationState.create_state or
-                    not ConversationState.update_state or
-                    not ConversationState.delete_state):
+            # If one of the CRUD states is active, do not perform the CRUD check
+            # Reason: a single CRUD state can consist of multiple conversation-cycles/iterations
+            # At the start even default state is False -> the CRUD check is always done at the start
+
+            # Check no active CRUD state
+            is_any_active = any([
+                ConversationState.show_state,
+                ConversationState.create_state,
+                ConversationState.update_state,
+                ConversationState.delete_state
+            ])
+            if not is_any_active:
                 # STEP 1: LLM checks if user asks for one of CRUD operations
-                crud_intent = self.llm_client.get_crud_in_user_question(user_question)
+                self.crud_intent = self.llm_client.get_crud_in_user_question(user_question)
+                ran_crud_check = True
 
             # actualize the state of the state machine
-            if ((crud_intent or {}).get("create") or {}).get("value"):
-                ConversationState.create_state = True
-            elif ((crud_intent or {}).get("update") or {}).get("value"):
-                ConversationState.update_state = True
-            elif ((crud_intent or {}).get("delete") or {}).get("value"):
-                ConversationState.delete_state = True
-            elif ((crud_intent or {}).get("show") or {}).get("value"):
-                ConversationState.show_state = True
-            else:
-                ConversationState.default_state = True
+            if ran_crud_check:
+                if ((self.crud_intent or {}).get("create") or {}).get("value"):
+                    ConversationState.create_state = True
+                    ConversationState.update_state = False
+                    ConversationState.delete_state = False
+                    ConversationState.show_state = False
+                    ConversationState.default_state = False
+                elif ((self.crud_intent or {}).get("update") or {}).get("value"):
+                    ConversationState.create_state = False
+                    ConversationState.update_state = True
+                    ConversationState.delete_state = False
+                    ConversationState.show_state = False
+                    ConversationState.default_state = False
+                elif ((self.crud_intent or {}).get("delete") or {}).get("value"):
+                    ConversationState.create_state = False
+                    ConversationState.update_state = False
+                    ConversationState.delete_state = True
+                    ConversationState.show_state = False
+                    ConversationState.default_state = False
+                elif ((self.crud_intent or {}).get("show") or {}).get("value"):
+                    ConversationState.create_state = False
+                    ConversationState.update_state = False
+                    ConversationState.delete_state = False
+                    ConversationState.show_state = True
+                    ConversationState.default_state = False
+                else:
+                    # No explicit CRUD intent detected at the start of a conversation => default
+                    ConversationState.create_state = False
+                    ConversationState.update_state = False
+                    ConversationState.delete_state = False
+                    ConversationState.show_state = False
+                    ConversationState.default_state = True
+            # NOTE: if we did NOT run a CRUD check (multi-turn within an active state),
+            #       we DO NOT touch the existing ConversationState flags here.
 
         except Exception as error:
             print(ErrorCode.LLM_ERROR_GETTING_CRUD_RESULT + " :",repr(error))
             return {
                 "type": "error",
                 "result": {
-                    "message": crud_intent
+                    "message": self.crud_intent
                 },
                 "meta": {
                     "model": self.model
@@ -70,73 +105,120 @@ class LlmClient:
             }
 
         try:
+            # TODO change to switch/case
             # STEP 2: do action depending on CRUD operation
             if ConversationState.create_state:
-                # Generate prompt for CREATE operation
-                prompt_for_entity_creation = self.llm_client.generate_prompt_for_create_entity(crud_intent)
+                # STEP 1: Provide extended system prompt with injected data
+                # Generate new prompt for CREATE operation
+                prompt_for_entity_creation = self.llm_client.generate_prompt_for_create_entity(self.crud_intent)
                 system_prompt = json.dumps(prompt_for_entity_creation, indent=2, ensure_ascii=False)
+
+                # STEP 2: Do the LLM call to collect the data for creating an entry
+                # and get the user's confirmation for them.
+                # Multiple conversation cycles logic.
                 response = self.llm_client.process_create_request(user_question, system_prompt)
 
-                result = (response.get("result" or {}).get("payload") or {}).get("message")
+                # First open the envelope of the structured output service
+                result_output = (response or {}).get("result")
+                payload_struct_output = (result_output or {}).get("payload")
+                llm_comment_to_payload = (payload_struct_output or {}).get("comment")
 
-                if response.get("ready_to_post"):
-                    # Extract fields from dictionary and give them the function
-                    args = response.get("payload")
+                # STEP 3: Backend calls the SQL layer to create a new entry
+                if (payload_struct_output or {}).get("ready_to_post"):
+                    # Extract data fields to give them the function
+                    args = (payload_struct_output or {}).get("data")
                     parsed_args= json.loads(args)
-                    result = create_person(**parsed_args)
 
-                    ConversationState.create_state = False
+                    # Back-end calls directly the method to add a person to SQL databank
+                    creation_action_data = create_person(**parsed_args)
 
-                result = {
-                    "type": "text",
-                    "result": {
-                        "message": result
-                    },
-                    "meta": {
-                        "model": self.model
+                    # STEP 4:
+                    if creation_action_data:
+                        creation_action_flag = (creation_action_data or {}).get("result")
+
+                        if creation_action_flag:
+                            id_person = (creation_action_data or {}).get("message")
+                            result = {
+                                "type": "text",
+                                "result": {
+                                    "message": f"Person with ID {id_person} was created successfully."
+                                },
+                                "meta": {
+                                    "model": self.model
+                                }
+                            }
+
+                            ConversationState.create_state = False
+                        else: # Creation flag is not active
+                            print(ErrorCode.SQL_ERROR_CREATING_NEW_PERSON)
+                            result = {
+                                "type": "error",
+                                "result": {
+                                    "message": llm_comment_to_payload
+                                },
+                                "meta": {
+                                    "model": self.model
+                                },
+                                "error": {"code": ErrorCode.SQL_ERROR_CREATING_NEW_PERSON}
+                            }
+                # STEP 5: Wait for new conversation cycle until user provided all data
+                # and LLM set flag redy_to_post.
+                # Return the actual comment of the LLM, which should ask for missing data
+                else:
+                    ConversationState.create_state = True  # keep collecting until confirmation
+                    result = {
+                        "type": "text",
+                        "result": {
+                            "message": llm_comment_to_payload
+                        },
+                        "meta": {
+                            "model": self.model
+                        }
                     }
-                }
 
             elif ConversationState.delete_state:
                 # Generate prompt for DELETE operation
                 if result:
                     ConversationState.delete_state = False
-                    result = {
-                        "type": "error",
-                        "result": {
-                            "message": "Not implemented"
-                        },
-                        "meta": {
-                            "model": self.model
-                        },
-                        "error": {"code": ErrorCode.WARNING_NOT_IMPLEMENTED}
-                    }
+                result = {
+                    "type": "error",
+                    "result": {
+                        "message": "Not implemented"
+                    },
+                    "meta": {
+                        "model": self.model
+                    },
+                    "error": {"code": ErrorCode.WARNING_NOT_IMPLEMENTED}
+                }
 
             elif ConversationState.update_state:
                 # Generate prompt for UPDATE operation
                 if result:
                     ConversationState.update_state = False
-                    result = {
-                        "type": "error",
-                        "result": {
-                            "message": "Not implemented"
-                        },
-                        "meta": {
-                            "model": self.model
-                        },
-                        "error": {"code": ErrorCode.WARNING_NOT_IMPLEMENTED}
-                    }
+                result = {
+                    "type": "error",
+                    "result": {
+                        "message": "Not implemented"
+                    },
+                    "meta": {
+                        "model": self.model
+                    },
+                    "error": {"code": ErrorCode.WARNING_NOT_IMPLEMENTED}
+                }
 
             elif ConversationState.show_state:
                 sql_answer = None
                 payload = None
 
-                # Default prompt allows possible function call as read-only operation (GET)
+                # STEP 1: Data preparation
                 system_prompt = json.dumps(prompting.SHOW_TYPE_CLASSIFIER_PROMPT, indent=2, ensure_ascii=False)
                 # LLM checks if the data type to show is provided by the user
                 prepare_data_to_show = self.llm_client.process_show_request(user_question, system_prompt)
 
-                # Analyzes what type of data should be shown and show it
+                # STEP 2: Action of the back-end
+                missing_request = None
+
+                # Analyzes what type of data should be shown and does the SQL calls
                 if ((prepare_data_to_show.get("result") or {}).get("payload") or {}).get("checked"):
                     data_type_to_show = ((prepare_data_to_show.get("result") or {}).get("payload") or {}).get("type")
                     if data_type_to_show == "person":
@@ -148,24 +230,37 @@ class LlmClient:
                     elif data_type_to_show == "contract":
                         sql_answer = get_contract()
                 else:
-                    payload = ((prepare_data_to_show.get("result") or {}).get("payload") or {}).get("message")
+                    # Return the request, that did not fit to the types above
+                    missing_request = ((prepare_data_to_show.get("result") or {}).get("payload") or {}).get("message")
 
                 if sql_answer :
                     payload = [element.to_dict() for element in sql_answer]
                     ConversationState.show_state = False
 
-                result = {
-                    "type": "data",
-                    "result": {
-                        "payload": payload
-                    },
-                    "meta": {
-                        "model": self.model
+                    result = {
+                        "type": "data",
+                        "result": {
+                            "payload": payload
+                        },
+                        "meta": {
+                            "model": self.model
+                        }
                     }
-                }
+                else:
+                    print(ErrorCode.TYPE_ERROR_CREATING_NEW_ENTRY)
+                    result = {
+                        "type": "error",
+                        "result": {
+                            "message": missing_request
+                        },
+                        "meta": {
+                            "model": self.model
+                        },
+                        "error": {"code": ErrorCode.TYPE_ERROR_CREATING_NEW_ENTRY}
+                    }
 
             elif ConversationState.default_state:
-                # Default prompt allows possible function call as read-only operation (GET)
+                # New system prompt providing a structured output for collected data
                 system_prompt = json.dumps(prompting.GET_FUNCTION_CALL_PROMPT, indent=2, ensure_ascii=False)
                 # State machine for general questions
                 result = self.llm_client.answer_general_questions(user_question, system_prompt)
@@ -175,7 +270,7 @@ class LlmClient:
             return {
                 "type": "error",
                 "result": {
-                    "message": crud_intent
+                    "message": self.crud_intent
                 },
                 "meta": {
                     "model": self.model

@@ -171,70 +171,58 @@ SHOW_TYPE_CLASSIFIER_PROMPT = {
   }
 }
 
+# uses the external JSON scheme
 CREATE_ENTITY_PROMPT = {
   "role": "system",
   "instructions": {
-    "payload_template": None,   # dynamic-injected fields of an ORM-class
-    "required_fields": None,    # dynamic-injected fields of an ORM-class
+    # Injected at runtime:
+    "payload_template": None,          # dict of all fields to collect, with optional defaults
+    "required_fields": None,           # e.g., ["first_name", "last_name"]
 
+    # What the model must do (concise and strict):
     "task": (
-      "Collect any missing fields for a new record using payload_template. "
-      "Ask the user naturally for missing or unclear values. "
-      "When you believe all fields are filled or explicitly empty, output the final JSON object only."
+      "Collect only from payload_template. Always respond with ONE JSON object that matches the provided JSON Schema "
+      "(keys: ready_to_post:boolean, data:object, comment:string). Do NOT call or mention any tools/APIs."
     ),
 
-    "rules": [
-      "Use payload_template as the single source of truth for fields to collect.",
-      "Ask only for fields that are empty or missing.",
-      "If the user says a field is empty, set it to an empty string \"\" or null.",
-      "Never invent values or add fields not in payload_template.",
-      "Respond ONLY with one JSON object. No prose outside the JSON."
-    ],
+    # High-level adaptive principles (keep it short, flexible, and smart):
+    "principles": [
+      # SOURCE OF TRUTH
+      # Use only the injected field list and the conversation turn. Never invent values or fields.
+      "Use ONLY: (a) payload_template; (b) the user's latest turn; (c) the current session context. Never invent values or new fields.",
 
-    "output_format": {
-      "description": "Return exactly one JSON object with readiness flag, collected payload, and a minimal user-facing message.",
-      "schema": {
-        "ready_to_post": (
-          "boolean — true only when all required_fields are either filled with explicit values "
-          "or explicitly confirmed by the user to remain empty ('', null). "
-          "Fields that are empty by default or unconfirmed must keep ready_to_post=false."
-      ),
-        "payload": "object — key/value pairs for ALL fields from payload_template (include fields even if empty).",
-        "message": "string — brief message in the user's language; for missing fields list them; for ready=true may be short confirmation or empty."
-      },
-      "examples": [
-        {
-          "output": {
-            "ready_to_post": False,
-            "payload": {
-              "first_name": "Anna",
-              "last_name": "",
-              "email": "",
-              "phone_number": "",
-              "comment": ""
-            },
-            "message": "Please provide: last_name, email."
-          }
-        },
-        {
-          "output": {
-            "ready_to_post": True,
-            "payload": {
-              "first_name": "Anna",
-              "last_name": "Müller",
-              "email": "anna@example.com",
-              "phone_number": "",
-              "comment": ""
-            },
-            "message": "All fields collected. Ready to create."
-          }
-        }
-      ]
-    }
+      # INITIAL SURFACE & COLLECTION
+      # Show all fields at the start as options, but only require the small required subset.
+      "At start: surface ALL fields from payload_template to the user as options; REQUIRE only required_fields.",
+
+      # AMENDMENTS & MERGE
+      # Any later user message may amend fields (even after a confirmation question). Merge changes and resummarize.
+      "Treat any later user message as an amendment to fields (even after a confirmation question). Merge changes, then resummarize.",
+
+      # READY CONDITION
+      # Required must be non-empty; non-required may be empty if explicitly requested by the user.
+      "Required_fields must be non-empty to become ready. Non-required fields may be empty if the user explicitly says so.",
+
+      # CONFIRMATION LOGIC
+      # Do not set ready_to_post=true until explicit confirmation with no new data afterwards.
+      "ready_to_post=false until an explicit, unambiguous confirmation is received without any new data afterward.",
+
+      # IMPORTANT: DO NOT CLAIM CREATION
+      # On confirmation, do not claim that you created anything. You only hand off the collected data to the backend.
+      "On explicit confirmation, set ready_to_post=true and in 'comment' state clearly that the data is confirmed and will be forwarded for processing. Do NOT say you created anything.",
+
+      # COMMENT STYLE
+      # Short, user-friendly summary in the user's language. No prose outside JSON.
+      "Keep 'comment' brief, user-language, and informative (e.g., 'first_name=…; last_name=…; phone=…; Confirmed; forwarding for processing.'). No prose outside JSON.",
+
+      # CANCEL / INTENT SHIFT
+      # If the user cancels or shifts intent (e.g., 'cancel', 'abbruch', 'show ...'), stop collection and reflect that in 'comment'.
+      "If the user clearly cancels or shifts intent to a different task (e.g., 'cancel', 'abbruch', 'show ...'), stop collection and reflect this in 'comment' (ready_to_post=false)."
+    ]
   }
 }
 
-def inject_fields_to_create_prompt(class_fields: str) -> str:
+def inject_fields_to_create_prompt(class_fields, required_fields=None) -> str:
   """
   Adds dynamically the fields, required for creation an entity (tenant, contract ect).
   :return: Prompt as dict, that contains instruction which fields should be asked by the LLM.
@@ -242,7 +230,12 @@ def inject_fields_to_create_prompt(class_fields: str) -> str:
   # create a copy and do not touch the originals
   combined_prompt = copy.deepcopy(CREATE_ENTITY_PROMPT)
   combined_prompt["instructions"]["payload_template"] = class_fields
-  combined_prompt["instructions"]["required_fields"] = class_fields
+  # Use only the explicitly provided required_fields; do NOT treat all fields as required by default.
+  if required_fields is None:
+      # Default minimal requirement: only first_name and last_name are mandatory (others may be explicitly left empty)
+      combined_prompt["instructions"]["required_fields"] = ["first_name", "last_name"]
+  else:
+      combined_prompt["instructions"]["required_fields"] = required_fields
 
   system_prompt = json.dumps(combined_prompt, indent=2, ensure_ascii=False)
   return system_prompt

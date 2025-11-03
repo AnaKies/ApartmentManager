@@ -8,7 +8,7 @@ def create_person(first_name: str,
                     email: str,
                     comment: str) -> dict:
     """
-    Adds a person to the database.
+    Adds a person to the database. Answer contains also the ID that the databank assigned.
     :param first_name:
     :param last_name:
     :param bank_data:
@@ -29,11 +29,11 @@ def create_person(first_name: str,
 
         session.add(person)
         session.commit()
-        return {"result": "OK", "id_personal_data": getattr(person, "id_personal_data", None)}
+        return {"result": True, "message": getattr(person, "id_personal_data", None)}
     except Exception as error:
         print(f"Error reading database: ", repr(error))
         session.rollback()
-        return {"result": "error", "message": repr(error)}
+        return {"result": False, "message": repr(error)}
     finally:
         session.close()
 

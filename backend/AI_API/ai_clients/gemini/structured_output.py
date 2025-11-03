@@ -60,7 +60,7 @@ class StructuredOutput:
             # Log and return controlled error
             print(ErrorCode.LLM_ERROR_RETRIEVING_STRUCTURED_RESPONSE, repr(error))
             return {
-                "type": "text",
+                "type": "error",
                 "result": {
                     "message": llm_response
                 },

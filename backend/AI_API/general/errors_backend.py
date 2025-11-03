@@ -1,5 +1,6 @@
 from enum import Enum
 
+# TODO extend an error text to an error number -> find quickly the place in backend where the error was thrown
 class ErrorCode(str, Enum):
     LLM_RESPONSE_INTERPRETATION_ERROR = "Failed at interpretation the LLM response."
     LLM_ERROR_GETTING_CRUD_RESULT = "Failed at getting CRUD result."
@@ -17,6 +18,7 @@ class ErrorCode(str, Enum):
     SQL_ERROR_RETRIEVING_PERSONS = "Failed retrieving persons from SQL database."
     SQL_ERROR_ADDING_PERSON = "Failed adding person to the SQL database."
     SQL_ERROR_RETRIEVING_APARTMENT = "Failed adding apartment to the SQL database."
+    SQL_ERROR_CREATING_NEW_PERSON = "SQL layer did not confirmed the creation of new person."
 
     ERROR_PARSING_BOOLEAN_RESPONSE = "Failed parsing boolean response."
     ERROR_INJECTING_FIELDS_TO_PROMPT = "Failed injecting fields to prompt."
@@ -27,5 +29,6 @@ class ErrorCode(str, Enum):
     ERROR_INTERPRETING_THE_FUNCTION_CALL = "Error interpreting the LLM response."
     ERROR_DECODING_THE_STRUCT_ANSWER_TO_JSON = "Error decoding the LLM response."
     ERROR_PERFORMING_CRUD_OPERATION = "Failed performing CRUD operations."
+    TYPE_ERROR_CREATING_NEW_ENTRY = "That data type can not be created, because it is not covered in the databank system."
 
     WARNING_NOT_IMPLEMENTED = "Not implemented."

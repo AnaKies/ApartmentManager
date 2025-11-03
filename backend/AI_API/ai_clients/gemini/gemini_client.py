@@ -151,7 +151,7 @@ class GeminiClient:
         """
         Analyzes the CRUD intent for creation an entity (person, contract ect.)
         and generates a system prompt containing dynamic fields for an entity.
-        :param crud_intent: Dictionary containing which CRUD operations should be done.
+        :param crud_intent: Dictionary containing which CRUD operations that should be done.
         When an operation is "CREATE" = True, then which entity should be created.
         :return: System prompt extended with fields
         """
@@ -160,7 +160,7 @@ class GeminiClient:
         try:
             #Analyze the CRUD intention and inject appropriates fields into the prompt for CREATE operation
             if create_entity_active:
-                type_of_data = crud_intent["create"].get("type", "")
+                type_of_data = (crud_intent or {}).get("create").get("type", "")
                 if type_of_data == "person":
                     class_fields = PersonalData.fields_dict()
                 elif type_of_data == "contract":
@@ -281,9 +281,11 @@ class GeminiClient:
         """
         Analyzes if the user question contains the data type, that should be shown.
         Asks the user for missing data type if it is not in the show request.
+        It uses a predefined scheme for checking fields.
         :param user_question: Question from the user.
         :param system_prompt: System prompt with instructions for gathering missing data.
-        :return: Dictionary with check status and data type.
+        :return: Dictionary structure with check status and data type.
+        # The answer structure corresponds the predefined scheme.
         """
         display_data_scheme = types.Schema(
             title="data_to_show",
@@ -299,6 +301,8 @@ class GeminiClient:
             },
             required=["checked", "type"]
         )
+
+        llm_response = None
         try:
             llm_response = self.structured_output_service.get_structured_llm_response(user_question,
                                                                                       system_prompt,
@@ -321,19 +325,20 @@ class GeminiClient:
     def process_create_request(self, user_question: str, system_prompt: str) -> dict | None:
         """
         Calls the LLM with the system prompt extended to the class fields.
+        The provided scheme normalizes the returned answer.
         :param user_question: Question from the user.
         :param system_prompt: System prompt with instructions for gathering missing data.
-        :return: Dictionary with check status and data type.
+        :return: Dictionary with check status and data type according to the provided scheme.
         """
         create_data_scheme = types.Schema(
             title="create_entity",
             type=types.Type.OBJECT,
             properties={
                 "ready_to_post": types.Schema(type=types.Type.BOOLEAN),
-                "payload": types.Schema(type=types.Type.STRING),
-                "message": types.Schema(type=types.Type.STRING),
+                "data": types.Schema(type=types.Type.STRING),
+                "comment": types.Schema(type=types.Type.STRING),
             },
-            required=["ready_to_post", "payload", "message"]
+            required=["ready_to_post", "data", "comment"]
         )
 
         try:
@@ -347,7 +352,7 @@ class GeminiClient:
             return {
                 "type": "error",
                 "result": {
-                    "message": None
+                    "message": "LLM could not generate a response."
                 },
                 "meta": {
                     "model": self.model_name
