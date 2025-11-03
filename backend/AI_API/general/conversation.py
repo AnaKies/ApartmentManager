@@ -1,7 +1,7 @@
 import json
 from ApartmentManager.backend.AI_API.ai_clients.gemini.gemini_client import GeminiClient
 from ApartmentManager.backend.AI_API.general import prompting
-from ApartmentManager.backend.AI_API.general.errors_backend import ErrorCode
+from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode
 from ApartmentManager.backend.SQL_API.rental.CRUD.read import get_persons, get_apartments, get_tenancies, get_contract
 from ApartmentManager.backend.SQL_API.rental.CRUD.create import create_person
 

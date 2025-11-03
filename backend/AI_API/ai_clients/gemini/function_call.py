@@ -2,7 +2,7 @@ import json
 from google import genai
 from google.genai import types
 import ApartmentManager.backend.AI_API.general.prompting as prompting
-from ApartmentManager.backend.AI_API.general.errors_backend import ErrorCode
+from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode
 from ApartmentManager.backend.RESTFUL_API import execute
 
 class FunctionCallService:

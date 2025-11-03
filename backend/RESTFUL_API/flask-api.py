@@ -3,7 +3,7 @@ import inspect
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
-from ApartmentManager.backend.AI_API.general.errors_backend import ErrorCode
+from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode
 from ApartmentManager.backend.SQL_API.rental.CRUD import create
 from ApartmentManager.backend.config.server_config import HOST, PORT
 import ApartmentManager.backend.SQL_API.rental.CRUD.read as read_sql

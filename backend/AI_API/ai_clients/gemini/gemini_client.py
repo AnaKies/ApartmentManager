@@ -10,7 +10,7 @@ from google import genai
 from dotenv import load_dotenv
 
 from ApartmentManager.backend.AI_API.general import prompting
-from ApartmentManager.backend.AI_API.general.errors_backend import ErrorCode
+from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode
 from ApartmentManager.backend.SQL_API.rental.rental_orm_models import PersonalData, Contract, Tenancy, Apartment
 from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
 from ApartmentManager.backend.AI_API.general.ai_client import LlmClient
