@@ -254,5 +254,21 @@ def internal_error(error):
         "message": str(error)
     }), 500
 
+# process all exceptions, that were not catch -> prevent that the handler generates its own exception HTML page
+@app.errorhandler(Exception)
+def handle_unexpected_error(e):
+    # Full server log
+    app.logger.exception(e)
+
+    # Unified JSON for every unexpected error
+    body = {
+        "type": "error",
+        "result": {"message": "internal_error"},
+        "meta": {"model": ai_client.model},
+        "error": {"code": "UNEXPECTED_EXCEPTION"},
+        "source": "backend"
+    }
+    return jsonify(body), 500
+
 if __name__ == '__main__':
     app.run(host=HOST, port=PORT, debug=True)

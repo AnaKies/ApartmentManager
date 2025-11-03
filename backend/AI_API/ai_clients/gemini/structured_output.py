@@ -29,7 +29,7 @@ class StructuredOutput:
         :return: Envelope-dictionary with answer as payload of the envelope.
         The payload is in JSON format corresponded to the given scheme.
         """
-        llm_response = "---"
+        llm_response = None
         try:
             json_config = types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -62,7 +62,7 @@ class StructuredOutput:
             return {
                 "type": "error",
                 "result": {
-                    "message": llm_response
+                    "message": llm_response if llm_response else "No LLM response"
                 },
                 "meta": {
                     "model": self.model

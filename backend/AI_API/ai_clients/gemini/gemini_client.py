@@ -114,15 +114,33 @@ class GeminiClient:
                     if hasattr(part, "text") and part.text:
                         llm_answer = part.text
                         break
-            return {
-                "type": "text",
-                "result": {
-                    "message": llm_answer
-                },
-                "meta": {
-                    "model": self.model_name
+
+            if llm_answer:
+                result = {
+                    "type": "text",
+                    "result": {
+                        "message": llm_answer
+                    },
+                    "meta": {
+                        "model": self.model_name
+                    }
                 }
-            }
+            else:
+                print(ErrorCode.LLM_ERROR_NO_TEXT_ANSWER)
+
+                result= {
+                    "type": "text",
+                    "result": {
+                        "message": "LLM did not have a text answer."
+                    },
+                    "meta": {
+                        "model": self.model_name
+                    },
+                    "error": {"code": ErrorCode.LLM_ERROR_NO_TEXT_ANSWER}
+                }
+
+            return result
+
         except Exception as error:
             print(ErrorCode.LLM_RESPONSE_INTERPRETATION_ERROR, ": ", repr(error))
             return {

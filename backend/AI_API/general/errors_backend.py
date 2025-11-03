@@ -12,6 +12,7 @@ class ErrorCode(str, Enum):
     LLM_ERROR_RETRIEVING_STRUCTURED_RESPONSE = "Failed retrieving structured response."
     LLM_ERROR_GETTING_LLM_ANSWER = "Failed getting LLM answer."
     LLM_ERROR_EMPTY_ANSWER = "Empty LLM answer."
+    LLM_ERROR_NO_TEXT_ANSWER = "LLM does not have a text answer."
 
     SQL_ERROR_RETRIEVING_TENANCIES = "Failed retrieving tenancies from SQL database."
     SQL_ERROR_RETRIEVING_CONTRACTS = "Failed retrieving contracts from SQL database."

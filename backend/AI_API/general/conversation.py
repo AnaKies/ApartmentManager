@@ -137,7 +137,7 @@ class LlmClient:
                         creation_action_flag = (creation_action_data or {}).get("result")
 
                         if creation_action_flag:
-                            id_person = (creation_action_data or {}).get("message")
+                            id_person = (creation_action_data or {}).get("person_id")
                             result = {
                                 "type": "text",
                                 "result": {
