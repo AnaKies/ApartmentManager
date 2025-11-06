@@ -99,7 +99,7 @@ def get_persons():
 def add_person():
     """
     Adds new entry with personal data to the table with persons.
-    The data to add are sent in the request body.
+    The data to add is sent in the request body.
     Returns a status.
     :return:
     """
@@ -162,10 +162,10 @@ def get_apartments():
 # processes all exceptions in the business logic
 @app.errorhandler(APIError)
 def handle_api_error(api_error: APIError):
-    print(api_error)
     result = build_error(code=api_error.code,
                          message=api_error.error_message,
-                         llm_model=ai_client.model)
+                         llm_model=ai_client.model,
+                         trace_id=api_error.trace_id if hasattr(api_error, "trace_id") else "-")
 
     return result, 500
 
@@ -174,7 +174,6 @@ def handle_api_error(api_error: APIError):
 # prevent that the handler generates its own exception HTML page
 @app.errorhandler(Exception)
 def handle_unexpected_error(general_error):
-    print(general_error)
     # Full server log
     app.logger.exception(general_error)
 
@@ -183,7 +182,8 @@ def handle_unexpected_error(general_error):
 
     result = build_error(code=-1,
                          message=message,
-                         llm_model=ai_client.model)
+                         llm_model=ai_client.model,
+                         trace_id=general_error.trace_id if hasattr(general_error, "trace_id") else "-")
 
     return result, 500
 

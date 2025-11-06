@@ -29,6 +29,7 @@ class EnvelopeError(BaseModel):
     type: Literal["text", "data", "error"]
     llm_model: str
     error: ErrorBlock = None
+    trace_id: str
 
 def build_text_answer(message: str,
                        model: str,
@@ -59,13 +60,15 @@ def build_data_answer(payload: Any,
 
 def build_error(code: int,
                 message: str,
-                llm_model: str):
+                llm_model: str,
+                trace_id: str):
     error_block = ErrorBlock(code=code, message=message)
 
     env = EnvelopeError(
         type="error",
         error=error_block,
-        llm_model=llm_model
+        llm_model=llm_model,
+        trace_id=trace_id
     )
     result = env.model_dump()
     return result
