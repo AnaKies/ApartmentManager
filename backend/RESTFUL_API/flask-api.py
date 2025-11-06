@@ -7,7 +7,14 @@ from ApartmentManager.backend.config.server_config import HOST, PORT
 import ApartmentManager.backend.SQL_API.rental.CRUD.read as read_sql
 from ApartmentManager.backend.AI_API.general.conversation import LlmClient
 from ApartmentManager.backend.AI_API.general.error_texts import APIError, ErrorCode
+from ApartmentManager.backend.AI_API.general.api_data_type import build_error
+from ApartmentManager.backend.AI_API.general.logger import init_logging, get_logger, log_error
 
+# Initialize logger
+init_logging()
+logger = get_logger()
+
+logger.info("Flask starting…")
 
 app = Flask(__name__)
 
@@ -33,9 +40,10 @@ def chat_api():
     Response JSON: { "question": "<string>", "answer": "<string>" }
     """
     if not request.is_json:
-        raise APIError(ErrorCode.FLASK_ERROR_HTTP_REQUEST_INPUT_MUST_BY_JSON)
+        trace_id = log_error(ErrorCode.FLASK_ERROR_HTTP_REQUEST_INPUT_MUST_BY_JSON)
+        raise APIError(ErrorCode.FLASK_ERROR_HTTP_REQUEST_INPUT_MUST_BY_JSON, trace_id)
 
-    # silent= True -> try to get JSON from HTTP request
+    # silent= True -> try to get JSON from an HTTP request
     data = request.get_json(silent=True)
     if data is None:
         data = {}
@@ -45,7 +53,8 @@ def chat_api():
     print(user_question_str)
 
     if not user_question_str:
-        raise APIError(ErrorCode.FLASK_ERROR_USER_QUESTION_IS_NOT_STRING)
+        trace_id = log_error(ErrorCode.FLASK_ERROR_USER_QUESTION_IS_NOT_STRING)
+        raise APIError(ErrorCode.FLASK_ERROR_USER_QUESTION_IS_NOT_STRING, trace_id)
 
     model_answer = ai_client.get_llm_answer(user_question_str)
     print(model_answer)
@@ -152,33 +161,27 @@ def get_apartments():
 
 # processes all exceptions in the business logic
 @app.errorhandler(APIError)
-def handle_api_error(e: APIError):
-    print(e)
-    body = {
-        "type": "error",
-        "result": {"message": e.error_message},
-        "meta": {"model": "Gemini"},
-        "error": {"code": e.code, "details": e.details}
-    }
-    return jsonify(body), e.http_status
+def handle_api_error(api_error: APIError):
+    print(api_error)
+    result = build_error(api_error.code, api_error.error_message)
+
+    return result, 500
 
 
 # universal handler for all exceptions that were not catch ->
 # prevent that the handler generates its own exception HTML page
 @app.errorhandler(Exception)
-def handle_unexpected_error(e):
-    print(e)
+def handle_unexpected_error(general_error):
+    print(general_error)
     # Full server log
-    app.logger.exception(e)
+    app.logger.exception(general_error)
 
-    # Unified JSON for every unexpected error
-    body = {
-        "type": "error",
-        "result": {"message": e.message},
-        "meta": {"model": ai_client.model},
-        "error": {"code": "INTERNAL_ERROR"},
-    }
-    return jsonify(body), 500
+    # extract a message from general error
+    message = getattr(general_error, "error_message", None) or str(general_error) or "Unexpected error"
+
+    result = build_error(-1, message)
+
+    return result, 500
 
 if __name__ == '__main__':
     app.run(host=HOST, port=PORT, debug=True)

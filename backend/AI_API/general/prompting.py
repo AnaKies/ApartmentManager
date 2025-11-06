@@ -214,19 +214,18 @@ CREATE_ENTITY_PROMPT = {
   }
 }
 
-def inject_fields_to_create_prompt(class_fields, required_fields=None) -> str:
+def inject_fields_to_create_prompt(class_fields, required_fields) -> str:
   """
   Adds dynamically the fields, required for creation an entity (tenant, contract ect).
   :return: Prompt as dict, that contains instruction which fields should be asked by the LLM.
   """
   # create a copy and do not touch the originals
   combined_prompt = copy.deepcopy(CREATE_ENTITY_PROMPT)
-  combined_prompt["instructions"]["payload_template"] = class_fields
-  # Use only the explicitly provided required_fields; do NOT treat all fields as required by default.
-  if required_fields is None:
-      # Default minimal requirement: only first_name and last_name are mandatory (others may be explicitly left empty)
-      combined_prompt["instructions"]["required_fields"] = ["first_name", "last_name"]
-  else:
+
+  if class_fields:
+    combined_prompt["instructions"]["payload_template"] = class_fields
+
+  if required_fields:
       combined_prompt["instructions"]["required_fields"] = required_fields
 
   system_prompt = json.dumps(combined_prompt, indent=2, ensure_ascii=False)

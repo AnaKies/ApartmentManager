@@ -10,10 +10,13 @@ from google import genai
 from dotenv import load_dotenv
 
 from ApartmentManager.backend.AI_API.general import prompting
+from ApartmentManager.backend.AI_API.general.api_data_type import build_text_answer
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode
+from ApartmentManager.backend.AI_API.general.logger import log_error
 from ApartmentManager.backend.SQL_API.rental.rental_orm_models import PersonalData, Contract, Tenancy, Apartment
 from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
 from ApartmentManager.backend.AI_API.general.ai_client import LlmClient
+from ApartmentManager.backend.AI_API.general.error_texts import APIError
 
 class GeminiClient:
     #class GeminiClient(AIClient, ABC):
@@ -61,7 +64,7 @@ class GeminiClient:
         Gives the user a response using data, retrieved from a function, being called by LLM.
         :param user_question: Question from the user
         :param system_prompt: Combined system prompt
-        :return: JSON with human like text answer containing the data retrieved from the function.
+        :return: JSON with human-like text answer containing the data retrieved from the function.
         If no function call is made, returns a plain text answer with the reason why it was not possible.
         """
         func_call_response = self.function_call_service.try_call_function(user_question, system_prompt)
@@ -116,43 +119,18 @@ class GeminiClient:
                         break
 
             if llm_answer:
-                result = {
-                    "type": "text",
-                    "result": {
-                        "message": llm_answer
-                    },
-                    "meta": {
-                        "model": self.model_name
-                    }
-                }
+                result = build_text_answer(message=llm_answer,
+                                           model=self.model_name,
+                                           answer_source="llm")
             else:
-                print(ErrorCode.LLM_ERROR_NO_TEXT_ANSWER)
-
-                result= {
-                    "type": "text",
-                    "result": {
-                        "message": "LLM did not have a text answer."
-                    },
-                    "meta": {
-                        "model": self.model_name
-                    },
-                    "error": {"code": ErrorCode.LLM_ERROR_NO_TEXT_ANSWER}
-                }
+                trace_id = log_error(ErrorCode.LLM_ERROR_NO_TEXT_ANSWER)
+                raise APIError(ErrorCode.LLM_ERROR_NO_TEXT_ANSWER, trace_id)
 
             return result
 
         except Exception as error:
-            print(ErrorCode.LLM_RESPONSE_INTERPRETATION_ERROR, ": ", repr(error))
-            return {
-                "type": "error",
-                "result": {
-                    "message": llm_answer
-                },
-                "meta": {
-                    "model": self.model_name
-                },
-                "error": {"code": ErrorCode.LLM_RESPONSE_INTERPRETATION_ERROR + ": " + repr(error)}
-            }
+            trace_id = log_error(ErrorCode.LLM_RESPONSE_INTERPRETATION_ERROR, exception=error)
+            raise APIError(ErrorCode.LLM_RESPONSE_INTERPRETATION_ERROR, trace_id)
 
     def get_crud_in_user_question(self, user_question: str) -> dict:
         """
@@ -167,7 +145,7 @@ class GeminiClient:
 
     def generate_prompt_for_create_entity(self, crud_intent: dict) -> str | dict:
         """
-        Analyzes the CRUD intent for creation an entity (person, contract ect.)
+        Analyzes the CRUD intent for creation of an entity (person, contract ect.)
         and generates a system prompt containing dynamic fields for an entity.
         :param crud_intent: Dictionary containing which CRUD operations that should be done.
         When an operation is "CREATE" = True, then which entity should be created.
@@ -180,34 +158,30 @@ class GeminiClient:
             if create_entity_active:
                 type_of_data = (crud_intent or {}).get("create").get("type", "")
                 if type_of_data == "person":
-                    class_fields = PersonalData.fields_dict()
+                    all_fields = PersonalData.fields_dict()
+                    required_fields = PersonalData.required_fields()
                 elif type_of_data == "contract":
-                    class_fields = Contract.fields_dict()
+                    all_fields = Contract.fields_dict()
+                    required_fields = Contract.required_fields()
                 elif type_of_data == "tenancy":
-                    class_fields = Tenancy.fields_dict()
+                    all_fields = Tenancy.fields_dict()
+                    required_fields = Tenancy.required_fields()
                 elif type_of_data == "apartment":
-                    class_fields = Apartment.fields_dict()
+                    all_fields = Apartment.fields_dict()
+                    required_fields = Apartment.required_fields()
                 else:
-                    raise Exception("Error: not allowed fields for creating new entry in database.")
+                    trace_id = log_error(ErrorCode.SQL_NOT_ALLOWED_FIELDS)
+                    raise APIError(ErrorCode.SQL_NOT_ALLOWED_FIELDS, trace_id)
 
-                if class_fields:
+                if all_fields:
                     # Inject the class fields in a prompt
-                    system_prompt = prompting.inject_fields_to_create_prompt(class_fields)
+                    system_prompt = prompting.inject_fields_to_create_prompt(all_fields, required_fields)
 
                 return system_prompt
             return None
         except Exception as error:
-            print(ErrorCode.ERROR_INJECTING_FIELDS_TO_PROMPT + " :", repr(error))
-            return {
-                "type": "error",
-                "result": {
-                    "message": system_prompt
-                },
-                "meta": {
-                    "model": self.model_name
-                },
-                "error": {"code": ErrorCode.ERROR_INJECTING_FIELDS_TO_PROMPT + ": " + repr(error)}
-            }
+            trace_id = log_error(ErrorCode.ERROR_INJECTING_FIELDS_TO_PROMPT, exception=error)
+            raise APIError(ErrorCode.ERROR_INJECTING_FIELDS_TO_PROMPT, trace_id)
 
     def answer_general_questions(self, user_question: str, system_prompt: str) -> dict:
         """
@@ -216,14 +190,14 @@ class GeminiClient:
         If no data bank calling was done, then it responds to the question directly.
         :param user_question: Question from the user.
         :param system_prompt: System prompt with instructions for function calling.
-        :return: Data from the database as dictionary.
+        :return: Data from the database as a dictionary.
         """
         result = None
         llm_answer_in_text_format = None
         func_call_data_or_llm_text_dict = None
 
         try:
-            # STEP 1: LLM generates an answer as dict with possible function call inside using GET tool
+            # STEP 1: LLM generates an answer as dict with the possible function call inside using GET tool
             func_call_data_or_llm_text_dict = self.process_function_call_request(user_question, system_prompt)
 
             func_result = (func_call_data_or_llm_text_dict or {}).get("result")
@@ -231,17 +205,8 @@ class GeminiClient:
             llm_answer_in_text_format = not has_func_call_flag
 
         except Exception as error:
-            print(ErrorCode.ERROR_CALLING_FUNCTION + " :", repr(error))
-            return {
-                "type": "error",
-                "result": {
-                    "message": func_call_data_or_llm_text_dict
-                },
-                "meta": {
-                    "model": self.model_name
-                },
-                "error": {"code": ErrorCode.ERROR_CALLING_FUNCTION + ": " + repr(error)}
-            }
+            trace_id = log_error(ErrorCode.ERROR_CALLING_FUNCTION, exception=error)
+            raise APIError(ErrorCode.ERROR_CALLING_FUNCTION, trace_id)
 
         try:
             # Scenario 1: LLM answered with plain text without function call
@@ -256,18 +221,10 @@ class GeminiClient:
                 # LLM is interpreting the data from function call to the human language.
                 # Dictionary with data for the interpretation is taken from the conversation history.
                 result = self.get_textual_llm_response(user_question, system_prompt)
+
         except Exception as error:
-            print(ErrorCode.ERROR_INTERPRETING_THE_FUNCTION_CALL + " :",repr(error))
-            return {
-                "type": "error",
-                "result": {
-                    "message": result
-                },
-                "meta": {
-                    "model": self.model_name
-                },
-                "error": {"code": ErrorCode.ERROR_INTERPRETING_THE_FUNCTION_CALL +" :" + repr(error)}
-            }
+            trace_id = log_error(ErrorCode.ERROR_INTERPRETING_THE_FUNCTION_CALL, exception=error)
+            raise APIError(ErrorCode.ERROR_INTERPRETING_THE_FUNCTION_CALL, trace_id)
 
         # STEP 2: Unified logging
         llm_answer_str = json.dumps(result, indent=2, ensure_ascii=False, default=str)
@@ -291,19 +248,20 @@ class GeminiClient:
                 llm_answer=llm_answer_str
             )
         except Exception as error:
-            print(ErrorCode.LOG_ERROR_FOR_FUNCTION_CALLING + " :",repr(error))
+            trace_id = log_error(ErrorCode.LOG_ERROR_FOR_FUNCTION_CALLING, exception=error)
+            raise APIError(ErrorCode.LOG_ERROR_FOR_FUNCTION_CALLING, trace_id)
 
         return result
 
     def process_show_request(self, user_question: str, system_prompt: str) -> dict | None:
         """
         Analyzes if the user question contains the data type, that should be shown.
-        Asks the user for missing data type if it is not in the show request.
+        Asks the user for the missing data type if it is not in the show request.
         It uses a predefined scheme for checking fields.
         :param user_question: Question from the user.
         :param system_prompt: System prompt with instructions for gathering missing data.
         :return: Dictionary structure with check status and data type.
-        # The answer structure corresponds the predefined scheme.
+        # The answer structure corresponds to the predefined scheme.
         """
         display_data_scheme = types.Schema(
             title="data_to_show",
@@ -320,7 +278,6 @@ class GeminiClient:
             required=["checked", "type"]
         )
 
-        llm_response = None
         try:
             llm_response = self.structured_output_service.get_structured_llm_response(user_question,
                                                                                       system_prompt,
@@ -328,17 +285,8 @@ class GeminiClient:
             return llm_response
 
         except Exception as error:
-            print(ErrorCode.LLM_ERROR_COLLECTING_TYPE_OF_DATA_TO_SHOW + " :", repr(error))
-            return {
-                "type": "error",
-                "result": {
-                    "message": llm_response
-                },
-                "meta": {
-                    "model": self.model_name
-                },
-                "error": {"code": ErrorCode.LLM_ERROR_COLLECTING_TYPE_OF_DATA_TO_SHOW + " :" + repr(error)}
-            }
+            trace_id = log_error(ErrorCode.LLM_ERROR_COLLECTING_TYPE_OF_DATA_TO_SHOW, exception=error)
+            raise APIError(ErrorCode.LLM_ERROR_COLLECTING_TYPE_OF_DATA_TO_SHOW, trace_id)
 
     def process_create_request(self, user_question: str, system_prompt: str) -> dict | None:
         """
@@ -366,14 +314,5 @@ class GeminiClient:
             return llm_response
 
         except Exception as error:
-            print(ErrorCode.LLM_ERROR_COLLECTING_DATA_TO_CREATE_ENTITY + " :", repr(error))
-            return {
-                "type": "error",
-                "result": {
-                    "message": "LLM could not generate a response."
-                },
-                "meta": {
-                    "model": self.model_name
-                },
-                "error": {"code": ErrorCode.LLM_ERROR_COLLECTING_DATA_TO_CREATE_ENTITY + " :" + repr(error)}
-            }
+            trace_id = log_error(ErrorCode.LLM_ERROR_COLLECTING_DATA_TO_CREATE_ENTITY, exception=error)
+            raise APIError(ErrorCode.LLM_ERROR_COLLECTING_DATA_TO_CREATE_ENTITY, trace_id)

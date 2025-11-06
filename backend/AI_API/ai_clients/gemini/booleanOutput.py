@@ -3,7 +3,8 @@ import json
 from google import genai
 from google.genai import types
 import ApartmentManager.backend.AI_API.general.prompting as prompting
-from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode
+from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
+from ApartmentManager.backend.AI_API.general.logger import log_error
 from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
 
 class BooleanOutput:
@@ -20,7 +21,7 @@ class BooleanOutput:
         self.session_contents = session_contents
         self.temperature = temperature
 
-        # Schema as SDK object (used in request config)
+        # Schema as an SDK object (used in request config)
         self.schema_boolean = types.Schema(
             title="intent_flags",
             type=types.Type.OBJECT,
@@ -81,14 +82,9 @@ class BooleanOutput:
                 contents=[user_content],
                 config=boolean_llm_config,
             )
-        except ValueError as boolean_error:
-            print(ErrorCode.LLM_ERROR_RETRIEVING_BOOLEAN_RESPONSE, repr(boolean_error))
-            return {
-                "type": "error",
-                "result": {"message": "Sorry, I couldn’t craft a response this time."},
-                "meta": {"model": self.model},
-                "error": {"code": ErrorCode.LLM_ERROR_RETRIEVING_BOOLEAN_RESPONSE +" :" + repr(boolean_error)}
-            }
+        except Exception as error:
+            trace_id = log_error(ErrorCode.LLM_ERROR_RETRIEVING_BOOLEAN_RESPONSE, exception=error)
+            raise APIError(ErrorCode.LLM_ERROR_RETRIEVING_BOOLEAN_RESPONSE, trace_id)
 
         try:
             # Scenario 1: SDK has the parsed version of the answer, get it
@@ -99,14 +95,9 @@ class BooleanOutput:
                 llm_answer_text = llm_answer.candidates[0].content.parts[0].text
                 llm_answer_crud = json.loads(llm_answer_text)
 
-        except Exception as parsing_error:
-            print(ErrorCode.ERROR_PARSING_BOOLEAN_RESPONSE, repr(parsing_error))
-            return {
-                "type": "error",
-                "result": {"message": "Sorry, I couldn’t craft a response this time."},
-                "meta": {"model": self.model},
-                "error": {"code": ErrorCode.ERROR_PARSING_BOOLEAN_RESPONSE +" :" + repr(parsing_error)}
-            }
+        except Exception as error:
+            trace_id = log_error(ErrorCode.ERROR_PARSING_BOOLEAN_RESPONSE, exception=error)
+            raise APIError(ErrorCode.ERROR_PARSING_BOOLEAN_RESPONSE, trace_id)
 
         try:
             llm_answer_crud_str = json.dumps(llm_answer_crud, indent=2, ensure_ascii=False, default=str)
@@ -118,8 +109,8 @@ class BooleanOutput:
                 backend_response="---",
                 llm_answer=llm_answer_crud_str
             )
-        except Exception as log_error:
-            # Log and return controlled error
-            print(ErrorCode.LOG_ERROR_FOR_BOOLEAN_RESPONSE, repr(log_error))
+        except Exception as error:
+            trace_id = log_error(ErrorCode.LOG_ERROR_FOR_BOOLEAN_RESPONSE, exception=error)
+            raise APIError(ErrorCode.LOG_ERROR_FOR_BOOLEAN_RESPONSE, trace_id)
 
         return llm_answer_crud

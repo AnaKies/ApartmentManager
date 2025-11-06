@@ -1,9 +1,14 @@
 import json
+from logging import exception
+
 from ApartmentManager.backend.AI_API.ai_clients.gemini.gemini_client import GeminiClient
 from ApartmentManager.backend.AI_API.general import prompting
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode
 from ApartmentManager.backend.SQL_API.rental.CRUD.read import get_persons, get_apartments, get_tenancies, get_contract
 from ApartmentManager.backend.SQL_API.rental.CRUD.create import create_person
+from ApartmentManager.backend.AI_API.general.error_texts import APIError
+from ApartmentManager.backend.AI_API.general.api_data_type import build_text_answer, build_data_answer
+from ApartmentManager.backend.AI_API.general.logger import log_error, log_warning
 
 class ConversationState:
     show_state = False
@@ -30,9 +35,9 @@ class LlmClient:
 
     def get_llm_answer(self, user_question: str) -> dict:
         """
-        Get response of the LLM model on user's question.
+        Get a response of the LLM model on the user's question.
         :param user_question: User question.
-        :return: Envelope with type: "text" | "data"
+        :return: Envelope with the type: "text" | "data"
         """
         result = None
         ran_crud_check = False
@@ -41,7 +46,7 @@ class LlmClient:
         try:
             # If one of the CRUD states is active, do not perform the CRUD check
             # Reason: a single CRUD state can consist of multiple conversation-cycles/iterations
-            # At the start even default state is False -> the CRUD check is always done at the start
+            # At the start even the default state is False -> the CRUD check is always done at the start
 
             # Check no active CRUD state
             is_any_active = any([
@@ -51,7 +56,7 @@ class LlmClient:
                 ConversationState.delete_state
             ])
             if not is_any_active:
-                # STEP 1: LLM checks if user asks for one of CRUD operations
+                # STEP 1: LLM checks if a user asks for one of CRUD operations
                 self.crud_intent = self.llm_client.get_crud_in_user_question(user_question)
                 ran_crud_check = True
 
@@ -92,17 +97,8 @@ class LlmClient:
             #       we DO NOT touch the existing ConversationState flags here.
 
         except Exception as error:
-            print(ErrorCode.LLM_ERROR_GETTING_CRUD_RESULT + " :",repr(error))
-            return {
-                "type": "error",
-                "result": {
-                    "message": self.crud_intent
-                },
-                "meta": {
-                    "model": self.model
-                },
-                "error": {"code": ErrorCode.LLM_ERROR_GETTING_CRUD_RESULT +" :" + repr(error)}
-            }
+            trace_id = log_error(ErrorCode.LLM_ERROR_GETTING_CRUD_RESULT, error)
+            raise APIError(ErrorCode.LLM_ERROR_GETTING_CRUD_RESULT, trace_id)
 
         try:
             # TODO change to switch/case
@@ -118,7 +114,7 @@ class LlmClient:
                 # Multiple conversation cycles logic.
                 response = self.llm_client.process_create_request(user_question, system_prompt)
 
-                # First open the envelope of the structured output service
+                # First, open the envelope of the structured output service
                 result_output = (response or {}).get("result")
                 payload_struct_output = (result_output or {}).get("payload")
                 llm_comment_to_payload = (payload_struct_output or {}).get("comment")
@@ -138,86 +134,48 @@ class LlmClient:
 
                         if creation_action_flag:
                             id_person = (creation_action_data or {}).get("person_id")
-                            result = {
-                                "type": "text",
-                                "result": {
-                                    "message": f"Person with ID {id_person} was created successfully."
-                                },
-                                "meta": {
-                                    "model": self.model
-                                }
-                            }
+                            result = build_text_answer(message=f"Person with ID {id_person} was created successfully.",
+                                                        model=self.model,
+                                                        answer_source="backend")
 
                             ConversationState.create_state = False
                         else: # Creation flag is not active
-                            print(ErrorCode.SQL_ERROR_CREATING_NEW_PERSON)
-                            result = {
-                                "type": "error",
-                                "result": {
-                                    "message": llm_comment_to_payload
-                                },
-                                "meta": {
-                                    "model": self.model
-                                },
-                                "error": {"code": ErrorCode.SQL_ERROR_CREATING_NEW_PERSON}
-                            }
+                            trace_id = log_error(ErrorCode.SQL_ERROR_CREATING_NEW_PERSON, exception=None)
+                            raise APIError(ErrorCode.SQL_ERROR_CREATING_NEW_PERSON, trace_id)
+
                 # STEP 5: Wait for new conversation cycle until user provided all data
-                # and LLM set flag redy_to_post.
+                # and LLM set the flag redy_to_post.
                 # Return the actual comment of the LLM, which should ask for missing data
                 else:
                     ConversationState.create_state = True  # keep collecting until confirmation
-                    result = {
-                        "type": "text",
-                        "result": {
-                            "message": llm_comment_to_payload
-                        },
-                        "meta": {
-                            "model": self.model
-                        }
-                    }
+                    result = build_text_answer(message=llm_comment_to_payload,
+                                                   model=self.model,
+                                                   answer_source="llm")
 
             elif ConversationState.delete_state:
                 # Generate prompt for DELETE operation
                 if result:
                     ConversationState.delete_state = False
-                result = {
-                    "type": "error",
-                    "result": {
-                        "message": "Not implemented"
-                    },
-                    "meta": {
-                        "model": self.model
-                    },
-                    "error": {"code": ErrorCode.WARNING_NOT_IMPLEMENTED}
-                }
+                log_warning(ErrorCode.WARNING_NOT_IMPLEMENTED)
+                raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED)
 
             elif ConversationState.update_state:
                 # Generate prompt for UPDATE operation
                 if result:
                     ConversationState.update_state = False
-                result = {
-                    "type": "error",
-                    "result": {
-                        "message": "Not implemented"
-                    },
-                    "meta": {
-                        "model": self.model
-                    },
-                    "error": {"code": ErrorCode.WARNING_NOT_IMPLEMENTED}
-                }
+                log_warning(ErrorCode.WARNING_NOT_IMPLEMENTED)
+                raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED)
 
             elif ConversationState.show_state:
                 sql_answer = None
-                payload = None
 
                 # STEP 1: Data preparation
                 system_prompt = json.dumps(prompting.SHOW_TYPE_CLASSIFIER_PROMPT, indent=2, ensure_ascii=False)
-                # LLM checks if the data type to show is provided by the user
+                # LLM checks if the user provides the data type to show
                 prepare_data_to_show = self.llm_client.process_show_request(user_question, system_prompt)
 
                 # STEP 2: Action of the back-end
                 missing_request = None
-
                 # Analyzes what type of data should be shown and does the SQL calls
                 if ((prepare_data_to_show.get("result") or {}).get("payload") or {}).get("checked"):
                     data_type_to_show = ((prepare_data_to_show.get("result") or {}).get("payload") or {}).get("type")
@@ -230,65 +188,32 @@ class LlmClient:
                     elif data_type_to_show == "contract":
                         sql_answer = get_contract()
                 else:
-                    # Return the request, that did not fit to the types above
+                    # Return the request that did not fit to the types above
                     missing_request = ((prepare_data_to_show.get("result") or {}).get("payload") or {}).get("message")
 
                 if sql_answer :
                     payload = [element.to_dict() for element in sql_answer]
                     ConversationState.show_state = False
 
-                    result = {
-                        "type": "data",
-                        "result": {
-                            "payload": payload
-                        },
-                        "meta": {
-                            "model": self.model
-                        }
-                    }
+                    result = build_data_answer(payload=payload or {},
+                                                payload_comment=missing_request or "-",
+                                                model=self.model,
+                                                answer_source="llm")
+
                 else:
-                    print(ErrorCode.TYPE_ERROR_CREATING_NEW_ENTRY)
-                    result = {
-                        "type": "error",
-                        "result": {
-                            "message": missing_request
-                        },
-                        "meta": {
-                            "model": self.model
-                        },
-                        "error": {"code": ErrorCode.TYPE_ERROR_CREATING_NEW_ENTRY}
-                    }
+                    trace_id = log_error(ErrorCode.TYPE_ERROR_CREATING_NEW_ENTRY)
+                    raise APIError(ErrorCode.TYPE_ERROR_CREATING_NEW_ENTRY, trace_id)
 
             elif ConversationState.default_state:
                 # New system prompt providing a structured output for collected data
                 system_prompt = json.dumps(prompting.GET_FUNCTION_CALL_PROMPT, indent=2, ensure_ascii=False)
                 # State machine for general questions
                 result = self.llm_client.answer_general_questions(user_question, system_prompt)
-
         except Exception as error:
-            print(ErrorCode.ERROR_PERFORMING_CRUD_OPERATION + " :",repr(error))
-            return {
-                "type": "error",
-                "result": {
-                    "message": self.crud_intent
-                },
-                "meta": {
-                    "model": self.model
-                },
-                "error": {"code": ErrorCode.ERROR_PERFORMING_CRUD_OPERATION +" :" + repr(error)}
-            }
+            trace_id = log_error(ErrorCode.ERROR_PERFORMING_CRUD_OPERATION, exception=error)
+            raise APIError(ErrorCode.ERROR_PERFORMING_CRUD_OPERATION, trace_id)
 
         if not result:
-            print(ErrorCode.LLM_ERROR_EMPTY_ANSWER)
-            result = {
-                "type": "error",
-                "result": {
-                    "message": "Empty LLM answer"
-                },
-                "meta": {
-                    "model": self.model
-                },
-                "error": {"code": ErrorCode.LLM_ERROR_EMPTY_ANSWER}
-            }
-
+            trace_id = log_error(ErrorCode.LLM_ERROR_EMPTY_ANSWER)
+            raise APIError(ErrorCode.LLM_ERROR_EMPTY_ANSWER, trace_id)
         return result

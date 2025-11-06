@@ -1,7 +1,10 @@
 import json
 from google import genai
 from google.genai import types
-from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode
+
+from ApartmentManager.backend.AI_API.general.api_data_type import build_data_answer
+from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
+from ApartmentManager.backend.AI_API.general.logger import log_error
 from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
 
 class StructuredOutput:
@@ -57,43 +60,19 @@ class StructuredOutput:
             llm_response = response_content.parts[0].text
 
         except Exception as error:
-            # Log and return controlled error
-            print(ErrorCode.LLM_ERROR_RETRIEVING_STRUCTURED_RESPONSE, repr(error))
-            return {
-                "type": "error",
-                "result": {
-                    "message": llm_response if llm_response else "No LLM response"
-                },
-                "meta": {
-                    "model": self.model
-                },
-                "error": {"code": ErrorCode.LLM_ERROR_RETRIEVING_STRUCTURED_RESPONSE +" :" + repr(error)}
-            }
+            trace_id = log_error(ErrorCode.LLM_ERROR_RETRIEVING_STRUCTURED_RESPONSE, exception=error)
+            raise APIError(ErrorCode.LLM_ERROR_RETRIEVING_STRUCTURED_RESPONSE, trace_id)
 
-        structured_data = None
         try:
             structured_data = json.loads(llm_response)
-            result =  {
-                "type": "data",
-                "result": {
-                    "payload": structured_data
-                },
-                "meta": {
-                    "model": self.model
-                }
-            }
+
+            result = build_data_answer(payload=structured_data or {},
+                                       payload_comment="-",
+                                       model=self.model,
+                                       answer_source="llm")
         except json.JSONDecodeError as error:
-            print(ErrorCode.ERROR_DECODING_THE_STRUCT_ANSWER_TO_JSON, repr(error))
-            result = {
-                "type": "error",
-                "result": {
-                    "message": llm_response
-                },
-                "meta": {
-                    "model": self.model
-                },
-                "error": {"code": ErrorCode.ERROR_DECODING_THE_STRUCT_ANSWER_TO_JSON +" :" + repr(error)}
-            }
+            trace_id = log_error(ErrorCode.ERROR_DECODING_THE_STRUCT_ANSWER_TO_JSON, exception=error)
+            raise APIError(ErrorCode.ERROR_DECODING_THE_STRUCT_ANSWER_TO_JSON, trace_id)
 
         try:
             # Add AI answer to logs
@@ -110,6 +89,7 @@ class StructuredOutput:
                 llm_answer=struct_output_str
             )
         except Exception as error:
-            print(ErrorCode.LOG_ERROR_FOR_STRUCTURED_RESPONSE, repr(error))
+            trace_id = log_error(ErrorCode.LOG_ERROR_FOR_STRUCTURED_RESPONSE, exception=error)
+            raise APIError(ErrorCode.LOG_ERROR_FOR_STRUCTURED_RESPONSE, trace_id)
 
         return result

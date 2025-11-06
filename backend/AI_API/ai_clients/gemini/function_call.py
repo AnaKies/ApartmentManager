@@ -2,7 +2,9 @@ import json
 from google import genai
 from google.genai import types
 import ApartmentManager.backend.AI_API.general.prompting as prompting
-from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode
+from ApartmentManager.backend.AI_API.general.api_data_type import build_data_answer, build_text_answer
+from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
+from ApartmentManager.backend.AI_API.general.logger import log_error
 from ApartmentManager.backend.RESTFUL_API import execute
 
 class FunctionCallService:
@@ -163,40 +165,24 @@ class FunctionCallService:
                 func_calling_result = self._do_call_function(func_call_obj)
 
             except Exception as error:
-                print(ErrorCode.LLM_ERROR_DOING_FUNCTION_CALL, repr(error))
-                return {
-                    "type": "error",
-                    "result": {"message": "Sorry, I couldn’t craft a response this time."},
-                    "meta": {"model": self.model},
-                    "error": {"code": ErrorCode.LLM_ERROR_DOING_FUNCTION_CALL +" :" + repr(error)}
-                }
+                trace_id = log_error(ErrorCode.LLM_ERROR_DOING_FUNCTION_CALL, exception=error)
+                raise APIError(ErrorCode.LLM_ERROR_DOING_FUNCTION_CALL, trace_id)
 
             # STEP 3: Return envelope for the LLM answers
             # The answer can contain the data from the function call.
-            result = {
-                "type": "data",
-                "result": {
-                    "function_call": True,
-                    "payload": func_calling_result
-                },
-                "meta": {
-                    "model": self.model
-                }
-            }
+            result = build_data_answer(payload=func_calling_result or {},
+                                       payload_comment="-",
+                                       model=self.model,
+                                       answer_source="llm",
+                                       function_call=True)
         else: # no function call
             # STEP 4a: Return envelope for the LLM answer
             # The answer can contain the simple text,
             # as the LLM decided to don't call the function.
 
             llm_answer_without_func_call = FunctionCallService._filter_text_from_llm_response(response_func_candidate)
-            result = {
-                "type": "text",
-                "result": {
-                    "function_call": False,
-                    "message": llm_answer_without_func_call
-                },
-                "meta": {
-                    "model": self.model
-                }
-            }
+
+            result = build_text_answer(message=llm_answer_without_func_call,
+                                       model=self.model,
+                                       answer_source="llm")
         return result

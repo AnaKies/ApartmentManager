@@ -55,6 +55,12 @@ class Apartment(Rental_Base):
             "utility_billing_provider_id": None
         }
 
+    @staticmethod
+    def required_fields():
+        return {
+            "address": None,
+        }
+
 class Tenancy(Rental_Base):
     __tablename__ = "tenancy"
     # automatically autoincrement for infinity number of tenancies
@@ -107,6 +113,12 @@ class Tenancy(Rental_Base):
             "comment": None
         }
 
+    @staticmethod
+    def required_fields():
+        return {
+            "move_in_date": None,
+        }
+
 class PersonalData(Rental_Base):
     __tablename__ = "personal_data"
     # automatically autoincrement for infinity number of persons
@@ -154,6 +166,12 @@ class PersonalData(Rental_Base):
             "comment": None
         }
 
+    @staticmethod
+    def required_fields():
+        return {
+            "last_name": None,
+        }
+
 class Contract(Rental_Base):
     __tablename__ = "rent_data"
     # automatically autoincrement for infinity number of rents
@@ -199,4 +217,10 @@ class Contract(Rental_Base):
             "garage": None,
             "parking_spot": None,
             "comment": None
+        }
+
+    @staticmethod
+    def required_fields():
+        return {
+            "net_rent": None,
         }
