@@ -2,7 +2,6 @@ const API_BASE = 'http://127.0.0.1:5003';
 
 const { useState, useEffect, useRef, useMemo } = React;
 
-function dbg(...args){ try{ console.debug('[FE]', ...args);}catch(e){} }
 
 function classNames(...a){ return a.filter(Boolean).join(' '); }
 
@@ -320,12 +319,6 @@ function ChatPanel({ onSend, messages, loading }){
 
   useEffect(()=>{ messagesEndRef.current?.scrollIntoView({behavior:'smooth'}); },[messages,loading]);
 
-  useEffect(()=>{
-    try{
-      const last = messages[messages.length-1];
-      dbg('ChatPanel messages changed', { count: messages.length, lastRole: last && last.role, lastIsError: last && last.isError, lastPreview: last && typeof last.content === 'string' ? last.content.slice(0,120) : last });
-    }catch(e){}
-  }, [messages]);
 
   useEffect(()=>{
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -381,13 +374,11 @@ function App(){
   const [modal,setModal] = useState({open:false,title:'',message:''});
 
   function addMessage(role, content, isError = false){
-    dbg('addMessage()', { role, isError, preview: typeof content === 'string' ? content.slice(0,120) : content });
     setMessages(prev=>[...prev,{role, content, isError}]);
   }
 
 async function sendToApi(userText) {
   const controller = new AbortController();
-  dbg('sendToApi() start', { userText });
   const timeoutId = setTimeout(() => controller.abort(), 30000);
   setLoading(true);
   addMessage('user', userText);
@@ -399,7 +390,6 @@ async function sendToApi(userText) {
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
-    dbg('HTTP response', { ok: res.ok, status: res.status, statusText: res.statusText });
 
     if (!res.ok) {
       const errText = res.status === 400
@@ -411,9 +401,7 @@ async function sendToApi(userText) {
     }
 
     const data = await res.json();
-    dbg('parsed JSON', data);
 
-    dbg('data.type', data && data.type);
     if (!data || !data.type) {
       addMessage('assistant', 'Unknown response format from server', true);
       return;
@@ -421,7 +409,6 @@ async function sendToApi(userText) {
 
     switch (data.type) {
       case 'error': {
-        dbg('branch:error');
         const traceId = data.trace_id
           ? `Trace ID: ${data.trace_id}`
           : 'Trace ID: unavailable';
@@ -449,36 +436,30 @@ async function sendToApi(userText) {
       }
 
       case 'text': {
-        dbg('branch:text');
         // Normal chat response from the model
         const msg = (data.result && (data.result.message || data.result.text || data.result.content))
           || data.message
           || '✅ Received empty response from model.';
-        dbg('text message to add', { msgPreview: typeof msg === 'string' ? msg.slice(0,200) : msg });
         addMessage('assistant', msg, false);
         break;
       }
 
       case 'data': {
-        dbg('branch:data');
         // Structured data for the left pane viewer
         setDataEnvelope(data);
         const note = (data.result && data.result.message)
           ? data.result.message
           : '📊 Received structured data.';
-        dbg('data envelope set', { hasResult: !!data.result, keys: Object.keys(data || {}) });
         addMessage('assistant', note, false);
         break;
       }
 
       default: {
-        dbg('branch:default');
         addMessage('assistant', `Unsupported response type: ${String(data.type)}`, true);
       }
     }
   } catch (err) {
     clearTimeout(timeoutId);
-    dbg('sendToApi() error', { name: err && err.name, message: err && err.message });
     setModal({
       open: true,
       title: 'Request error',
