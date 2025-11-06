@@ -2,7 +2,7 @@ import logging
 import os
 from logging.handlers import RotatingFileHandler
 from contextvars import ContextVar
-from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode
+from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
 
 LOG_NAME = "apartment_manager"
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
@@ -15,9 +15,9 @@ class TraceIdOptionalFilter(logging.Filter):
         if not hasattr(record, "trace_id"):
             record.trace_id = _ensure_trace_id()
         if not hasattr(record, "error_code"):
-            record.error_code = "-"
+            record.error_code = "no error code"
         if not hasattr(record, "error_message"):
-            record.error_message = "-"
+            record.error_message = "no error message"
         return True
 
 def get_trace_id() -> str:
@@ -71,8 +71,8 @@ def _extend_log(error_description: ErrorCode, trace_id: str) -> dict:
         error_code, error_message = error_description.value
     return {
         "trace_id": trace_id,
-        "error_code": error_code if error_code is not None else "-",
-        "error_message": error_message if error_message is not None else "-",
+        "error_code": error_code if error_code is not None else "no error code:",
+        "error_message": error_message if error_message is not None else "no error message",
     }
 
 
@@ -108,8 +108,9 @@ def init_logging() -> logging.Logger:
 
     # What should be written to the log
     fmt = logging.Formatter(
-        fmt="%(asctime)s %(levelname)s [%(name)s] trace_id=%(trace_id)s "
-            "error_code=%(error_code)s error_message=%(error_message)s %(message)s",
+        fmt='File "%(pathname)s", line %(lineno)d, in %(funcName)s\n'
+            '%(asctime)s %(levelname)s [%(name)s] trace_id=%(trace_id)s '
+            'error_code=%(error_code)s error_message=%(error_message)s %(message)s',
         datefmt="%Y-%m-%dT%H:%M:%S"
     )
 
@@ -148,8 +149,8 @@ def get_logger() -> logging.Logger:
 
 def log_info(message: str) -> None:
     logger = get_logger()
-    extra = {"trace_id": _ensure_trace_id(), "error_code": "-", "error_message": "-"}
-    logger.info(message, extra=extra)
+    extra = {"trace_id": _ensure_trace_id(), "error_code": "no error code", "error_message": "no error message"}
+    logger.info(message, extra=extra, stacklevel=2)
 
 
 def log_warning(warning_details: ErrorCode) -> None:
@@ -157,21 +158,43 @@ def log_warning(warning_details: ErrorCode) -> None:
     extra = _extend_log(warning_details, _ensure_trace_id())
     logger.warning(
         msg=f"Error code: {extra['error_code']}, Error message: {extra['error_message']}",
-        extra=extra
+        extra=extra,
+        stacklevel=2
     )
 
-def log_error(error_details: ErrorCode, exception: Exception=None) -> str:
+def log_error(error_details: ErrorCode = None, exception: Exception = None) -> str:
+    """
+    Logs an error event. Requires at least one of `error_details` or `exception`.
+    Acceptable combinations:
+      1. error_details only
+      2. exception only
+      3. both together
+    """
+
+    if not (error_details or exception):
+        raise ValueError("log_error requires at least one of 'error_details' or 'exception'.")
+
     trace_id = _ensure_trace_id()
     logger = get_logger()
 
-    extra = _extend_log(error_details, trace_id)
-    message = f"Error code: {extra.get('error_code')}, Error message: {extra.get('error_message')}"
+    # If error_details exists, extend the log with it
+    extra = _extend_log(error_details, trace_id) if error_details else {
+        "trace_id": trace_id,
+        "error_code": "no error code",
+        "error_message": "no error message"
+    }
 
+    # Build message
+    parts = []
+    if error_details:
+        parts.append(f"Error code: {extra['error_code']}, Error message: {extra['error_message']}")
     if exception:
-        exc_info_tuple = (exception.__class__, exception, exception.__traceback__)
-    else:
-        exc_info_tuple = None
+        parts.append(f"Exception: {type(exception).__name__}: {exception}")
+    message = " | ".join(parts)
 
-    logger.error(message, exc_info=exc_info_tuple, extra=extra)
+    # Prepare traceback if exception is there
+    exc_info_tuple = (exception.__class__, exception, exception.__traceback__) if exception else None
+
+    logger.error(message, exc_info=exc_info_tuple, extra=extra, stacklevel=2)
 
     return trace_id

@@ -58,12 +58,14 @@ def build_data_answer(payload: Any,
     return result
 
 def build_error(code: int,
-                message: str):
+                message: str,
+                llm_model: str):
     error_block = ErrorBlock(code=code, message=message)
 
     env = EnvelopeError(
         type="error",
-        error=error_block
+        error=error_block,
+        llm_model=llm_model
     )
     result = env.model_dump()
     return result

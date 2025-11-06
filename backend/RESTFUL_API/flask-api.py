@@ -163,7 +163,9 @@ def get_apartments():
 @app.errorhandler(APIError)
 def handle_api_error(api_error: APIError):
     print(api_error)
-    result = build_error(api_error.code, api_error.error_message)
+    result = build_error(code=api_error.code,
+                         message=api_error.error_message,
+                         llm_model=ai_client.model)
 
     return result, 500
 
@@ -176,12 +178,14 @@ def handle_unexpected_error(general_error):
     # Full server log
     app.logger.exception(general_error)
 
-    # extract a message from general error
+    # extract a message from a general error
     message = getattr(general_error, "error_message", None) or str(general_error) or "Unexpected error"
 
-    result = build_error(-1, message)
+    result = build_error(code=-1,
+                         message=message,
+                         llm_model=ai_client.model)
 
     return result, 500
 
 if __name__ == '__main__':
-    app.run(host=HOST, port=PORT, debug=True)
+    app.run(host=HOST, port=PORT, debug=False)

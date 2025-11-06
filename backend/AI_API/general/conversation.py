@@ -156,14 +156,12 @@ class LlmClient:
                 # Generate prompt for DELETE operation
                 if result:
                     ConversationState.delete_state = False
-                log_warning(ErrorCode.WARNING_NOT_IMPLEMENTED)
                 raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED)
 
             elif ConversationState.update_state:
                 # Generate prompt for UPDATE operation
                 if result:
                     ConversationState.update_state = False
-                log_warning(ErrorCode.WARNING_NOT_IMPLEMENTED)
                 raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED)
 
             elif ConversationState.show_state:
@@ -209,6 +207,9 @@ class LlmClient:
                 system_prompt = json.dumps(prompting.GET_FUNCTION_CALL_PROMPT, indent=2, ensure_ascii=False)
                 # State machine for general questions
                 result = self.llm_client.answer_general_questions(user_question, system_prompt)
+        except APIError as api_error:
+            log_error(exception=api_error)
+            raise api_error
         except Exception as error:
             trace_id = log_error(ErrorCode.ERROR_PERFORMING_CRUD_OPERATION, exception=error)
             raise APIError(ErrorCode.ERROR_PERFORMING_CRUD_OPERATION, trace_id)
