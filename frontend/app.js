@@ -341,7 +341,18 @@ function ChatPanel({ onSend, messages, loading }){
     React.createElement('div',{className:'messages'},
       messages.map((m,idx)=> React.createElement('div',{
         key:idx,
-        className:classNames('msg', m.role, m.isError && 'error'),
+        className: classNames(
+          'msg',
+          m.role,
+          m.isError && 'error',
+          m.source === 'llm' && 'source-llm',
+          m.source === 'backend' && 'source-backend'
+        ),
+        style: (m.role === 'assistant' && m.source === 'backend')
+          ? { background: '#f3e8ff' }
+          : (m.role === 'assistant' && m.source === 'llm')
+          ? { background: '#f3f4f6' }
+          : undefined,
         ['data-testid']:`msg-${idx}-${m.role}`
       }, React.createElement('div',{dangerouslySetInnerHTML:{__html:renderBasicMarkdown(m.content)}}))),
       loading ? React.createElement('div',{className:'msg system'},'Assistant is thinking…') : null,
@@ -373,9 +384,9 @@ function App(){
   const [loading,setLoading] = useState(false);
   const [modal,setModal] = useState({open:false,title:'',message:''});
 
-  function addMessage(role, content, isError = false){
-    setMessages(prev=>[...prev,{role, content, isError}]);
-  }
+function addMessage(role, content, isError = false, source = null) {
+  setMessages(prev => [...prev, { role, content, isError, source }]);
+}
 
 async function sendToApi(userText) {
   const controller = new AbortController();
@@ -417,7 +428,9 @@ async function sendToApi(userText) {
           : 'LLM Model: unavailable';
 
         if (data.result && data.result.message) {
-          addMessage('assistant', data.result.message, false);
+          const rawSource = data.answer_source || data.answerSource || null;
+          const source = rawSource ? String(rawSource).toLowerCase() : null;
+          addMessage('assistant', data.result.message, false, source);
         }
 
         if (data.error) {
@@ -436,21 +449,23 @@ async function sendToApi(userText) {
       }
 
       case 'text': {
-        // Normal chat response from the model
         const msg = (data.result && (data.result.message || data.result.text || data.result.content))
           || data.message
-          || '✅ Received empty response from model.';
-        addMessage('assistant', msg, false);
+          || 'Received empty response from model.';
+        const rawSource = data.answer_source || data.answerSource || null;
+        const source = rawSource ? String(rawSource).toLowerCase() : null;
+        addMessage('assistant', msg, false, source);
         break;
       }
 
       case 'data': {
-        // Structured data for the left pane viewer
         setDataEnvelope(data);
         const note = (data.result && data.result.message)
           ? data.result.message
-          : '📊 Received structured data.';
-        addMessage('assistant', note, false);
+          : 'Received structured data.';
+        const rawSource = data.answer_source || data.answerSource || null;
+        const source = rawSource ? String(rawSource).toLowerCase() : null;
+        addMessage('assistant', note, false, source);
         break;
       }
 

@@ -70,4 +70,6 @@ body {
 
 @media (max-width: 960px) { .content { grid-template-columns: 1fr; } }
 
-
+/* Strong overrides to ensure source-based colors always win */
+.msg.assistant.source-llm { background: #f3f4f6 !important; }
+.msg.assistant.source-backend { background: #f3e8ff !important; }

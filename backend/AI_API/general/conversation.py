@@ -4,6 +4,7 @@ from logging import exception
 from ApartmentManager.backend.AI_API.ai_clients.gemini.gemini_client import GeminiClient
 from ApartmentManager.backend.AI_API.general import prompting
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode
+from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
 from ApartmentManager.backend.SQL_API.rental.CRUD.read import get_persons, get_apartments, get_tenancies, get_contract
 from ApartmentManager.backend.SQL_API.rental.CRUD.create import create_person
 from ApartmentManager.backend.AI_API.general.error_texts import APIError
@@ -137,6 +138,13 @@ class LlmClient:
                             result = build_text_answer(message=f"Person with ID {id_person} was created successfully.",
                                                         model=self.model,
                                                         answer_source="backend")
+                            create_new_log_entry(
+                                llm_model=self.model,
+                                user_question=user_question or "---",
+                                request_type="person creation request",
+                                backend_response=str(result),
+                                llm_answer="---"
+                            )
 
                             ConversationState.create_state = False
                         else: # Creation flag is not active
