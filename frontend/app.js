@@ -369,58 +369,64 @@ function App(){
 
   function addMessage(role, content, isError = false){ setMessages(prev=>[...prev,{role, content, isError}]); }
 
-  async function sendToApi(userText){
-    const controller = new AbortController();
-    const timeoutId = setTimeout(()=>controller.abort(), 30000);
-    setLoading(true);
-    addMessage('user', userText);
-    try{
-      const res = await fetch(`${API_BASE}/api/chat`,{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({user_input:userText}), signal: controller.signal });
-      clearTimeout(timeoutId);
-      if(!res.ok){ const errText = res.status===400? '`user_input` is required' : res.status===415? 'Content-Type must be application/json' : 'internal_error'; throw new Error(errText); }
-      const data = await res.json();
-      if (data && data.type === 'error') {
-        // First, show the message with a normal background if it exists
-        if (data.result && data.result.message) {
-          addMessage('assistant', data.result.message, false);
-        }
+async function sendToApi(userText) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  setLoading(true);
+  addMessage('user', userText);
+  try {
+    const res = await fetch(`${API_BASE}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_input: userText }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
 
-        // Then show the detailed error with a pink background
-        if (data.error) {
-          const errorCode = data.error.code || 'Unknown code';
-          const errorMessage = data.error.message || 'No message provided';
-          const traceId = data.error.trace_id ? `Trace ID: ${data.error.trace_id}` : ''; // Optional trace_id
-
-          addMessage(
-            'assistant',
-            `Error Code: ${errorCode}\nMessage: ${errorMessage}\n${traceId}`.trim(),
-            true
-          );
-        } else {
-          addMessage('assistant', 'Unknown error occurred', true);
-        }
-      } else if (data && data.type==='text' && data.result && typeof data.result.message==='string'){
-        addMessage('assistant', data.result.message);
-      } else if (data && data.type==='data' && data.result){
-        try {
-          const payload = data.result.payload;
-          const serialized = typeof payload==='string' ? payload : JSON.stringify(payload);
-          if (typeof payload==='string') { setDataEnvelope({type:'data', result:{payload:payload, schema:data.result.schema}}); addMessage('system','Data updated with error'); }
-          else if (serialized && serialized.length > 2000000) { setDataEnvelope({type:'data', result:{payload:{error:'Too large to display'}, schema:null}}); addMessage('system','Data updated with error'); }
-          else { setDataEnvelope({type:'data', result:{payload:payload, schema:data.result.schema}}); addMessage('system','Data updated'); }
-        } catch { setDataEnvelope({type:'data', result:{payload:'invalid', schema:null}}); addMessage('system','Data updated with error'); }
-      } else if (typeof data?.answer === 'string'){
-        addMessage('assistant', data.answer);
-      } else {
-        addMessage('assistant','');
-      }
-    }catch{
-      clearTimeout(timeoutId);
-      setModal({open:true,title:'Request error',message:'There was an error or timeout. Please re-enter your message in chat.'});
-    } finally {
-      setLoading(false);
+    if (!res.ok) { 
+      const errText = res.status === 400
+        ? '`user_input` is required'
+        : res.status === 415
+        ? 'Content-Type must be application/json'
+        : 'internal_error';
+      throw new Error(errText);
     }
+
+    const data = await res.json();
+
+    if (data && data.type === 'error') {
+      const traceId = data.trace_id
+        ? `Trace ID: ${data.trace_id}`
+        : 'Trace ID: unavailable';
+
+      if (data.result && data.result.message) {
+        addMessage('assistant', data.result.message, false);
+      }
+
+      if (data.error) {
+        const errorCode = data.error.code || 'Unknown code';
+        const errorMessage = data.error.message || 'No message provided';
+
+        addMessage(
+          'assistant',
+          `Error Code: ${errorCode}\nMessage: ${errorMessage}\n${traceId}`.trim(),
+          true
+        );
+      } else {
+        addMessage('assistant', 'Unknown error occurred', true);
+      }
+    }
+  } catch (err) {
+    clearTimeout(timeoutId);
+    setModal({
+      open: true,
+      title: 'Request error',
+      message: 'There was an error or timeout. Please re-enter your message in chat.',
+    });
+  } finally {
+    setLoading(false);
   }
+}
 
   return React.createElement('div',{className:'app'},
     React.createElement('header',{className:'header'}, React.createElement('h1',{className:'header-title'},'Apartment Manager')),
