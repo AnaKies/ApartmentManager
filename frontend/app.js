@@ -398,6 +398,9 @@ async function sendToApi(userText) {
       const traceId = data.trace_id
         ? `Trace ID: ${data.trace_id}`
         : 'Trace ID: unavailable';
+      const llmModel = data.llm_model
+        ? `LLM Model: ${data.llm_model}`
+        : 'LLM Model: unavailable';
 
       if (data.result && data.result.message) {
         addMessage('assistant', data.result.message, false);
@@ -409,7 +412,7 @@ async function sendToApi(userText) {
 
         addMessage(
           'assistant',
-          `Error Code: ${errorCode}\nMessage: ${errorMessage}\n${traceId}`.trim(),
+          `Error Code: ${errorCode}\nMessage: ${errorMessage}\n${traceId}\n${llmModel}`.trim(),
           true
         );
       } else {
