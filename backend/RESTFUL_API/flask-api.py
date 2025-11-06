@@ -167,7 +167,7 @@ def handle_api_error(api_error: APIError):
                          llm_model=ai_client.model,
                          trace_id=api_error.trace_id if hasattr(api_error, "trace_id") else "-")
 
-    return result, 500
+    return result, 200
 
 
 # universal handler for all exceptions that were not catch ->
@@ -185,7 +185,7 @@ def handle_unexpected_error(general_error):
                          llm_model=ai_client.model,
                          trace_id=general_error.trace_id if hasattr(general_error, "trace_id") else "-")
 
-    return result, 500
+    return result, 200
 
 if __name__ == '__main__':
     app.run(host=HOST, port=PORT, debug=False)

@@ -379,19 +379,26 @@ function App(){
       clearTimeout(timeoutId);
       if(!res.ok){ const errText = res.status===400? '`user_input` is required' : res.status===415? 'Content-Type must be application/json' : 'internal_error'; throw new Error(errText); }
       const data = await res.json();
-      if (data && data.type==='error'){
-        // First show the message with normal background if it exists
+      if (data && data.type === 'error') {
+        // First, show the message with a normal background if it exists
         if (data.result && data.result.message) {
           addMessage('assistant', data.result.message, false);
         }
-        // Then show the error code with pink background
-        let errorCode = '';
+
+        // Then show the detailed error with a pink background
         if (data.error) {
-          errorCode = typeof data.error === 'object' && data.error.code ? data.error.code : data.error;
+          const errorCode = data.error.code || 'Unknown code';
+          const errorMessage = data.error.message || 'No message provided';
+          const traceId = data.error.trace_id ? `Trace ID: ${data.error.trace_id}` : ''; // Optional trace_id
+
+          addMessage(
+            'assistant',
+            `Error Code: ${errorCode}\nMessage: ${errorMessage}\n${traceId}`.trim(),
+            true
+          );
         } else {
-          errorCode = 'Unknown error';
+          addMessage('assistant', 'Unknown error occurred', true);
         }
-        addMessage('assistant', `Error: ${errorCode}`, true);
       } else if (data && data.type==='text' && data.result && typeof data.result.message==='string'){
         addMessage('assistant', data.result.message);
       } else if (data && data.type==='data' && data.result){
@@ -427,5 +434,3 @@ function App(){
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(React.createElement(App));
-
-
