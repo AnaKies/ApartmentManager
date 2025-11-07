@@ -351,22 +351,19 @@ function ChatPanel({ onSend, messages, loading }){
         return React.createElement('div', {
           key: idx,
           className: msgClass,
-          style: (() => {
-            const s = { position: 'relative' };
-            if (m.role === 'assistant' && m.source === 'backend') s.background = '#f3e8ff';
-            else if (m.role === 'assistant' && m.source === 'llm') s.background = '#f3f4f6';
-            return s;
-          })(),
           ['data-testid']: `msg-${idx}-${m.role}`
         }, [
           (m.role === 'assistant' && m.source === 'llm')
-            ? React.createElement('div', { className: 'msg-label', style: { position:'absolute', top:6, left:8, padding:'0 4px', fontSize:8, lineHeight:1, fontWeight:500, fontStyle:'italic', textTransform:'uppercase', letterSpacing:'0.03em', opacity:.65, userSelect:'none', pointerEvents:'none', zIndex:1 } }, 'LLM')
+            ? React.createElement('div', { className: 'msg-label' }, 'LLM')
             : (m.role === 'assistant' && m.source === 'backend')
-            ? React.createElement('div', { className: 'msg-label', style: { position:'absolute', top:6, left:8, padding:'0 4px', fontSize:8, lineHeight:1, fontWeight:500, fontStyle:'italic', textTransform:'uppercase', letterSpacing:'0.03em', opacity:.65, userSelect:'none', pointerEvents:'none', zIndex:1 } }, 'backend')
+            ? React.createElement('div', { className: 'msg-label' }, 'backend')
             : (m.role === 'user')
-            ? React.createElement('div', { className: classNames('msg-label', 'right'), style: { position:'absolute', top:6, right:8, left:'auto', padding:'0 4px', fontSize:8, lineHeight:1, fontWeight:500, fontStyle:'italic', textTransform:'uppercase', letterSpacing:'0.03em', opacity:.65, userSelect:'none', pointerEvents:'none', zIndex:1 } }, 'you')
+            ? React.createElement('div', { className: classNames('msg-label', 'right') }, 'you')
             : null,
-          React.createElement('div', { dangerouslySetInnerHTML: { __html: renderBasicMarkdown(m.content) } })
+          React.createElement('div', {
+            className: 'msg-content',
+            dangerouslySetInnerHTML: { __html: renderBasicMarkdown(m.content) }
+          })
         ]);
       }),
       loading ? React.createElement('div',{className:'msg system'},'Assistant is thinking…') : null,

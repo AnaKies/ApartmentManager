@@ -5,6 +5,13 @@
   --radius: 16px;
   --shadow: 0 6px 18px rgba(0,0,0,0.08);
   --gap: 20px;
+
+  /* Role-coupled message appearance & label spacing */
+  --msg-bg-llm: #f3f4f6;        /* assistant (LLM) message background */
+  --msg-bg-backend: #f3e8ff;    /* assistant (backend) message background */
+  --msg-bg-user: #e0f2fe;       /* user message background */
+  --label-pad-top: 18px;        /* extra top padding for corner label */
+  --label-pad-side: 30px;       /* side padding to keep label off text */
 }
 
 * { box-sizing: border-box; }
@@ -49,8 +56,18 @@ body {
 .chat-container { display: flex; flex-direction: column; min-height: 0; }
 .messages { flex: 1; overflow: auto; border: 1px solid #eef2f7; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
 .msg { padding: 8px 10px; border-radius: 10px; max-width: 85%; white-space: pre-wrap; }
-.msg.user { align-self: flex-end; background: #e0f2fe; }
-.msg.assistant { align-self: flex-start; background: #f3f4f6; }
+.msg.user {
+  align-self: flex-end;
+  background: var(--msg-bg-user);
+  padding-top: var(--label-pad-top);
+  padding-right: var(--label-pad-side);
+}
+.msg.assistant {
+  align-self: flex-start;
+  background: var(--msg-bg-llm);
+  padding-top: var(--label-pad-top);
+  padding-left: var(--label-pad-side);
+}
 .msg.system { align-self: center; background: #fef9c3; }
 .msg.error { background: #fce7f3 !important; }
 .chat-input { display: grid; grid-template-columns: 1fr auto auto; align-items: end; gap: 8px; margin-top: 10px; }
@@ -71,41 +88,70 @@ body {
 @media (max-width: 960px) { .content { grid-template-columns: 1fr; } }
 
 /* Strong overrides to ensure source-based colors always win */
-.msg.assistant.source-llm { background: #f3f4f6 !important; }
-.msg.assistant.source-backend { background: #f3e8ff !important; }
+.msg.assistant.source-llm { background: var(--msg-bg-llm) !important; }
+.msg.assistant.source-backend { background: var(--msg-bg-backend) !important; }
 
 /* === Message Labels ======================================================= */
 /* Ensure the message container can host a corner label */
 .msg { position: relative; }
 
-/* Small corner label for message origin (LLM / backend / you) */
-.msg .msg-label {
-  position: absolute;
-  top: 6px;               /* keep a small vertical offset */
-  left: 8px;              /* default: left corner */
-  padding: 0 4px;         /* ultra-compact to avoid adding height */
-  font-size: 8px;         /* very small, still legible */
-  line-height: 1;         /* tight to minimize block height */
-  font-weight: 500;       /* slightly lighter than 600 */
-  font-style: italic;     /* subtle, unobtrusive */
-  text-transform: uppercase;
-  letter-spacing: 0.03em; /* a bit tighter to save space */
-  border-radius: 4px;     /* minimal rounding */
-  background: transparent;/* do not affect background box */
-  color: #374151;         /* neutral dark gray */
-  opacity: 0.65;          /* softer appearance */
-  user-select: none;
-  pointer-events: none;   /* keep it passive */
-  z-index: 1;             /* ensure it stays above message content */
+/* Enforce corner-label spacing even if other rules compete */
+
+/* Enforce corner-label spacing even if other rules compete */
+.messages > .msg.assistant {
+  padding-top: var(--label-pad-top) !important;
+  padding-left: var(--label-pad-side) !important;
+}
+.messages > .msg.user {
+  padding-top: var(--label-pad-top) !important;
+  padding-right: var(--label-pad-side) !important;
 }
 
-/* Right-aligned label only for user messages */
-.msg.user .msg-label.right {
+
+/* === Stronger label isolation and specificity (Point 2) === */
+/* Separate message content typography from the corner label */
+.msg .msg-content {
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: inherit; /* inherits pre-wrap from .msg */
+}
+
+
+/* === Final authoritative message-label styles (CSS-only) === */
+
+/* Ensure each message is a containing block for absolute labels */
+.messages > .msg { position: relative; }
+
+/* Reset inherited styles and then apply the intended badge styles */
+.messages > .msg > .msg-label {
+  all: unset;                 /* wipe unexpected inheritance/resets */
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  padding: 0 4px;
+
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 600;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+
+  border-radius: 4px;
+  background: transparent;
+  color: #374151;
+  opacity: 0.8;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Right-corner alignment only for user messages */
+.messages > .msg.user > .msg-label.right {
   left: auto;
   right: 8px;
 }
 
-/* Optional fine-tuning of label color per background */
-.msg.assistant.source-llm .msg-label { color: #374151; }     /* dark gray on light gray */
-.msg.assistant.source-backend .msg-label { color: #4c1d95; } /* deeper purple on lilac */
-.msg.user .msg-label.right { color: #1e3a8a; }               /* deep blue on light blue */
+/* Optional per-source color tweaks */
+.messages > .msg.assistant.source-backend > .msg-label { color: #4c1d95; }
+.messages > .msg.user > .msg-label.right { color: #1e3a8a; }
