@@ -57,6 +57,9 @@ def chat_api():
         raise APIError(ErrorCode.FLASK_ERROR_USER_QUESTION_IS_NOT_STRING, trace_id)
 
     model_answer = ai_client.get_llm_answer(user_question_str)
+
+    
+
     print(model_answer)
     return model_answer, 200
 

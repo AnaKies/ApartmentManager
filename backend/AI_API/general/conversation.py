@@ -202,9 +202,9 @@ class LlmClient:
                     ConversationState.show_state = False
 
                     result = build_data_answer(payload=payload or {},
-                                                payload_comment=missing_request or "-",
+                                                payload_comment=missing_request or "Data updated.",
                                                 model=self.model,
-                                                answer_source="llm")
+                                                answer_source="backend")
 
                 else:
                     trace_id = log_error(ErrorCode.TYPE_ERROR_CREATING_NEW_ENTRY)
