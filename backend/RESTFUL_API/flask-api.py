@@ -165,6 +165,7 @@ def handle_api_error(api_error: APIError):
     result = build_error(code=api_error.code,
                          message=api_error.error_message,
                          llm_model=ai_client.model,
+                         answer_source="backend",
                          trace_id=api_error.trace_id if hasattr(api_error, "trace_id") else "-")
 
     return result, 200
@@ -183,6 +184,7 @@ def handle_unexpected_error(general_error):
     result = build_error(code=-1,
                          message=message,
                          llm_model=ai_client.model,
+                         answer_source="backend",
                          trace_id=general_error.trace_id if hasattr(general_error, "trace_id") else "-")
 
     return result, 200

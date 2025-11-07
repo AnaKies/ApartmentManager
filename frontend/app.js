@@ -375,9 +375,9 @@ function ChatPanel({ onSend, messages, loading }){
           ['data-testid']: `msg-${idx}-${m.role}`
         }, [
           (m.role === 'assistant' && m.source === 'llm')
-            ? React.createElement('div', { className: 'msg-label' }, `LLM${m.llmModel ? ' · ' + shortModelName(m.llmModel) : ''}`)
+            ? React.createElement('div', { className: 'msg-label' }, `LLM${(m.envelopeType !== 'error' && m.llmModel) ? ' · ' + shortModelName(m.llmModel) : ''}`)
             : (m.role === 'assistant' && m.source === 'backend')
-            ? React.createElement('div', { className: 'msg-label' }, `backend${m.llmModel ? ' · ' + shortModelName(m.llmModel) : ''}`)
+            ? React.createElement('div', { className: 'msg-label' }, `backend${(m.envelopeType !== 'error' && m.llmModel) ? ' · ' + shortModelName(m.llmModel) : ''}`)
             : (m.role === 'user')
             ? React.createElement('div', { className: classNames('msg-label', 'right') }, 'you')
             : null,
@@ -416,8 +416,8 @@ function App(){
   const [loading,setLoading] = useState(false);
   const [modal,setModal] = useState({open:false,title:'',message:''});
 
-function addMessage(role, content, isError = false, source = null, llmModel = null, traceId = null) {
-  setMessages(prev => [...prev, { role, content, isError, source, llmModel, traceId }]);
+function addMessage(role, content, isError = false, source = null, llmModel = null, traceId = null, envelopeType = null) {
+  setMessages(prev => [...prev, { role, content, isError, source, llmModel, traceId, envelopeType }]);
 }
 
 async function sendToApi(userText) {
@@ -454,11 +454,12 @@ async function sendToApi(userText) {
     switch (env.type) {
       case 'error': {
         const traceIdStr = env.trace_id ? `Trace ID: ${env.trace_id}` : 'Trace ID: unavailable';
-        const llmModel = env.llm_model || 'unavailable';
+        // Use the actual model from the envelope, not a fallback string
+        const llmModel = env.llm_model || null;
 
         if (env.result && env.result.message) {
           const rawSource = env.answer_source ? String(env.answer_source).toLowerCase() : null;
-          addMessage('assistant', env.result.message, false, rawSource, llmModel, env.trace_id || null);
+          addMessage('assistant', env.result.message, true, rawSource, env.llm_model || null, env.trace_id || null, 'error');
         }
 
         if (env.error) {
@@ -469,11 +470,12 @@ async function sendToApi(userText) {
             `Error Code: ${errorCode}\nMessage: ${errorMessage}\n${traceIdStr}\nLLM Model: ${llmModel}`.trim(),
             true,
             env.answer_source || null,
-            llmModel,
-            env.trace_id || null
+            env.llm_model || null,
+            env.trace_id || null,
+            'error'
           );
         } else {
-          addMessage('assistant', 'Unknown error occurred', true, env.answer_source || null, llmModel, env.trace_id || null);
+          addMessage('assistant', 'Unknown error occurred', true, env.answer_source || null, env.llm_model || null, env.trace_id || null, 'error');
         }
         break;
       }
