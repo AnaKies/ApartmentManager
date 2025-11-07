@@ -361,12 +361,13 @@ function ChatPanel({ onSend, messages, loading }){
   return React.createElement('div',{className:'panel-inner chat-container'},
     React.createElement('div',{className:'messages'},
       messages.map((m, idx) => {
+        const isErrorEnvelope = m.envelopeType === 'error' || m.isError;
         const msgClass = classNames(
           'msg',
           m.role,
-          m.isError && 'error',
-          m.source === 'llm' && 'source-llm',
-          m.source === 'backend' && 'source-backend'
+          isErrorEnvelope && 'error',
+          !isErrorEnvelope && m.source === 'llm' && 'source-llm',
+          !isErrorEnvelope && m.source === 'backend' && 'source-backend'
         );
 
         return React.createElement('div', {
