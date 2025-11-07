@@ -378,7 +378,7 @@ function ChatPanel({ onSend, messages, loading }){
           (m.role === 'assistant' && m.source === 'llm')
             ? React.createElement('div', { className: 'msg-label' }, `LLM${(m.envelopeType !== 'error' && m.llmModel) ? ' · ' + shortModelName(m.llmModel) : ''}`)
             : (m.role === 'assistant' && m.source === 'backend')
-            ? React.createElement('div', { className: 'msg-label' }, `backend${(m.envelopeType !== 'error' && m.llmModel) ? ' · ' + shortModelName(m.llmModel) : ''}`)
+            ? React.createElement('div', { className: 'msg-label' }, 'backend')
             : (m.role === 'user')
             ? React.createElement('div', { className: classNames('msg-label', 'right') }, 'you')
             : null,
