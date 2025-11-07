@@ -73,3 +73,39 @@ body {
 /* Strong overrides to ensure source-based colors always win */
 .msg.assistant.source-llm { background: #f3f4f6 !important; }
 .msg.assistant.source-backend { background: #f3e8ff !important; }
+
+/* === Message Labels ======================================================= */
+/* Ensure the message container can host a corner label */
+.msg { position: relative; }
+
+/* Small corner label for message origin (LLM / backend / you) */
+.msg .msg-label {
+  position: absolute;
+  top: 6px;               /* keep a small vertical offset */
+  left: 8px;              /* default: left corner */
+  padding: 0 4px;         /* ultra-compact to avoid adding height */
+  font-size: 8px;         /* very small, still legible */
+  line-height: 1;         /* tight to minimize block height */
+  font-weight: 500;       /* slightly lighter than 600 */
+  font-style: italic;     /* subtle, unobtrusive */
+  text-transform: uppercase;
+  letter-spacing: 0.03em; /* a bit tighter to save space */
+  border-radius: 4px;     /* minimal rounding */
+  background: transparent;/* do not affect background box */
+  color: #374151;         /* neutral dark gray */
+  opacity: 0.65;          /* softer appearance */
+  user-select: none;
+  pointer-events: none;   /* keep it passive */
+  z-index: 1;             /* ensure it stays above message content */
+}
+
+/* Right-aligned label only for user messages */
+.msg.user .msg-label.right {
+  left: auto;
+  right: 8px;
+}
+
+/* Optional fine-tuning of label color per background */
+.msg.assistant.source-llm .msg-label { color: #374151; }     /* dark gray on light gray */
+.msg.assistant.source-backend .msg-label { color: #4c1d95; } /* deeper purple on lilac */
+.msg.user .msg-label.right { color: #1e3a8a; }               /* deep blue on light blue */
