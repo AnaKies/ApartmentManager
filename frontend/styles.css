@@ -131,7 +131,7 @@ body {
   padding: 0 4px;
 
   font-family: inherit;
-  font-size: 10px;
+  font-size: 8px; /* size of the role-text over the textbox */
   line-height: 1;
   font-weight: 600;
   font-style: italic;
