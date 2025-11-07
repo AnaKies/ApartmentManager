@@ -11,6 +11,27 @@ function formatNumberOrDate(v){
   return v;
 }
 
+function shortModelName(model){
+  if(!model) return '';
+  try{
+    const m = String(model);
+    const slash = m.lastIndexOf('/');
+    const name = slash >= 0 ? m.slice(slash+1) : m;
+    return name.length > 28 ? name.slice(0,25) + '…' : name;
+  }catch{ return String(model); }
+}
+
+function normalizeEnvelope(data){
+  const type = data && data.type ? String(data.type) : null;
+  const llm_model = (data && (data.llm_model || data.llmModel)) || null;
+  const answer_source = (data && (data.answer_source || data.answerSource)) || null;
+  const trace_id = (data && (data.trace_id || data.traceId)) || null;
+  const result = (data && data.result) || null;
+  const error  = (data && data.error)  || null;
+  return { type, llm_model, answer_source, trace_id, result, error, full: data };
+}
+
+
 function isFlatUniformArray(arr){
   if (!Array.isArray(arr) || arr.length === 0) return false;
   const first = arr[0];
@@ -354,9 +375,9 @@ function ChatPanel({ onSend, messages, loading }){
           ['data-testid']: `msg-${idx}-${m.role}`
         }, [
           (m.role === 'assistant' && m.source === 'llm')
-            ? React.createElement('div', { className: 'msg-label' }, 'LLM')
+            ? React.createElement('div', { className: 'msg-label' }, `LLM${m.llmModel ? ' · ' + shortModelName(m.llmModel) : ''}`)
             : (m.role === 'assistant' && m.source === 'backend')
-            ? React.createElement('div', { className: 'msg-label' }, 'backend')
+            ? React.createElement('div', { className: 'msg-label' }, `backend${m.llmModel ? ' · ' + shortModelName(m.llmModel) : ''}`)
             : (m.role === 'user')
             ? React.createElement('div', { className: classNames('msg-label', 'right') }, 'you')
             : null,
@@ -395,8 +416,8 @@ function App(){
   const [loading,setLoading] = useState(false);
   const [modal,setModal] = useState({open:false,title:'',message:''});
 
-function addMessage(role, content, isError = false, source = null) {
-  setMessages(prev => [...prev, { role, content, isError, source }]);
+function addMessage(role, content, isError = false, source = null, llmModel = null, traceId = null) {
+  setMessages(prev => [...prev, { role, content, isError, source, llmModel, traceId }]);
 }
 
 async function sendToApi(userText) {
@@ -423,65 +444,61 @@ async function sendToApi(userText) {
     }
 
     const data = await res.json();
+    const env = normalizeEnvelope(data);
 
-    if (!data || !data.type) {
+    if (!env || !env.type) {
       addMessage('assistant', 'Unknown response format from server', true);
       return;
     }
 
-    switch (data.type) {
+    switch (env.type) {
       case 'error': {
-        const traceId = data.trace_id
-          ? `Trace ID: ${data.trace_id}`
-          : 'Trace ID: unavailable';
-        const llmModel = data.llm_model
-          ? `LLM Model: ${data.llm_model}`
-          : 'LLM Model: unavailable';
+        const traceIdStr = env.trace_id ? `Trace ID: ${env.trace_id}` : 'Trace ID: unavailable';
+        const llmModel = env.llm_model || 'unavailable';
 
-        if (data.result && data.result.message) {
-          const rawSource = data.answer_source || data.answerSource || null;
-          const source = rawSource ? String(rawSource).toLowerCase() : null;
-          addMessage('assistant', data.result.message, false, source);
+        if (env.result && env.result.message) {
+          const rawSource = env.answer_source ? String(env.answer_source).toLowerCase() : null;
+          addMessage('assistant', env.result.message, false, rawSource, llmModel, env.trace_id || null);
         }
 
-        if (data.error) {
-          const errorCode = data.error.code || 'Unknown code';
-          const errorMessage = data.error.message || 'No message provided';
-
+        if (env.error) {
+          const errorCode = env.error.code != null ? env.error.code : 'Unknown code';
+          const errorMessage = env.error.message || 'No message provided';
           addMessage(
             'assistant',
-            `Error Code: ${errorCode}\nMessage: ${errorMessage}\n${traceId}\n${llmModel}`.trim(),
-            true
+            `Error Code: ${errorCode}\nMessage: ${errorMessage}\n${traceIdStr}\nLLM Model: ${llmModel}`.trim(),
+            true,
+            env.answer_source || null,
+            llmModel,
+            env.trace_id || null
           );
         } else {
-          addMessage('assistant', 'Unknown error occurred', true);
+          addMessage('assistant', 'Unknown error occurred', true, env.answer_source || null, llmModel, env.trace_id || null);
         }
         break;
       }
 
       case 'text': {
-        const msg = (data.result && (data.result.message || data.result.text || data.result.content))
+        const msg = (env.result && (env.result.message || env.result.text || env.result.content))
           || data.message
           || 'Received empty response from model.';
-        const rawSource = data.answer_source || data.answerSource || null;
-        const source = rawSource ? String(rawSource).toLowerCase() : null;
-        addMessage('assistant', msg, false, source);
+        const rawSource = env.answer_source ? String(env.answer_source).toLowerCase() : null;
+        addMessage('assistant', msg, false, rawSource, env.llm_model || null, env.trace_id || null);
         break;
       }
 
       case 'data': {
-        setDataEnvelope(data);
-        const note = (data.result && data.result.message)
-          ? data.result.message
+        setDataEnvelope(env.full);
+        const note = (env.result && env.result.message)
+          ? env.result.message
           : 'Received structured data.';
-        const rawSource = data.answer_source || data.answerSource || null;
-        const source = rawSource ? String(rawSource).toLowerCase() : null;
-        addMessage('assistant', note, false, source);
+        const rawSource = env.answer_source ? String(env.answer_source).toLowerCase() : null;
+        addMessage('assistant', note, false, rawSource, env.llm_model || null, env.trace_id || null);
         break;
       }
 
       default: {
-        addMessage('assistant', `Unsupported response type: ${String(data.type)}`, true);
+        addMessage('assistant', `Unsupported response type: ${String(env.type)}`, true, env.answer_source || null, env.llm_model || null, env.trace_id || null);
       }
     }
   } catch (err) {
