@@ -26,17 +26,17 @@ class GeminiClient:
     the abstract base class LLM-Client and implements all required methods.
     """
 
-    def __init__(self):
+    def __init__(self, some_gemini_model: str):
         # Load variables from environment
         load_dotenv()
         gemini_api_key = os.getenv("GEMINI_API_KEY")
         self.client = genai.Client(api_key=gemini_api_key)
 
         # Specify the model to use
-        self.model_name = "gemini-2.5-flash"
+        self.model_name = some_gemini_model
 
         # Specify creativity of LLM answers (0 ... 2)
-        self.temperature = 0.3
+        self.temperature = 0.3 # for precise answers
 
         # volatile memory of the conversation
         self.session_contents: list[types.Content] = []

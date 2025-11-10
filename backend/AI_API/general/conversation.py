@@ -1,4 +1,7 @@
 import json
+import os
+
+from dotenv import load_dotenv
 
 from ApartmentManager.backend.AI_API.ai_clients.gemini.gemini_client import GeminiClient
 from ApartmentManager.backend.AI_API.general import prompting
@@ -30,17 +33,20 @@ class LlmClient:
     """
     Initializes an LLM client and offers methods to open conversation with it.
     """
-    def __init__(self, model_choice):
+    def __init__(self, model_name):
         self.llm_client = None
-        self.model = model_choice
+        self.model_name = model_name
         self.crud_intent = None
 
-        # TODO get model name from the LLM, not declare it
-        if self.model == "Gemini":
-            self.llm_client = GeminiClient()
+        # Specify the model to use
+        load_dotenv()
+        some_gemini_model = os.getenv("GEMINI_MODEL") # for example, gemini-2.5-flash
+
+        if self.model_name == some_gemini_model:
+            self.llm_client = GeminiClient(some_gemini_model)
             print("Gemini will answer your question.")
-        elif self.model == "Groq":
-            #self.llm_client = GroqClient()
+        elif self.model_name == "Groq":
+            #self.llm_client = GroqClient(active_model_name)
             print("Groq will answer your question.")
 
     def get_llm_answer(self, user_question: str) -> dict:
@@ -50,7 +56,7 @@ class LlmClient:
         :return: Envelope with the type: "text" | "data"
         """
         result = None
-        ran_crud_check = False
+        run_crud_check = False
 
         # TODO CRUD Check: check for a shorter way with default state only
         try:
@@ -68,10 +74,10 @@ class LlmClient:
             if not is_any_active:
                 # STEP 1: LLM checks if a user asks for one of CRUD operations
                 self.crud_intent = self.llm_client.get_crud_in_user_question(user_question)
-                ran_crud_check = True
+                run_crud_check = True
 
             # actualize the state of the state machine
-            if ran_crud_check:
+            if run_crud_check:
                 if ((self.crud_intent or {}).get("create") or {}).get("value"):
                     ConversationState.create_state = True
                     ConversationState.update_state = False
@@ -145,10 +151,10 @@ class LlmClient:
                         if creation_action_flag:
                             id_person = (creation_action_data or {}).get("person_id")
                             result = build_text_answer(message=f"Person with ID {id_person} was created successfully.",
-                                                        model=self.model,
-                                                        answer_source="backend")
+                                                       model=self.model_name,
+                                                       answer_source="backend")
                             create_new_log_entry(
-                                llm_model=self.model,
+                                llm_model=self.model_name,
                                 user_question=user_question or "---",
                                 request_type="person creation request",
                                 backend_response=str(result),
@@ -166,8 +172,8 @@ class LlmClient:
                 else:
                     ConversationState.create_state = True  # keep collecting until confirmation
                     result = build_text_answer(message=llm_comment_to_payload,
-                                                   model=self.model,
-                                                   answer_source="llm")
+                                               model=self.model_name,
+                                               answer_source="llm")
 
             elif ConversationState.delete_state:
                 # Generate prompt for DELETE operation
@@ -211,9 +217,9 @@ class LlmClient:
                     ConversationState.show_state = False
 
                     result = build_data_answer(payload=payload or {},
-                                                payload_comment=missing_request or "Data updated.",
-                                                model=self.model,
-                                                answer_source="backend")
+                                               payload_comment=missing_request or "Data updated.",
+                                               model=self.model_name,
+                                               answer_source="backend")
 
                 else:
                     trace_id = log_error(ErrorCode.TYPE_ERROR_CREATING_NEW_ENTRY)

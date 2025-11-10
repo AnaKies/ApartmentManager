@@ -1,7 +1,7 @@
 import inspect
-from logging import exception
-
-from flask import Flask, jsonify, request
+import os
+from dotenv import load_dotenv
+from flask import Flask, jsonify, request, Blueprint, current_app
 from flask_cors import CORS
 from werkzeug.exceptions import HTTPException
 
@@ -13,30 +13,43 @@ from ApartmentManager.backend.AI_API.general.error_texts import APIError, ErrorC
 from ApartmentManager.backend.AI_API.general.api_data_type import build_error
 from ApartmentManager.backend.AI_API.general.logger import init_logging, get_logger, log_error
 
-# Initialize logger
-init_logging()
-logger = get_logger()
+# Helps access the decorator names after initialization
+public_bp = Blueprint("public_api", __name__) # http://HOST:PORT/api/...
+internal_bp = Blueprint("internal_api", __name__, url_prefix="/internal") #http://HOST:PORT/internal/...
 
-logger.info("Flask starting…")
+def initialize():
+    # Initialize logger
+    init_logging()
+    logger = get_logger()
 
-app = Flask(__name__)
+    logger.info("Flask starting…")
 
-# allow route to the endpoint /api/
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+    flask_app = Flask(__name__)
 
-# Controls what the SQL table can return if a query has no parameters/filters.
-DEFAULT_FIELDS_APARTMENT_TABLE = ["area", "address", "price_per_square_meter", "utility_billing_provider_id"]
-ALLOWED_FIELDS = []
+    # allow route to the endpoint /api/ and /internal/ to be accessed from any origin
+    CORS(flask_app, resources={r"/api/*": {"origins": "*"},
+                               r"/internal/*": {"origins": "*"}})
 
-ai_client = LlmClient("Gemini")
-MODEL_NAME = ai_client.model
+    # Specify the model to use
+    load_dotenv()
+    some_gemini_model = os.getenv("GEMINI_MODEL")  # for example, gemini-2.5-flash
 
-@app.route('/')
+    # initialize the LLM client and attach to app
+    flask_app.extensions = getattr(flask_app, "extensions", {})
+    flask_app.extensions["ai_client"] = LlmClient(some_gemini_model)
+
+    # register routes/error handlers defined on the both blueprints
+    flask_app.register_blueprint(public_bp)
+    flask_app.register_blueprint(internal_bp)
+
+    return flask_app
+
+@public_bp.route('/')
 def home():
     return 'OK'
 
 
-@app.route('/api/chat', methods=['POST'])
+@public_bp.route('/api/chat', methods=['POST'])
 def chat_api():
     """
     JSON-only endpoint for chat.
@@ -62,18 +75,18 @@ def chat_api():
             raise APIError(ErrorCode.FLASK_ERROR_USER_QUESTION_IS_NOT_STRING, trace_id)
 
         # The answer envelope is built inside this method
+        ai_client = current_app.extensions["ai_client"]
         model_answer = ai_client.get_llm_answer(user_question_str)
     except APIError as error:
         raise error
     except Exception as error:
         raise error
 
-
     print(model_answer)
     return model_answer, 200
 
 
-@app.route('/tenancies', methods=['GET'])
+@internal_bp.route('/tenancies', methods=['GET'])
 def get_tenancies():
     """
      Returns a JSON list of tenancies.
@@ -84,7 +97,7 @@ def get_tenancies():
     return jsonify(tenancies_to_json)
 
 
-@app.route('/rent_data', methods=['GET'])
+@internal_bp.route('/rent_data', methods=['GET'])
 def get_contract():
     """
      Returns a JSON list of rent_data.
@@ -95,7 +108,7 @@ def get_contract():
     return jsonify(rent_data_to_json)
 
 
-@app.route('/persons', methods=['GET'])
+@internal_bp.route('/persons', methods=['GET'])
 def get_persons():
     """
      Returns a JSON list of persons.
@@ -106,8 +119,7 @@ def get_persons():
     return jsonify(persons_to_json)
 
 
-
-@app.route('/persons', methods=['POST'])
+@internal_bp.route('/persons', methods=['POST'])
 def add_person():
     """
     Adds new entry with personal data to the table with persons.
@@ -130,7 +142,7 @@ def add_person():
     result = create.create_person(**filtered_params) # unpack dictionary into function parameters
     return result, 200
 
-@app.route('/apartments', methods=['GET'])
+@internal_bp.route('/apartments', methods=['GET'])
 def get_apartments():
     """
     Returns a JSON list of apartments.
@@ -172,24 +184,23 @@ def get_apartments():
 
 
 # processes all exceptions in the business logic
-@app.errorhandler(APIError)
+@public_bp.app_errorhandler(APIError)
 def handle_api_error(api_error: APIError):
     result = build_error(code=api_error.code,
                          message=api_error.error_message,
-                         llm_model=MODEL_NAME,
+                         llm_model=current_app.extensions["ai_client"].model_name,
                          answer_source="backend",
                          trace_id=api_error.trace_id if hasattr(api_error, "trace_id") else "-")
-
     return result, 200
 
 
-@app.errorhandler(HTTPException)
+@public_bp.app_errorhandler(HTTPException)
 def handle_http_error(http_err: HTTPException):
     message = getattr(http_err, "description", None) or str(http_err) or "HTTP error"
     result = build_error(
         code=http_err.code,
         message=message,
-        llm_model=MODEL_NAME,
+        llm_model=current_app.extensions["ai_client"].model_name,
         answer_source="backend",
         trace_id=getattr(http_err, "trace_id", "-")
     )
@@ -198,21 +209,22 @@ def handle_http_error(http_err: HTTPException):
 
 # universal handler for all exceptions that were not catch ->
 # prevent that the handler generates its own exception HTML page
-@app.errorhandler(Exception)
+@public_bp.app_errorhandler(Exception)
 def handle_unexpected_error(general_error):
     # Full server log
-    app.logger.exception(general_error)
+    current_app.logger.exception(general_error)
 
     # extract a message from a general error
     message = getattr(general_error, "error_message", None) or str(general_error) or "Unexpected error"
 
     result = build_error(code=-1,
                          message=message,
-                         llm_model=MODEL_NAME,
+                         llm_model=current_app.extensions["ai_client"].model_name,
                          answer_source="backend",
                          trace_id=general_error.trace_id if hasattr(general_error, "trace_id") else "-")
 
     return result, 200
 
 if __name__ == '__main__':
+    app = initialize()
     app.run(host=HOST, port=PORT, debug=False)

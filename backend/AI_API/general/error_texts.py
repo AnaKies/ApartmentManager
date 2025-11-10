@@ -63,7 +63,9 @@ class ErrorCode(Enum):
     ERROR_DECODING_THE_STRUCT_ANSWER_TO_JSON = (3008, "Error decoding the LLM response.")
     ERROR_PERFORMING_CRUD_OPERATION = (3009, "Failed performing CRUD operations.")
     TYPE_ERROR_CREATING_NEW_ENTRY = (3010, "That data type can not be created, because it is not covered in the databank system.")
+
     LOG_ERROR_LOG_CREATION = (3011, "log_error requires at least one of 'error_details' or 'exception'.")
+    LOG_ERROR_FOR_FUNCTION_CALLING = (3012, "Error writing log for function calling.")
 
     WARNING_NOT_IMPLEMENTED = (9000, "Not implemented.")
 
