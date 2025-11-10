@@ -1,17 +1,15 @@
 from enum import Enum
 
 class APIError(Exception):
-    code = "UNEXPECTED"
-
     def __init__(self, error_code_obj, trace_id=None):
         # Extract a code and message from the enum ErrorCode
         error_code, error_message = error_code_obj.value
-        self.error_code = error_code or "-"
+        self.error_code = error_code or None
         self.message = error_message or "-"
         self.trace_id = trace_id or "-"
 
         # The error mechanism of python will show this text in the error
-        super().__init__(f"APIError {self.code}: {self.message} (trace_id={self.trace_id})")
+        super().__init__(f"APIError {self.error_code}: {self.message} (trace_id={self.trace_id})")
 
     def __str__(self):
         return (f"APIError {self.error_code}: {self.message} "

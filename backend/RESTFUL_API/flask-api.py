@@ -196,12 +196,11 @@ def get_apartments():
 # processes all exceptions in the business logic
 @public_bp.app_errorhandler(APIError)
 def handle_api_error(api_error: APIError):
-    result = build_error(code=api_error.code,
+    result = build_error(code=api_error.error_code,
                          message=api_error.message,
                          llm_model=current_app.extensions["ai_client"].model_name,
                          answer_source="backend",
-                         trace_id=api_error.trace_id if hasattr(api_error, "trace_id") else "",
-                         answer_attempt=api_error.answer_attempt if hasattr(api_error, "answer_attempt") else "")
+                         trace_id=api_error.trace_id if hasattr(api_error, "trace_id") else "")
     return result, 200
 
 
@@ -215,7 +214,7 @@ def handle_http_error(http_err: HTTPException):
         answer_source="backend",
         trace_id=getattr(http_err, "trace_id", "-")
     )
-    return result, http_err.code
+    return result, 200 #http_err.code
 
 
 # universal handler for all exceptions that were not catch ->

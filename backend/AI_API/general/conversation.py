@@ -244,14 +244,17 @@ class LlmClient:
             return result
 
         except APIError:
+            reset_conversation_state()
             raise
         # catch a Gemini error
         except genai_errors.APIError:
+            reset_conversation_state()
             raise
         except RequestException:
+            reset_conversation_state()
             raise
         except Exception as error:
+            reset_conversation_state()
             trace_id = log_error(ErrorCode.ERROR_PERFORMING_CRUD_OPERATION, exception=error)
             raise APIError(ErrorCode.ERROR_PERFORMING_CRUD_OPERATION, trace_id) from error
-        finally:
-            reset_conversation_state()
+
