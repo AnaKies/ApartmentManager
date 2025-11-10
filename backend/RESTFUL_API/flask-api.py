@@ -1,7 +1,10 @@
 import inspect
+from logging import exception
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from werkzeug.exceptions import HTTPException
+
 from ApartmentManager.backend.SQL_API.rental.CRUD import create
 from ApartmentManager.backend.config.server_config import HOST, PORT
 import ApartmentManager.backend.SQL_API.rental.CRUD.read as read_sql
@@ -26,6 +29,7 @@ DEFAULT_FIELDS_APARTMENT_TABLE = ["area", "address", "price_per_square_meter", "
 ALLOWED_FIELDS = []
 
 ai_client = LlmClient("Gemini")
+MODEL_NAME = ai_client.model
 
 @app.route('/')
 def home():
@@ -39,26 +43,31 @@ def chat_api():
     Request JSON: { "user_input": "<string>" }
     Response JSON: { "question": "<string>", "answer": "<string>" }
     """
-    if not request.is_json:
-        trace_id = log_error(ErrorCode.FLASK_ERROR_HTTP_REQUEST_INPUT_MUST_BY_JSON)
-        raise APIError(ErrorCode.FLASK_ERROR_HTTP_REQUEST_INPUT_MUST_BY_JSON, trace_id)
+    try:
+        if not request.is_json:
+            trace_id = log_error(ErrorCode.FLASK_ERROR_HTTP_REQUEST_INPUT_MUST_BY_JSON)
+            raise APIError(ErrorCode.FLASK_ERROR_HTTP_REQUEST_INPUT_MUST_BY_JSON, trace_id)
 
-    # silent= True -> try to get JSON from an HTTP request
-    data = request.get_json(silent=True)
-    if data is None:
-        data = {}
+        # silent= True -> try to get JSON from an HTTP request
+        data = request.get_json(silent=True)
+        if data is None:
+            data = {}
 
-    value = data.get('user_input')
-    user_question_str = value.strip() if value else ''
-    print(user_question_str)
+        value = data.get('user_input')
+        user_question_str = value.strip() if value else ''
+        print(user_question_str)
 
-    if not user_question_str:
-        trace_id = log_error(ErrorCode.FLASK_ERROR_USER_QUESTION_IS_NOT_STRING)
-        raise APIError(ErrorCode.FLASK_ERROR_USER_QUESTION_IS_NOT_STRING, trace_id)
+        if not user_question_str:
+            trace_id = log_error(ErrorCode.FLASK_ERROR_USER_QUESTION_IS_NOT_STRING)
+            raise APIError(ErrorCode.FLASK_ERROR_USER_QUESTION_IS_NOT_STRING, trace_id)
 
-    model_answer = ai_client.get_llm_answer(user_question_str)
+        # The answer envelope is built inside this method
+        model_answer = ai_client.get_llm_answer(user_question_str)
+    except APIError as error:
+        raise error
+    except Exception as error:
+        raise error
 
-    
 
     print(model_answer)
     return model_answer, 200
@@ -167,11 +176,24 @@ def get_apartments():
 def handle_api_error(api_error: APIError):
     result = build_error(code=api_error.code,
                          message=api_error.error_message,
-                         llm_model=ai_client.model,
+                         llm_model=MODEL_NAME,
                          answer_source="backend",
                          trace_id=api_error.trace_id if hasattr(api_error, "trace_id") else "-")
 
     return result, 200
+
+
+@app.errorhandler(HTTPException)
+def handle_http_error(http_err: HTTPException):
+    message = getattr(http_err, "description", None) or str(http_err) or "HTTP error"
+    result = build_error(
+        code=http_err.code,
+        message=message,
+        llm_model=MODEL_NAME,
+        answer_source="backend",
+        trace_id=getattr(http_err, "trace_id", "-")
+    )
+    return result, http_err.code
 
 
 # universal handler for all exceptions that were not catch ->
@@ -186,7 +208,7 @@ def handle_unexpected_error(general_error):
 
     result = build_error(code=-1,
                          message=message,
-                         llm_model=ai_client.model,
+                         llm_model=MODEL_NAME,
                          answer_source="backend",
                          trace_id=general_error.trace_id if hasattr(general_error, "trace_id") else "-")
 

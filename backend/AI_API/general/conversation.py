@@ -1,5 +1,4 @@
 import json
-from logging import exception
 
 from ApartmentManager.backend.AI_API.ai_clients.gemini.gemini_client import GeminiClient
 from ApartmentManager.backend.AI_API.general import prompting
@@ -9,7 +8,7 @@ from ApartmentManager.backend.SQL_API.rental.CRUD.read import get_persons, get_a
 from ApartmentManager.backend.SQL_API.rental.CRUD.create import create_person
 from ApartmentManager.backend.AI_API.general.error_texts import APIError
 from ApartmentManager.backend.AI_API.general.api_data_type import build_text_answer, build_data_answer
-from ApartmentManager.backend.AI_API.general.logger import log_error, log_warning
+from ApartmentManager.backend.AI_API.general.logger import log_error
 
 class ConversationState:
     show_state = False
@@ -17,6 +16,15 @@ class ConversationState:
     delete_state = False
     create_state = False
     default_state = False
+
+@staticmethod
+def reset_conversation_state():
+    ConversationState.show_state = False
+    ConversationState.update_state = False
+    ConversationState.delete_state = False
+    ConversationState.create_state = False
+    ConversationState.default_state = False
+
 
 class LlmClient:
     """
@@ -27,6 +35,7 @@ class LlmClient:
         self.model = model_choice
         self.crud_intent = None
 
+        # TODO get model name from the LLM, not declare it
         if self.model == "Gemini":
             self.llm_client = GeminiClient()
             print("Gemini will answer your question.")
@@ -215,14 +224,17 @@ class LlmClient:
                 system_prompt = json.dumps(prompting.GET_FUNCTION_CALL_PROMPT, indent=2, ensure_ascii=False)
                 # State machine for general questions
                 result = self.llm_client.answer_general_questions(user_question, system_prompt)
+
+            if not result:
+                trace_id = log_error(ErrorCode.LLM_ERROR_EMPTY_ANSWER)
+                raise APIError(ErrorCode.LLM_ERROR_EMPTY_ANSWER, trace_id)
+            return result
+
         except APIError as api_error:
             log_error(exception=api_error)
             raise api_error
         except Exception as error:
             trace_id = log_error(ErrorCode.ERROR_PERFORMING_CRUD_OPERATION, exception=error)
             raise APIError(ErrorCode.ERROR_PERFORMING_CRUD_OPERATION, trace_id)
-
-        if not result:
-            trace_id = log_error(ErrorCode.LLM_ERROR_EMPTY_ANSWER)
-            raise APIError(ErrorCode.LLM_ERROR_EMPTY_ANSWER, trace_id)
-        return result
+        finally:
+            reset_conversation_state()
