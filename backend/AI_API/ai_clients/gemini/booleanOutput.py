@@ -1,5 +1,5 @@
 import json
-
+from google.genai import errors as genai_errors
 from google import genai
 from google.genai import types
 import ApartmentManager.backend.AI_API.general.prompting as prompting
@@ -82,9 +82,12 @@ class BooleanOutput:
                 contents=[user_content],
                 config=boolean_llm_config,
             )
+        # catch a Gemini error
+        except genai_errors.APIError:
+            raise
         except Exception as error:
             trace_id = log_error(ErrorCode.LLM_ERROR_RETRIEVING_BOOLEAN_RESPONSE, exception=error)
-            raise APIError(ErrorCode.LLM_ERROR_RETRIEVING_BOOLEAN_RESPONSE, trace_id)
+            raise APIError(ErrorCode.LLM_ERROR_RETRIEVING_BOOLEAN_RESPONSE, trace_id) from error
 
         try:
             # Scenario 1: SDK has the parsed version of the answer, get it
@@ -97,7 +100,7 @@ class BooleanOutput:
 
         except Exception as error:
             trace_id = log_error(ErrorCode.ERROR_PARSING_BOOLEAN_RESPONSE, exception=error)
-            raise APIError(ErrorCode.ERROR_PARSING_BOOLEAN_RESPONSE, trace_id)
+            raise APIError(ErrorCode.ERROR_PARSING_BOOLEAN_RESPONSE, trace_id) from error
 
         try:
             llm_answer_crud_str = json.dumps(llm_answer_crud, indent=2, ensure_ascii=False, default=str)

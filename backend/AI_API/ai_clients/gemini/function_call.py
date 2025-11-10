@@ -164,9 +164,11 @@ class FunctionCallService:
                 # and save the function call result to the conversation history.
                 func_calling_result = self._do_call_function(func_call_obj)
 
+            except APIError:
+                raise
             except Exception as error:
                 trace_id = log_error(ErrorCode.LLM_ERROR_DOING_FUNCTION_CALL, exception=error)
-                raise APIError(ErrorCode.LLM_ERROR_DOING_FUNCTION_CALL, trace_id)
+                raise APIError(ErrorCode.LLM_ERROR_DOING_FUNCTION_CALL, trace_id) from error
 
             # STEP 3: Return envelope for the LLM answers
             # The answer can contain the data from the function call.

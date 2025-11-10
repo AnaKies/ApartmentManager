@@ -1,7 +1,7 @@
 import json
 from google import genai
 from google.genai import types
-
+from google.genai import errors as genai_errors
 from ApartmentManager.backend.AI_API.general.api_data_type import build_data_answer
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
 from ApartmentManager.backend.AI_API.general.logger import log_error
@@ -59,9 +59,12 @@ class StructuredOutput:
             response_content = response.candidates[0].content
             llm_response = response_content.parts[0].text
 
+        # catch a Gemini error 
+        except genai_errors.APIError:
+            raise
         except Exception as error:
             trace_id = log_error(ErrorCode.LLM_ERROR_RETRIEVING_STRUCTURED_RESPONSE, exception=error)
-            raise APIError(ErrorCode.LLM_ERROR_RETRIEVING_STRUCTURED_RESPONSE, trace_id)
+            raise APIError(ErrorCode.LLM_ERROR_RETRIEVING_STRUCTURED_RESPONSE, trace_id) from error
 
         try:
             structured_data = json.loads(llm_response)
@@ -72,7 +75,7 @@ class StructuredOutput:
                                        answer_source="llm")
         except json.JSONDecodeError as error:
             trace_id = log_error(ErrorCode.ERROR_DECODING_THE_STRUCT_ANSWER_TO_JSON, exception=error)
-            raise APIError(ErrorCode.ERROR_DECODING_THE_STRUCT_ANSWER_TO_JSON, trace_id)
+            raise APIError(ErrorCode.ERROR_DECODING_THE_STRUCT_ANSWER_TO_JSON, trace_id) from error
 
         try:
             # Add AI answer to logs

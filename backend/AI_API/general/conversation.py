@@ -1,6 +1,6 @@
 import json
 import os
-
+from google.genai import errors as genai_errors
 from dotenv import load_dotenv
 
 from ApartmentManager.backend.AI_API.ai_clients.gemini.gemini_client import GeminiClient
@@ -111,10 +111,14 @@ class LlmClient:
                     ConversationState.default_state = True
             # NOTE: if we did NOT run a CRUD check (multi-turn within an active state),
             #       we DO NOT touch the existing ConversationState flags here.
-
+        except APIError:
+            raise
+        # catch a Gemini error 
+        except genai_errors.APIError:
+            raise
         except Exception as error:
             trace_id = log_error(ErrorCode.LLM_ERROR_GETTING_CRUD_RESULT, error)
-            raise APIError(ErrorCode.LLM_ERROR_GETTING_CRUD_RESULT, trace_id)
+            raise APIError(ErrorCode.LLM_ERROR_GETTING_CRUD_RESULT, trace_id) from error
 
         try:
             # TODO change to switch/case
@@ -179,13 +183,15 @@ class LlmClient:
                 # Generate prompt for DELETE operation
                 if result:
                     ConversationState.delete_state = False
-                raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED)
+                trace_id = log_error(ErrorCode.WARNING_NOT_IMPLEMENTED)
+                raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED, trace_id)
 
             elif ConversationState.update_state:
                 # Generate prompt for UPDATE operation
                 if result:
                     ConversationState.update_state = False
-                raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED)
+                trace_id = log_error(ErrorCode.WARNING_NOT_IMPLEMENTED)
+                raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED, trace_id)
 
             elif ConversationState.show_state:
                 sql_answer = None
@@ -236,11 +242,13 @@ class LlmClient:
                 raise APIError(ErrorCode.LLM_ERROR_EMPTY_ANSWER, trace_id)
             return result
 
-        except APIError as api_error:
-            log_error(exception=api_error)
-            raise api_error
+        except APIError:
+            raise
+        # catch a Gemini error
+        except genai_errors.APIError:
+            raise
         except Exception as error:
             trace_id = log_error(ErrorCode.ERROR_PERFORMING_CRUD_OPERATION, exception=error)
-            raise APIError(ErrorCode.ERROR_PERFORMING_CRUD_OPERATION, trace_id)
+            raise APIError(ErrorCode.ERROR_PERFORMING_CRUD_OPERATION, trace_id) from error
         finally:
             reset_conversation_state()

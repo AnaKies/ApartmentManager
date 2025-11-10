@@ -2,7 +2,7 @@ import json
 import os
 from google.genai import types
 from abc import ABC
-
+from google.genai import errors as genai_errors
 from ApartmentManager.backend.AI_API.ai_clients.gemini.booleanOutput import BooleanOutput
 from ApartmentManager.backend.AI_API.ai_clients.gemini.function_call import FunctionCallService
 from ApartmentManager.backend.AI_API.ai_clients.gemini.structured_output import StructuredOutput
@@ -128,9 +128,14 @@ class GeminiClient:
 
             return result
 
+        except APIError:
+            raise
+        # catch a Gemini error
+        except genai_errors.APIError:
+            raise
         except Exception as error:
             trace_id = log_error(ErrorCode.LLM_RESPONSE_INTERPRETATION_ERROR, exception=error)
-            raise APIError(ErrorCode.LLM_RESPONSE_INTERPRETATION_ERROR, trace_id)
+            raise APIError(ErrorCode.LLM_RESPONSE_INTERPRETATION_ERROR, trace_id) from error
 
     def get_crud_in_user_question(self, user_question: str) -> dict:
         """
@@ -179,9 +184,12 @@ class GeminiClient:
 
                 return system_prompt
             return None
+
+        except APIError:
+            raise
         except Exception as error:
             trace_id = log_error(ErrorCode.ERROR_INJECTING_FIELDS_TO_PROMPT, exception=error)
-            raise APIError(ErrorCode.ERROR_INJECTING_FIELDS_TO_PROMPT, trace_id)
+            raise APIError(ErrorCode.ERROR_INJECTING_FIELDS_TO_PROMPT, trace_id) from error
 
     def answer_general_questions(self, user_question: str, system_prompt: str) -> dict:
         """
@@ -203,28 +211,32 @@ class GeminiClient:
             func_result = (func_call_data_or_llm_text_dict or {}).get("result")
             has_func_call_flag = (func_result or{}).get("function_call")
             llm_answer_in_text_format = not has_func_call_flag
-
+        # catch a Gemini error
+        except genai_errors.APIError:
+            raise
         except Exception as error:
             trace_id = log_error(ErrorCode.ERROR_CALLING_FUNCTION, exception=error)
-            raise APIError(ErrorCode.ERROR_CALLING_FUNCTION, trace_id)
+            raise APIError(ErrorCode.ERROR_CALLING_FUNCTION, trace_id) from error
 
         try:
-            # Scenario 1: LLM answered with plain text without function call
-            # or result of answer were the structured data.
+            # Scenario 1: LLM answered with plain text without function call,
+            # or the result of the answer was the structured data.
             if llm_answer_in_text_format:
                 # Returns the structured output or
-                # Dictionary with reason why the LLM decided not to call a function.
+                # Dictionary with the reason why the LLM decided not to call a function.
                 result = func_call_data_or_llm_text_dict
 
-            # Scenario 2: LLM answered with function call and this answer should be interpreted
+            # Scenario 2: LLM answered with a function call, and this answer should be interpreted
             else:
-                # LLM is interpreting the data from function call to the human language.
+                # LLM is interpreting the data from a function call to the human language.
                 # Dictionary with data for the interpretation is taken from the conversation history.
                 result = self.get_textual_llm_response(user_question, system_prompt)
-
+        # catch a Gemini error
+        except genai_errors.APIError:
+            raise
         except Exception as error:
             trace_id = log_error(ErrorCode.ERROR_INTERPRETING_THE_FUNCTION_CALL, exception=error)
-            raise APIError(ErrorCode.ERROR_INTERPRETING_THE_FUNCTION_CALL, trace_id)
+            raise APIError(ErrorCode.ERROR_INTERPRETING_THE_FUNCTION_CALL, trace_id) from error
 
         # STEP 2: Unified logging
         llm_answer_str = json.dumps(result, indent=2, ensure_ascii=False, default=str)
@@ -249,7 +261,7 @@ class GeminiClient:
             )
         except Exception as error:
             trace_id = log_error(ErrorCode.LOG_ERROR_FOR_FUNCTION_CALLING, exception=error)
-            raise APIError(ErrorCode.LOG_ERROR_FOR_FUNCTION_CALLING, trace_id)
+            raise APIError(ErrorCode.LOG_ERROR_FOR_FUNCTION_CALLING, trace_id) from error
 
         return result
 
@@ -283,10 +295,14 @@ class GeminiClient:
                                                                                       system_prompt,
                                                                                       display_data_scheme)
             return llm_response
-
+        except APIError:
+            raise
+        # catch a Gemini error
+        except genai_errors.APIError:
+            raise
         except Exception as error:
             trace_id = log_error(ErrorCode.LLM_ERROR_COLLECTING_TYPE_OF_DATA_TO_SHOW, exception=error)
-            raise APIError(ErrorCode.LLM_ERROR_COLLECTING_TYPE_OF_DATA_TO_SHOW, trace_id)
+            raise APIError(ErrorCode.LLM_ERROR_COLLECTING_TYPE_OF_DATA_TO_SHOW, trace_id) from error
 
     def process_create_request(self, user_question: str, system_prompt: str) -> dict | None:
         """
@@ -312,7 +328,11 @@ class GeminiClient:
                                                                                       system_prompt,
                                                                                       create_data_scheme)
             return llm_response
-
+        except APIError:
+            raise
+        # catch a Gemini error
+        except genai_errors.APIError:
+            raise
         except Exception as error:
             trace_id = log_error(ErrorCode.LLM_ERROR_COLLECTING_DATA_TO_CREATE_ENTITY, exception=error)
-            raise APIError(ErrorCode.LLM_ERROR_COLLECTING_DATA_TO_CREATE_ENTITY, trace_id)
+            raise APIError(ErrorCode.LLM_ERROR_COLLECTING_DATA_TO_CREATE_ENTITY, trace_id) from error

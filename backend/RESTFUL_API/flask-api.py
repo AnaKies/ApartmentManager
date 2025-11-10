@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request, Blueprint, current_app
 from flask_cors import CORS
 from werkzeug.exceptions import HTTPException
-
+from google.genai import errors as genai_errors
 from ApartmentManager.backend.SQL_API.rental.CRUD import create
 from ApartmentManager.backend.config.server_config import HOST, PORT
 import ApartmentManager.backend.SQL_API.rental.CRUD.read as read_sql
@@ -34,7 +34,8 @@ def initialize():
     load_dotenv()
     some_gemini_model = os.getenv("GEMINI_MODEL")  # for example, gemini-2.5-flash
 
-    # initialize the LLM client and attach to app
+    # Here we put the object of LlmClient inside the extension of the Flask app
+    # Then we can access it from any route inside the app using current_app.extensions["ai_client"]
     flask_app.extensions = getattr(flask_app, "extensions", {})
     flask_app.extensions["ai_client"] = LlmClient(some_gemini_model)
 
@@ -54,8 +55,8 @@ def chat_api():
     """
     JSON-only endpoint for chat.
     Request JSON: { "user_input": "<string>" }
-    Response JSON: { "question": "<string>", "answer": "<string>" }
     """
+    current_app.logger.info("ai_client id=%s", id(current_app.extensions["ai_client"]))
     try:
         if not request.is_json:
             trace_id = log_error(ErrorCode.FLASK_ERROR_HTTP_REQUEST_INPUT_MUST_BY_JSON)
@@ -66,6 +67,7 @@ def chat_api():
         if data is None:
             data = {}
 
+        # The API defines and expects this key in the request body
         value = data.get('user_input')
         user_question_str = value.strip() if value else ''
         print(user_question_str)
@@ -74,17 +76,20 @@ def chat_api():
             trace_id = log_error(ErrorCode.FLASK_ERROR_USER_QUESTION_IS_NOT_STRING)
             raise APIError(ErrorCode.FLASK_ERROR_USER_QUESTION_IS_NOT_STRING, trace_id)
 
-        # The answer envelope is built inside this method
+        # current_app is the variable of Flask that points to the actual app
+        # Different objects of the business logic can be stored inside
         ai_client = current_app.extensions["ai_client"]
         model_answer = ai_client.get_llm_answer(user_question_str)
-    except APIError as error:
-        raise error
+    except APIError:
+        raise
+    except genai_errors.APIError:
+        raise
     except Exception as error:
         raise error
 
     print(model_answer)
     return model_answer, 200
-
+    # TODO implement close client to release the http ressourcess
 
 @internal_bp.route('/tenancies', methods=['GET'])
 def get_tenancies():
@@ -224,6 +229,24 @@ def handle_unexpected_error(general_error):
                          trace_id=general_error.trace_id if hasattr(general_error, "trace_id") else "-")
 
     return result, 200
+
+@public_bp.app_errorhandler(genai_errors.APIError)
+def handle_gemini_api_error(err: genai_errors.APIError):
+    # Extract HTTP-code and message from the exception
+    status_code = getattr(err, "status_code", None)
+    if not status_code:
+        # try to get the response_json
+        status_code = (getattr(err, "response_json", {}) or {}).get("error", {}).get("code", 500)
+    message = str(err)
+
+    result = build_error(
+        code=status_code,
+        message=message,
+        llm_model=current_app.extensions["ai_client"].model_name,
+        answer_source="backend",
+        trace_id=getattr(err, "trace_id", "-")
+    )
+    return result, 200 #int(status_code or 500)
 
 if __name__ == '__main__':
     app = initialize()
