@@ -232,19 +232,23 @@ def handle_unexpected_error(general_error):
 
 @public_bp.app_errorhandler(genai_errors.APIError)
 def handle_gemini_api_error(err: genai_errors.APIError):
+    trace_id = log_error(exception=err)
+
     # Extract HTTP-code and message from the exception
-    status_code = getattr(err, "status_code", None)
+    status_code = getattr(err, "code", None)
     if not status_code:
         # try to get the response_json
         status_code = (getattr(err, "response_json", {}) or {}).get("error", {}).get("code", 500)
-    message = str(err)
+    message = getattr(err, "message")
+    if not message:
+        message = str(err)
 
     result = build_error(
         code=status_code,
         message=message,
         llm_model=current_app.extensions["ai_client"].model_name,
         answer_source="backend",
-        trace_id=getattr(err, "trace_id", "-")
+        trace_id=trace_id
     )
     return result, 200 #int(status_code or 500)
 
