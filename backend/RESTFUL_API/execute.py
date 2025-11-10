@@ -1,5 +1,6 @@
 from ApartmentManager.backend.config.server_config import HOST, PORT
 import requests
+from requests.exceptions import RequestException
 
 def make_restful_api_post(path: str, payload: dict) -> requests.Response:
     """
@@ -42,9 +43,6 @@ def make_restful_api_get(path: str) -> dict | None:
     :return: Data JSON response from the endpoint RESTFUL API.
     """
     try:
-        if not path:
-            raise ValueError("No path provided")
-
         url = f"http://{HOST}:{PORT}{path}"
 
         # get response from the endpoint of RESTful API
@@ -52,12 +50,9 @@ def make_restful_api_get(path: str) -> dict | None:
         response.raise_for_status()  # raises an HTTPError if the server responds with a failed status code.
         return response.json()
 
-    except requests.ConnectionError as error:
-        print("Error connecting to the REST API: Flask server is not running.", error)
-    except requests.HTTPError as error:
-        print(f"Error due returning HTTP error: {error}")
-    except ValueError as error:
-        print(f"Error due faulty value: {error}")
+    except RequestException:
+        # every HTTP error requests: ConnectionError, Timeout, HTTPError, ...
+        raise
     except Exception as error:
         print(f"Unexpected error calling endpoints by AI: {error}")
     return None

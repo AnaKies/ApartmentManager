@@ -3,6 +3,8 @@ import os
 from google.genai import types
 from abc import ABC
 from google.genai import errors as genai_errors
+from requests import RequestException
+
 from ApartmentManager.backend.AI_API.ai_clients.gemini.booleanOutput import BooleanOutput
 from ApartmentManager.backend.AI_API.ai_clients.gemini.function_call import FunctionCallService
 from ApartmentManager.backend.AI_API.ai_clients.gemini.structured_output import StructuredOutput
@@ -124,7 +126,8 @@ class GeminiClient:
                                            answer_source="llm")
             else:
                 trace_id = log_error(ErrorCode.LLM_ERROR_NO_TEXT_ANSWER)
-                raise APIError(ErrorCode.LLM_ERROR_NO_TEXT_ANSWER, trace_id)
+                raise APIError(error_code_obj=ErrorCode.LLM_ERROR_NO_TEXT_ANSWER,
+                               trace_id=trace_id)
 
             return result
 
@@ -135,7 +138,8 @@ class GeminiClient:
             raise
         except Exception as error:
             trace_id = log_error(ErrorCode.LLM_RESPONSE_INTERPRETATION_ERROR, exception=error)
-            raise APIError(ErrorCode.LLM_RESPONSE_INTERPRETATION_ERROR, trace_id) from error
+            raise APIError(error_code_obj=ErrorCode.LLM_RESPONSE_INTERPRETATION_ERROR,
+                           trace_id=trace_id) from error
 
     def get_crud_in_user_question(self, user_question: str) -> dict:
         """
@@ -200,9 +204,6 @@ class GeminiClient:
         :param system_prompt: System prompt with instructions for function calling.
         :return: Data from the database as a dictionary.
         """
-        result = None
-        llm_answer_in_text_format = None
-        func_call_data_or_llm_text_dict = None
 
         try:
             # STEP 1: LLM generates an answer as dict with the possible function call inside using GET tool
@@ -213,6 +214,8 @@ class GeminiClient:
             llm_answer_in_text_format = not has_func_call_flag
         # catch a Gemini error
         except genai_errors.APIError:
+            raise
+        except RequestException:
             raise
         except Exception as error:
             trace_id = log_error(ErrorCode.ERROR_CALLING_FUNCTION, exception=error)

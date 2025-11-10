@@ -6,6 +6,7 @@ from ApartmentManager.backend.AI_API.general.api_data_type import build_data_ans
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
 from ApartmentManager.backend.AI_API.general.logger import log_error
 from ApartmentManager.backend.RESTFUL_API import execute
+from requests.exceptions import RequestException
 
 class FunctionCallService:
 
@@ -88,35 +89,40 @@ class FunctionCallService:
         :return: Object containing the SQL data to the LLM.
         """
         func_calling_result = None
+        try:
+            # Single-dispatch map by function name (as returned by the model)
+            dispatch = {
+                execute.make_restful_api_get.__name__: execute.make_restful_api_get,
+                execute.make_restful_api_post.__name__: execute.make_restful_api_post,
+            }
 
-        # Single-dispatch map by function name (as returned by the model)
-        dispatch = {
-            execute.make_restful_api_get.__name__: execute.make_restful_api_get,
-            execute.make_restful_api_post.__name__: execute.make_restful_api_post,
-        }
+            func = dispatch.get(function_call_obj.name)
+            if func is None:
+                print(f"Unknown function requested by LLM: {function_call_obj.name}")
+            else:
+                # Ensure args is a dict before unpacking
+                call_args = getattr(function_call_obj, "args", {}) or {}
+                func_calling_result = func(**call_args)
+                print(".... SQL answer: ", func_calling_result)
 
-        func = dispatch.get(function_call_obj.name)
-        if func is None:
-            print(f"Unknown function requested by LLM: {function_call_obj.name}")
-        else:
-            # Ensure args is a dict before unpacking
-            call_args = getattr(function_call_obj, "args", {}) or {}
-            func_calling_result = func(**call_args)
-            print(".... SQL answer: ", func_calling_result)
+            # Creates a function response part.
+            # Gives the row answer from the called function.
+            # It has to be added to the conversation.
+            function_response_part = types.Part.from_function_response(
+                name=function_call_obj.name,
+                response={"result": func_calling_result},
+            )
 
-        # Creates a function response part.
-        # Gives the row answer from the called function.
-        # It has to be added to the conversation.
-        function_response_part = types.Part.from_function_response(
-            name=function_call_obj.name,
-            response={"result": func_calling_result},
-        )
+            # Add the actual result of the function execution back into the conversation history,
+            # so the model can use it to generate the final response to the user in the human like form.
+            self.session_contents.append(types.Content(role="assistant", parts=[function_response_part]))
 
-        # Add the actual result of the function execution back into the conversation history,
-        # so the model can use it to generate the final response to the user in the human like form.
-        self.session_contents.append(types.Content(role="assistant", parts=[function_response_part]))
-
-        return func_calling_result
+            return func_calling_result
+        except RequestException:
+            raise
+        except Exception as error:
+            trace_id = log_error(ErrorCode.LLM_ERROR_CALLING_FUNCTION_PROPOSED_BY_LLM, exception=error)
+            raise APIError(ErrorCode.LLM_ERROR_CALLING_FUNCTION_PROPOSED_BY_LLM, trace_id) from error
 
 
     @staticmethod
@@ -165,6 +171,8 @@ class FunctionCallService:
                 func_calling_result = self._do_call_function(func_call_obj)
 
             except APIError:
+                raise
+            except RequestException:
                 raise
             except Exception as error:
                 trace_id = log_error(ErrorCode.LLM_ERROR_DOING_FUNCTION_CALL, exception=error)

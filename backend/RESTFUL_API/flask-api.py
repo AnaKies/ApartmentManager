@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, Blueprint, current_app
 from flask_cors import CORS
+from requests import RequestException
 from werkzeug.exceptions import HTTPException
 from google.genai import errors as genai_errors
 from ApartmentManager.backend.SQL_API.rental.CRUD import create
@@ -15,7 +16,7 @@ from ApartmentManager.backend.AI_API.general.logger import init_logging, get_log
 
 # Helps access the decorator names after initialization
 public_bp = Blueprint("public_api", __name__) # http://HOST:PORT/api/...
-internal_bp = Blueprint("internal_api", __name__, url_prefix="/internal") #http://HOST:PORT/internal/...
+internal_bp = Blueprint("internal_api", __name__) #http://HOST:PORT/...
 
 def initialize():
     # Initialize logger
@@ -56,7 +57,6 @@ def chat_api():
     JSON-only endpoint for chat.
     Request JSON: { "user_input": "<string>" }
     """
-    current_app.logger.info("ai_client id=%s", id(current_app.extensions["ai_client"]))
     try:
         if not request.is_json:
             trace_id = log_error(ErrorCode.FLASK_ERROR_HTTP_REQUEST_INPUT_MUST_BY_JSON)
@@ -79,13 +79,18 @@ def chat_api():
         # current_app is the variable of Flask that points to the actual app
         # Different objects of the business logic can be stored inside
         ai_client = current_app.extensions["ai_client"]
+
+        # LLM answers
         model_answer = ai_client.get_llm_answer(user_question_str)
+
     except APIError:
         raise
     except genai_errors.APIError:
         raise
-    except Exception as error:
-        raise error
+    except RequestException:
+        raise
+    except Exception:
+        raise
 
     print(model_answer)
     return model_answer, 200
@@ -192,10 +197,11 @@ def get_apartments():
 @public_bp.app_errorhandler(APIError)
 def handle_api_error(api_error: APIError):
     result = build_error(code=api_error.code,
-                         message=api_error.error_message,
+                         message=api_error.message,
                          llm_model=current_app.extensions["ai_client"].model_name,
                          answer_source="backend",
-                         trace_id=api_error.trace_id if hasattr(api_error, "trace_id") else "-")
+                         trace_id=api_error.trace_id if hasattr(api_error, "trace_id") else "",
+                         answer_attempt=api_error.answer_attempt if hasattr(api_error, "answer_attempt") else "")
     return result, 200
 
 

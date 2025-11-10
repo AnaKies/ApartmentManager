@@ -6,30 +6,20 @@ class APIError(Exception):
     def __init__(self, error_code_obj, trace_id=None):
         # Extract a code and message from the enum ErrorCode
         error_code, error_message = error_code_obj.value
-        self.code = error_code
-        self.error_message = error_message
-        if trace_id:
-            self.trace_id = trace_id
+        self.error_code = error_code or "-"
+        self.message = error_message or "-"
+        self.trace_id = trace_id or "-"
+
+        # The error mechanism of python will show this text in the error
+        super().__init__(f"APIError {self.code}: {self.message} (trace_id={self.trace_id})")
 
     def __str__(self):
-        if isinstance(self.code, Enum):
-            error_code, error_text = self.code.value
-        else:
-            error_code = self.code or "-"
-            error_text = getattr(self, "error_message", "-")
-
-        trace = getattr(self, "trace_id", "-")
-        return f"APIError {error_code}: {error_text} (trace_id={trace})"
+        return (f"APIError {self.error_code}: {self.message} "
+                f"(trace_id={self.trace_id}). ")
 
     def __repr__(self):
-        if isinstance(self.code, Enum):
-            error_code, error_text = self.code.value
-        else:
-            error_code = self.code or "-"
-            error_text = getattr(self, "error_message", "-")
-
-        trace = getattr(self, "trace_id", "-")
-        return f"<APIError code={error_code} message='{error_text}' trace_id={trace}>"
+        return (f"APIError {self.error_code}: {self.message} "
+                f"(trace_id={self.trace_id}). ")
 
 class ErrorCode(Enum):
     # LLM
@@ -38,6 +28,7 @@ class ErrorCode(Enum):
     LLM_ERROR_COLLECTING_TYPE_OF_DATA_TO_SHOW = (1004, "Failed collecting types of data to show.")
     LLM_ERROR_COLLECTING_DATA_TO_CREATE_ENTITY = (1005, "Failed collecting data to create entity.")
     LLM_ERROR_DOING_FUNCTION_CALL = (1006, "Failed doing function call.")
+    LLM_ERROR_CALLING_FUNCTION_PROPOSED_BY_LLM = (1009, "Failed calling function proposed by LLM.")
     LLM_ERROR_RETRIEVING_BOOLEAN_RESPONSE = (1007, "Failed retrieving boolean response.")
     LLM_ERROR_RETRIEVING_STRUCTURED_RESPONSE = (1008, "Failed retrieving structured response.")
     LLM_ERROR_EMPTY_ANSWER = (1010, "Empty LLM answer.")

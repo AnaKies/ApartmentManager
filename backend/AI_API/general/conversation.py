@@ -2,6 +2,7 @@ import json
 import os
 from google.genai import errors as genai_errors
 from dotenv import load_dotenv
+from requests import RequestException
 
 from ApartmentManager.backend.AI_API.ai_clients.gemini.gemini_client import GeminiClient
 from ApartmentManager.backend.AI_API.general import prompting
@@ -246,6 +247,8 @@ class LlmClient:
             raise
         # catch a Gemini error
         except genai_errors.APIError:
+            raise
+        except RequestException:
             raise
         except Exception as error:
             trace_id = log_error(ErrorCode.ERROR_PERFORMING_CRUD_OPERATION, exception=error)
