@@ -411,6 +411,48 @@ function Modal({ open, title, message, onClose }){
   );
 }
 
+function ApartmentList() {
+  // Placeholder for the list of apartments
+  return React.createElement('div', { className: 'apartment-list-container' },
+    React.createElement('h3', null, 'Apartments'),
+    React.createElement('p', { className: 'placeholder-text' }, 'ApartmentList Placeholder')
+  );
+}
+
+function ApartmentContextPanel() {
+  // Placeholder for context related to the selected apartment
+  return React.createElement('div', { className: 'context-panel-container' },
+    React.createElement('h3', null, 'Context'),
+    React.createElement('p', { className: 'placeholder-text' }, 'ApartmentContextPanel Placeholder')
+  );
+}
+
+function TenancyPanel() {
+  // Placeholder for tenancy details
+  return React.createElement('div', { className: 'tenancy-panel-container' },
+    React.createElement('h3', null, 'Tenancy'),
+    React.createElement('p', { className: 'placeholder-text' }, 'TenancyPanel Placeholder')
+  );
+}
+
+function DetailsPanel() {
+  // Placeholder for other details
+  return React.createElement('div', { className: 'details-panel-container' },
+    React.createElement('h3', null, 'Details'),
+    React.createElement('p', { className: 'placeholder-text' }, 'DetailsPanel Placeholder')
+  );
+}
+
+function ClassicalModeRoot() {
+  // This component will orchestrate the layout for the classical UI view.
+  return React.createElement('div', { className: 'classical-mode-grid' },
+    React.createElement(ApartmentList),
+    React.createElement(ApartmentContextPanel),
+    React.createElement(TenancyPanel),
+    React.createElement(DetailsPanel)
+  );
+}
+
 function App(){
   const [messages,setMessages] = useState([]);
   const [dataEnvelope,setDataEnvelope] = useState(null);
@@ -596,9 +638,7 @@ function handleErrorEnvelope(env) {
           React.createElement('section', { className: 'panel' }, React.createElement(JsonViewerPanel, { dataEnvelope })),
           React.createElement('section', { className: 'panel' }, React.createElement(ChatPanel, { onSend: sendToApi, messages, loading }))
         )
-      : React.createElement('main', { className: 'content' },
-          React.createElement('div', { className: 'placeholder-container' }, 'Classical Mode – placeholder UI')
-        ),
+      : React.createElement('main', { className: 'content' }, React.createElement(ClassicalModeRoot)),
     React.createElement(Modal,{open:modal.open,title:modal.title,message:modal.message,onClose:()=>setModal(m=>({...m,open:false}))})
   );
 }
