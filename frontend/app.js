@@ -416,6 +416,7 @@ function App(){
   const [dataEnvelope,setDataEnvelope] = useState(null);
   const [loading,setLoading] = useState(false);
   const [modal,setModal] = useState({open:false,title:'',message:''});
+  const [viewMode, setViewMode] = useState('chat'); // 'chat' or 'classical'
 
 function addMessage(role, content, isError = false, source = null, llmModel = null, traceId = null, envelopeType = null) {
   setMessages(prev => [...prev, { role, content, isError, source, llmModel, traceId, envelopeType }]);
@@ -577,11 +578,27 @@ function handleErrorEnvelope(env) {
 }
 
   return React.createElement('div',{className:'app'},
-    React.createElement('header',{className:'header'}, React.createElement('h1',{className:'header-title'},'Apartment Manager')),
-    React.createElement('main',{className:'content'},
-      React.createElement('section',{className:'panel'}, React.createElement(JsonViewerPanel,{dataEnvelope})),
-      React.createElement('section',{className:'panel'}, React.createElement(ChatPanel,{onSend:sendToApi,messages,loading}))
+    React.createElement('header', { className: 'header' },
+      React.createElement('h1', { className: 'header-title' }, 'Apartment Manager'),
+      React.createElement('div', { className: 'mode-switcher' },
+        React.createElement('button', {
+          className: classNames('btn', viewMode === 'chat' && 'active'),
+          onClick: () => setViewMode('chat')
+        }, 'Chat Mode'),
+        React.createElement('button', {
+          className: classNames('btn', viewMode === 'classical' && 'active'),
+          onClick: () => setViewMode('classical')
+        }, 'Classical Mode')
+      )
     ),
+    viewMode === 'chat'
+      ? React.createElement('main', { className: 'content' },
+          React.createElement('section', { className: 'panel' }, React.createElement(JsonViewerPanel, { dataEnvelope })),
+          React.createElement('section', { className: 'panel' }, React.createElement(ChatPanel, { onSend: sendToApi, messages, loading }))
+        )
+      : React.createElement('main', { className: 'content' },
+          React.createElement('div', { className: 'placeholder-container' }, 'Classical Mode – placeholder UI')
+        ),
     React.createElement(Modal,{open:modal.open,title:modal.title,message:modal.message,onClose:()=>setModal(m=>({...m,open:false}))})
   );
 }
