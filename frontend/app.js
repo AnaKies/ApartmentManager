@@ -435,19 +435,32 @@ async function sendToApi(userText) {
     });
     clearTimeout(timeoutId);
 
+    // If the response is not OK, it might be a structured error from our backend.
     if (!res.ok) {
-      let errText;
-      if (res.status === 400) {
-        errText = '`user_input` is required';
-      } else if (res.status === 415) {
-        errText = 'Content-Type must be application/json';
-      } else if (res.status >= 500 || res.status === 0) {
-        // 5xx or 0 (often used by proxies / network failures) → treat as backend unavailable
-        errText = 'backend_unavailable';
-      } else {
-        errText = 'internal_error';
+      let data;
+      try {
+        data = await res.json();
+      } catch (e) {
+        // The response was not valid JSON (e.g., a gateway error with HTML).
+        // We throw to trigger the modal for these kinds of network/proxy errors.
+        const errText = res.status >= 500 || res.status === 0 ? 'backend_unavailable' : 'internal_error';
+        throw new Error(errText);
       }
-      throw new Error(errText);
+
+      // If we successfully parsed JSON, we can now check if it's our error format.
+      if (data) {
+        const env = normalizeEnvelope(data);
+        // If it's a structured error, handle it here and exit the function.
+        // This prevents it from falling through to the generic `catch` block.
+        if (env.type === 'error') {
+          handleErrorEnvelope(env);
+          return; // Exit successfully after handling the chat message.
+        }
+      }
+
+      // If we are here, it means res was not .ok and it was either not JSON
+      // or not a structured error envelope. We throw to trigger the modal.
+      throw new Error('internal_error');
     }
 
     const data = await res.json();
@@ -458,34 +471,7 @@ async function sendToApi(userText) {
       return;
     }
 
-    switch (env.type) {
-      case 'error': {
-        const traceIdStr = env.trace_id ? `Trace ID: ${env.trace_id}` : 'Trace ID: unavailable';
-        // Use the actual model from the envelope, not a fallback string
-        const llmModel = env.llm_model || null;
-
-        if (env.result && env.result.message) {
-          const rawSource = env.answer_source ? String(env.answer_source).toLowerCase() : null;
-          addMessage('assistant', env.result.message, true, rawSource, env.llm_model || null, env.trace_id || null, 'error');
-        }
-
-        if (env.error) {
-          const errorCode = env.error.code != null ? env.error.code : 'Unknown code';
-          const errorMessage = env.error.message || 'No message provided';
-          addMessage(
-            'assistant',
-            `Error Code: ${errorCode}\nMessage: ${errorMessage}\n${traceIdStr}\nLLM Model: ${llmModel}`.trim(),
-            true,
-            env.answer_source || null,
-            env.llm_model || null,
-            env.trace_id || null,
-            'error'
-          );
-        } else {
-          addMessage('assistant', 'Unknown error occurred', true, env.answer_source || null, env.llm_model || null, env.trace_id || null, 'error');
-        }
-        break;
-      }
+    switch (env.type) { case 'error': { handleErrorEnvelope(env); break; }
 
       case 'text': {
         const msg = (env.result && (env.result.message || env.result.text || env.result.content))
@@ -511,6 +497,8 @@ async function sendToApi(userText) {
       }
     }
   } catch (err) {
+    // This block will now only be reached for network errors, timeouts,
+    // or non-JSON server errors, which is what we want for the modal.
     clearTimeout(timeoutId);
 
     console.error('Request to backend failed:', err);
@@ -552,6 +540,39 @@ async function sendToApi(userText) {
     addMessage('assistant', message, true, 'backend', null, null, 'error');
   } finally {
     setLoading(false);
+  }
+}
+
+function handleErrorEnvelope(env) {
+  const traceIdStr = env.trace_id ? `Trace ID: ${env.trace_id}` : 'Trace ID: unavailable';
+  const llmModel = env.llm_model || null;
+
+  // This is a structured error from the backend, like the 503 "model overloaded".
+  // We prioritize the `error.message` field which is more machine-readable.
+  if (env.error && env.error.message) {
+    const errorCode = env.error.code != null ? env.error.code : 'N/A';
+    const message = env.error.message || 'No message provided.';
+    const traceId = env.trace_id || 'N/A';
+    const llmModelStr = env.llm_model || 'N/A';
+    const errorMessage = `Error Code: ${errorCode}\nMessage: ${message}\nTrace ID: ${traceId}\nLLM Model: ${llmModelStr}`;
+    addMessage(
+      'assistant',
+      errorMessage,
+      true,
+      env.answer_source || 'backend',
+      llmModel,
+      env.trace_id,
+      'error'
+    );
+  }
+  // Fallback for other kinds of structured 'error' type envelopes
+  else if (env.result && env.result.message) {
+    const rawSource = env.answer_source ? String(env.answer_source).toLowerCase() : 'backend';
+    addMessage('assistant', env.result.message, true, rawSource, llmModel, env.trace_id, 'error');
+  }
+  // Generic fallback if the error envelope is malformed
+  else {
+    addMessage('assistant', 'An unknown application error occurred.', true, 'backend', llmModel, env.trace_id, 'error');
   }
 }
 

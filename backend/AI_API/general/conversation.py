@@ -15,19 +15,19 @@ from ApartmentManager.backend.AI_API.general.api_data_type import build_text_ans
 from ApartmentManager.backend.AI_API.general.logger import log_error
 
 class ConversationState:
-    show_state = False
-    update_state = False
-    delete_state = False
-    create_state = False
-    default_state = False
+    def __init__(self):
+        self.show_state = False
+        self.update_state = False
+        self.delete_state = False
+        self.create_state = False
+        self.default_state = False
 
-@staticmethod
-def reset_conversation_state():
-    ConversationState.show_state = False
-    ConversationState.update_state = False
-    ConversationState.delete_state = False
-    ConversationState.create_state = False
-    ConversationState.default_state = False
+    def reset(self):
+        self.show_state = False
+        self.update_state = False
+        self.delete_state = False
+        self.create_state = False
+        self.default_state = False
 
 
 class LlmClient:
@@ -38,6 +38,7 @@ class LlmClient:
         self.llm_client = None
         self.model_name = model_name
         self.crud_intent = None
+        self.conversation_state = ConversationState()
 
         # Specify the model to use
         load_dotenv()
@@ -67,10 +68,10 @@ class LlmClient:
 
             # Check no active CRUD state
             is_any_active = any([
-                ConversationState.show_state,
-                ConversationState.create_state,
-                ConversationState.update_state,
-                ConversationState.delete_state
+                self.conversation_state.show_state,
+                self.conversation_state.create_state,
+                self.conversation_state.update_state,
+                self.conversation_state.delete_state
             ])
             if not is_any_active:
                 # STEP 1: LLM checks if a user asks for one of CRUD operations
@@ -80,36 +81,36 @@ class LlmClient:
             # actualize the state of the state machine
             if run_crud_check:
                 if ((self.crud_intent or {}).get("create") or {}).get("value"):
-                    ConversationState.create_state = True
-                    ConversationState.update_state = False
-                    ConversationState.delete_state = False
-                    ConversationState.show_state = False
-                    ConversationState.default_state = False
+                    self.conversation_state.create_state = True
+                    self.conversation_state.update_state = False
+                    self.conversation_state.delete_state = False
+                    self.conversation_state.show_state = False
+                    self.conversation_state.default_state = False
                 elif ((self.crud_intent or {}).get("update") or {}).get("value"):
-                    ConversationState.create_state = False
-                    ConversationState.update_state = True
-                    ConversationState.delete_state = False
-                    ConversationState.show_state = False
-                    ConversationState.default_state = False
+                    self.conversation_state.create_state = False
+                    self.conversation_state.update_state = True
+                    self.conversation_state.delete_state = False
+                    self.conversation_state.show_state = False
+                    self.conversation_state.default_state = False
                 elif ((self.crud_intent or {}).get("delete") or {}).get("value"):
-                    ConversationState.create_state = False
-                    ConversationState.update_state = False
-                    ConversationState.delete_state = True
-                    ConversationState.show_state = False
-                    ConversationState.default_state = False
+                    self.conversation_state.create_state = False
+                    self.conversation_state.update_state = False
+                    self.conversation_state.delete_state = True
+                    self.conversation_state.show_state = False
+                    self.conversation_state.default_state = False
                 elif ((self.crud_intent or {}).get("show") or {}).get("value"):
-                    ConversationState.create_state = False
-                    ConversationState.update_state = False
-                    ConversationState.delete_state = False
-                    ConversationState.show_state = True
-                    ConversationState.default_state = False
+                    self.conversation_state.create_state = False
+                    self.conversation_state.update_state = False
+                    self.conversation_state.delete_state = False
+                    self.conversation_state.show_state = True
+                    self.conversation_state.default_state = False
                 else:
                     # No explicit CRUD intent detected at the start of a conversation => default
-                    ConversationState.create_state = False
-                    ConversationState.update_state = False
-                    ConversationState.delete_state = False
-                    ConversationState.show_state = False
-                    ConversationState.default_state = True
+                    self.conversation_state.create_state = False
+                    self.conversation_state.update_state = False
+                    self.conversation_state.delete_state = False
+                    self.conversation_state.show_state = False
+                    self.conversation_state.default_state = True
             # NOTE: if we did NOT run a CRUD check (multi-turn within an active state),
             #       we DO NOT touch the existing ConversationState flags here.
         except APIError:
@@ -124,7 +125,7 @@ class LlmClient:
         try:
             # TODO change to switch/case
             # STEP 2: do action depending on CRUD operation
-            if ConversationState.create_state:
+            if self.conversation_state.create_state:
                 # STEP 1: Provide extended system prompt with injected data
                 # Generate new prompt for CREATE operation
                 prompt_for_entity_creation = self.llm_client.generate_prompt_for_create_entity(self.crud_intent)
@@ -166,7 +167,7 @@ class LlmClient:
                                 llm_answer="---"
                             )
 
-                            ConversationState.create_state = False
+                            self.conversation_state.create_state = False
                         else: # Creation flag is not active
                             trace_id = log_error(ErrorCode.SQL_ERROR_CREATING_NEW_PERSON, exception=None)
                             raise APIError(ErrorCode.SQL_ERROR_CREATING_NEW_PERSON, trace_id)
@@ -175,26 +176,26 @@ class LlmClient:
                 # and LLM set the flag redy_to_post.
                 # Return the actual comment of the LLM, which should ask for missing data
                 else:
-                    ConversationState.create_state = True  # keep collecting until confirmation
+                    self.conversation_state.create_state = True  # keep collecting until confirmation
                     result = build_text_answer(message=llm_comment_to_payload,
                                                model=self.model_name,
                                                answer_source="llm")
 
-            elif ConversationState.delete_state:
+            elif self.conversation_state.delete_state:
                 # Generate prompt for DELETE operation
                 if result:
-                    ConversationState.delete_state = False
+                    self.conversation_state.delete_state = False
                 trace_id = log_error(ErrorCode.WARNING_NOT_IMPLEMENTED)
                 raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED, trace_id)
 
-            elif ConversationState.update_state:
+            elif self.conversation_state.update_state:
                 # Generate prompt for UPDATE operation
                 if result:
-                    ConversationState.update_state = False
+                    self.conversation_state.update_state = False
                 trace_id = log_error(ErrorCode.WARNING_NOT_IMPLEMENTED)
                 raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED, trace_id)
 
-            elif ConversationState.show_state:
+            elif self.conversation_state.show_state:
                 sql_answer = None
 
                 # STEP 1: Data preparation
@@ -221,7 +222,7 @@ class LlmClient:
 
                 if sql_answer :
                     payload = [element.to_dict() for element in sql_answer]
-                    ConversationState.show_state = False
+                    self.conversation_state.show_state = False
 
                     result = build_data_answer(payload=payload or {},
                                                payload_comment=missing_request or "Data updated.",
@@ -232,7 +233,7 @@ class LlmClient:
                     trace_id = log_error(ErrorCode.TYPE_ERROR_CREATING_NEW_ENTRY)
                     raise APIError(ErrorCode.TYPE_ERROR_CREATING_NEW_ENTRY, trace_id)
 
-            elif ConversationState.default_state:
+            elif  self.conversation_state.default_state:
                 # New system prompt providing a structured output for collected data
                 system_prompt = json.dumps(prompting.GET_FUNCTION_CALL_PROMPT, indent=2, ensure_ascii=False)
                 # State machine for general questions
@@ -244,17 +245,17 @@ class LlmClient:
             return result
 
         except APIError:
-            reset_conversation_state()
+            self.conversation_state.reset()
             raise
         # catch a Gemini error
         except genai_errors.APIError:
-            reset_conversation_state()
+            self.conversation_state.reset()
             raise
         except RequestException:
-            reset_conversation_state()
+            self.conversation_state.reset()
             raise
         except Exception as error:
-            reset_conversation_state()
+            self.conversation_state.reset()
             trace_id = log_error(ErrorCode.ERROR_PERFORMING_CRUD_OPERATION, exception=error)
             raise APIError(ErrorCode.ERROR_PERFORMING_CRUD_OPERATION, trace_id) from error
 

@@ -1,3 +1,5 @@
+from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
+from ApartmentManager.backend.AI_API.general.logger import log_error
 from ApartmentManager.backend.config.server_config import HOST, PORT
 import requests
 from requests.exceptions import RequestException
@@ -24,15 +26,13 @@ def make_restful_api_post(path: str, payload: dict) -> requests.Response:
         )
         return response.json()
 
-    except requests.ConnectionError as error:
-        print("Error connecting to the REST API: Flask server is not running.", error)
-    except requests.HTTPError as error:
-        print(f"Error due returning HTTP error: {error}")
-    except ValueError as error:
-        print(f"Error due faulty value: {error}")
+    except requests.ConnectionError:
+        raise
+    except requests.HTTPError:
+        raise
     except Exception as error:
-        print(f"Unexpected error calling endpoints by AI: {error}")
-    return None
+        trace_id = log_error(ErrorCode.ERROR_DOING_POST_QUERY_TO_AN_ENDPOINT, exception=error)
+        raise APIError(ErrorCode.ERROR_DOING_POST_QUERY_TO_AN_ENDPOINT, trace_id) from error
 
 
 
@@ -54,5 +54,5 @@ def make_restful_api_get(path: str) -> dict | None:
         # every HTTP error requests: ConnectionError, Timeout, HTTPError, ...
         raise
     except Exception as error:
-        print(f"Unexpected error calling endpoints by AI: {error}")
-    return None
+        trace_id = log_error(ErrorCode.ERROR_DOING_GET_QUERY_TO_AN_ENDPOINT, exception=error)
+        raise APIError(ErrorCode.ERROR_DOING_GET_QUERY_TO_AN_ENDPOINT, trace_id) from error

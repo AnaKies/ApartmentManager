@@ -1,6 +1,7 @@
 import json
 from google import genai
 from google.genai import types
+from google.genai import errors as genai_errors
 import ApartmentManager.backend.AI_API.general.prompting as prompting
 from ApartmentManager.backend.AI_API.general.api_data_type import build_data_answer, build_text_answer
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
@@ -120,6 +121,8 @@ class FunctionCallService:
             return func_calling_result
         except RequestException:
             raise
+        except genai_errors.APIError:
+            raise
         except Exception as error:
             trace_id = log_error(ErrorCode.LLM_ERROR_CALLING_FUNCTION_PROPOSED_BY_LLM, exception=error)
             raise APIError(ErrorCode.LLM_ERROR_CALLING_FUNCTION_PROPOSED_BY_LLM, trace_id) from error
@@ -171,6 +174,8 @@ class FunctionCallService:
                 func_calling_result = self._do_call_function(func_call_obj)
 
             except APIError:
+                raise
+            except genai_errors.APIError:
                 raise
             except RequestException:
                 raise
