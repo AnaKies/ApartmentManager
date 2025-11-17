@@ -214,7 +214,7 @@ def handle_http_error(http_err: HTTPException):
         answer_source="backend",
         trace_id=getattr(http_err, "trace_id", "-")
     )
-    return result, 200 #http_err.code
+    return result, http_err.code
 
 
 # universal handler for all exceptions that were not catch ->
@@ -233,7 +233,7 @@ def handle_unexpected_error(general_error):
                          answer_source="backend",
                          trace_id=general_error.trace_id if hasattr(general_error, "trace_id") else "-")
 
-    return result, 200
+    return result, 500
 
 @public_bp.app_errorhandler(genai_errors.APIError)
 def handle_gemini_api_error(err: genai_errors.APIError):
@@ -255,7 +255,7 @@ def handle_gemini_api_error(err: genai_errors.APIError):
         answer_source="backend",
         trace_id=trace_id
     )
-    return result, 200 #int(status_code or 500)
+    return result, int(status_code or 500)
 
 if __name__ == '__main__':
     app = initialize()
