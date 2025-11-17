@@ -1,0 +1,36 @@
+{
+  "layout": [
+    {
+      "id": "apartments",
+      "label": "Apartments",
+      "clickable": true,
+      "children": [
+        {
+          "id": "tenancy",
+          "label": "Tenancy",
+          "clickable": true,
+          "children": [
+            {
+              "id": "tenant",
+              "label": "Tenant",
+              "clickable": true,
+              "children": []
+            },
+            {
+              "id": "contract",
+              "label": "Contract",
+              "clickable": true,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "details",
+          "label": "Details",
+          "clickable": false,
+          "children": []
+        }
+      ]
+    }
+  ]
+}

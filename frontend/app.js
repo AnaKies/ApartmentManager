@@ -411,46 +411,171 @@ function Modal({ open, title, message, onClose }){
   );
 }
 
-function ApartmentList() {
-  // Placeholder for the list of apartments
-  return React.createElement('div', { className: 'apartment-list-container' },
-    React.createElement('h3', null, 'Apartments'),
-    React.createElement('p', { className: 'placeholder-text' }, 'ApartmentList Placeholder')
+/**
+ * Hook to load the classical mode configuration from a JSON file.
+ * The JSON is expected to contain an object with a `layout` array.
+ */
+function useClassicalConfig() {
+  const [config, setConfig] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadConfig() {
+      try {
+        setLoading(true);
+        setError(null);
+        // Load from a static JSON file served by the frontend.
+        const res = await fetch('/classicalConfig.json');
+        if (!res.ok) {
+          throw new Error(`Failed to load classicalConfig.json (status ${res.status})`);
+        }
+        const data = await res.json();
+        if (!cancelled) {
+          setConfig(data);
+        }
+      } catch (err) {
+        console.error('Error loading classicalConfig.json:', err);
+        if (!cancelled) {
+          setError(err);
+          setConfig(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadConfig();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return { config, loading, error };
+}
+
+/**
+ * A generic component to render a list of items from the classical config.
+ * It represents one column in the hierarchical view.
+ */
+function ClassicalColumn({ title, items, selectedId, onSelect }) {
+  return React.createElement('div', { className: 'classical-column' },
+    React.createElement('h3', { className: 'classical-column-title' }, title),
+    React.createElement('div', { className: 'classical-item-list' },
+      items.map(item => React.createElement('button', {
+        key: item.id,
+        className: classNames(
+          'classical-item',
+          !item.clickable && 'disabled',
+          item.id === selectedId && 'selected'
+        ),
+        onClick: () => item.clickable && onSelect(item),
+        disabled: !item.clickable,
+      }, item.label))
+    )
   );
 }
 
-function ApartmentContextPanel() {
-  // Placeholder for context related to the selected apartment
-  return React.createElement('div', { className: 'context-panel-container' },
-    React.createElement('h3', null, 'Context'),
-    React.createElement('p', { className: 'placeholder-text' }, 'ApartmentContextPanel Placeholder')
-  );
-}
+/**
+ * A component to display the data fetched for a selected classical mode item.
+ */
+function DetailView({ title, data, onBack }) {
+  if (!data) {
+    return React.createElement('div', { className: 'detail-view' },
+      React.createElement('button', { className: 'btn', onClick: onBack }, '‹ Back'),
+      React.createElement('p', null, 'No data available or not yet loaded.')
+    );
+  }
 
-function TenancyPanel() {
-  // Placeholder for tenancy details
-  return React.createElement('div', { className: 'tenancy-panel-container' },
-    React.createElement('h3', null, 'Tenancy'),
-    React.createElement('p', { className: 'placeholder-text' }, 'TenancyPanel Placeholder')
-  );
-}
+  const headers = data.length > 0 ? Object.keys(data[0]) : [];
 
-function DetailsPanel() {
-  // Placeholder for other details
-  return React.createElement('div', { className: 'details-panel-container' },
-    React.createElement('h3', null, 'Details'),
-    React.createElement('p', { className: 'placeholder-text' }, 'DetailsPanel Placeholder')
+  return React.createElement('div', { className: 'detail-view' },
+    React.createElement('div', { className: 'detail-view-header' },
+      React.createElement('button', { className: 'btn', onClick: onBack }, '‹ Back'),
+      React.createElement('h2', null, title)
+    ),
+    React.createElement('div', { className: 'detail-view-content' },
+      React.createElement('table', { className: 'detail-table' },
+        React.createElement('thead', null, React.createElement('tr', null, headers.map(h => React.createElement('th', { key: h }, h)))),
+        React.createElement('tbody', null,
+          data.map((row, idx) => React.createElement('tr', { key: idx },
+            headers.map(h => React.createElement('td', { key: h }, formatNumberOrDate(row[h])))
+          ))
+        )
+      )
+    )
   );
 }
 
 function ClassicalModeRoot() {
-  // This component will orchestrate the layout for the classical UI view.
-  return React.createElement('div', { className: 'classical-mode-grid' },
-    React.createElement(ApartmentList),
-    React.createElement(ApartmentContextPanel),
-    React.createElement(TenancyPanel),
-    React.createElement(DetailsPanel)
-  );
+  const { config, loading, error } = useClassicalConfig();
+  // selectionPath stores the IDs of selected items, e.g., ['apartments', 'tenancy']
+  const [selectionPath, setSelectionPath] = useState([]);
+
+  if (loading) {
+    return React.createElement('div', { className: 'placeholder-container' }, 'Loading configuration...');
+  }
+
+  if (error) {
+    return React.createElement('div', { className: 'placeholder-container error' }, 'Error loading configuration. Please check classicalConfig.json.');
+  }
+
+  if (!config || !Array.isArray(config.layout)) {
+    return React.createElement('div', { className: 'placeholder-container' }, 'No classical configuration loaded. Please check classicalConfig.json.');
+  }
+
+  const handleSelect = (item, depth) => {
+    // When an item is selected, update the path.
+    // Slice the path at the current depth and add the new item's ID.
+    const newPath = selectionPath.slice(0, depth);
+    newPath.push(item.id);
+    setSelectionPath(newPath);
+  };
+
+  // This function will be called when a user clicks a final, data-bearing node.
+  const handleLeafSelect = (item) => {
+    // If the item has no children, it's a leaf node that should fetch data.
+    if (!item.children || item.children.length === 0) {
+      fetchDataForNode(item);
+    }
+  };
+
+  // This function generates the columns based on the current selection path.
+  const renderColumns = () => {
+    const columns = [];
+    let currentItems = config.layout;
+
+    // Render the root column
+    columns.push(React.createElement(ClassicalColumn, {
+      key: 'col-0',
+      title: "Menu",
+      items: currentItems,
+      selectedId: selectionPath[0],
+      onSelect: (item) => handleSelect(item, 0),
+    }));
+
+    // Traverse the selection path to render subsequent columns
+    selectionPath.forEach((selectedId, depth) => {
+      const selectedItem = currentItems.find(item => item.id === selectedId);
+      if (selectedItem && selectedItem.children && selectedItem.children.length > 0) {
+        currentItems = selectedItem.children;
+        columns.push(React.createElement(ClassicalColumn, {
+          key: `col-${depth + 1}`,
+          title: selectedItem.label, // Title of the new column is the label of the parent
+          items: currentItems,
+          selectedId: selectionPath[depth + 1],
+          onSelect: (item) => handleSelect(item, depth + 1),
+        }));
+      }
+    });
+
+    return columns;
+  };
+  return React.createElement('div', { className: 'classical-mode-container' }, renderColumns());
 }
 
 function App(){
