@@ -34,7 +34,7 @@ class ErrorCode(Enum):
 
     # SQL error
     SQL_ERROR_CREATING_NEW_PERSON = (1500, "Failed creating new person.")
-    SQL_NOT_ALLOWED_FIELDS = (1501, "Not allowed fields for creating new entry in database.")
+    NOT_ALLOWED_NAME_FOR_NEW_ENTITY = (1501, "Not allowed name for creating a new entity in database.")
 
     # Flask error
     FLASK_ERROR_HTTP_REQUEST_INPUT_MUST_BY_JSON = (2007, "HTTP request must have the JSON type")

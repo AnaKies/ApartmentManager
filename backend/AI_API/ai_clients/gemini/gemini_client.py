@@ -179,8 +179,8 @@ class GeminiClient:
                     all_fields = Apartment.fields_dict()
                     required_fields = Apartment.required_fields()
                 else:
-                    trace_id = log_error(ErrorCode.SQL_NOT_ALLOWED_FIELDS)
-                    raise APIError(ErrorCode.SQL_NOT_ALLOWED_FIELDS, trace_id)
+                    trace_id = log_error(ErrorCode.NOT_ALLOWED_NAME_FOR_NEW_ENTITY)
+                    raise APIError(ErrorCode.NOT_ALLOWED_NAME_FOR_NEW_ENTITY, trace_id)
 
                 if all_fields:
                     # Inject the class fields in a prompt

@@ -436,11 +436,17 @@ async function sendToApi(userText) {
     clearTimeout(timeoutId);
 
     if (!res.ok) {
-      const errText = res.status === 400
-        ? '`user_input` is required'
-        : res.status === 415
-        ? 'Content-Type must be application/json'
-        : 'internal_error';
+      let errText;
+      if (res.status === 400) {
+        errText = '`user_input` is required';
+      } else if (res.status === 415) {
+        errText = 'Content-Type must be application/json';
+      } else if (res.status >= 500 || res.status === 0) {
+        // 5xx or 0 (often used by proxies / network failures) → treat as backend unavailable
+        errText = 'backend_unavailable';
+      } else {
+        errText = 'internal_error';
+      }
       throw new Error(errText);
     }
 
@@ -506,11 +512,44 @@ async function sendToApi(userText) {
     }
   } catch (err) {
     clearTimeout(timeoutId);
+
+    console.error('Request to backend failed:', err);
+
+    const errMsg = err && typeof err.message === 'string' ? err.message : '';
+
+    let title = 'Request error';
+    let message = 'There was an error or timeout. Please re-enter your message in chat.';
+
+    // 1) Timeout via AbortController → dedicated message
+    if (err && err.name === 'AbortError') {
+      title = 'Backend timeout';
+      message = 'The request to the backend timed out. Please check if the backend server is running and reachable.';
+    }
+    // 2) Explicit backend_unavailable marker or typical fetch TypeError (network unreachable)
+    else if (errMsg === 'backend_unavailable' || err instanceof TypeError) {
+      title = 'Backend unavailable';
+      message = 'Backend server is not running or unreachable.';
+    }
+    // 3) Known logical errors that we explicitly throw
+    else if (errMsg === '`user_input` is required' || errMsg === 'Content-Type must be application/json') {
+      // Keep the generic title, but refine the message text
+      message = errMsg;
+    }
+    // 4) Internal backend error while the server is running
+    else if (errMsg === 'internal_error') {
+      title = 'Backend error';
+      message = 'The backend responded with an internal error. Please check the backend logs for details.';
+    }
+    // 5) In all other cases, keep the default "Request error"
+
     setModal({
       open: true,
-      title: 'Request error',
-      message: 'There was an error or timeout. Please re-enter your message in chat.',
+      title,
+      message,
     });
+
+    // Mirror the same information in the chat as an assistant error message
+    addMessage('assistant', message, true, 'backend', null, null, 'error');
   } finally {
     setLoading(false);
   }
