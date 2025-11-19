@@ -42,6 +42,9 @@ class ErrorCode(Enum):
     SQL_ERROR_READING_ENTRY_FOR_ALL_TENANCIES = (1507, "Failed retrieving all tenancies from the database.")
     SQL_ERROR_READING_ENTRY_FOR_ALL_CONTRACTS = (1508, "Failed retrieving all contracts from the database.")
     SQL_PARAMETER_ERROR_UPDATING_ENTRY = (1509, "Both first name and last name must be provided if personal ID is missing.")
+    SQL_ERROR_READING_SINGLE_PERSON = (1510, "Failed retrieving single person.")
+    SQL_NO_FIELDS_PROVIDED_FOR_GET_SINGLE_PERSON = (1511, "No fields provided to retrieve a single person.")
+    SQL_SUCH_PERSON_DOES_NOT_EXIST = (1512, "Such person does not exist in the database.")
 
     NOT_ALLOWED_NAME_FOR_NEW_ENTITY = (1600, "Not allowed name for creating a new entity in database.")
     ERROR_DOING_GET_QUERY_TO_AN_ENDPOINT = (1605, "Error doing GET query to an endpoint.")

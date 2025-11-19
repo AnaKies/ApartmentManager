@@ -57,13 +57,46 @@ def get_apartments():
             session.close()
     return apartments
 
-def get_single_person():
-    """
-    # Get single row by known value
-    Anna = session.query(PersonalData).filter(PersonalData.first_name == 'Anna').one()
-    print(Anna)
-    """
-    pass
+def get_single_person(*,first_name: str, last_name: str, id_personal_data: int) -> PersonalData:
+    session = None
+
+    try:
+        session = Session()
+        query = session.query(PersonalData)
+
+        # Build dynamic filtering based on provided identifiers.
+        # If only ID is provided -> filter by ID.
+        # If only first_name/last_name -> filter by those.
+        # If all are provided -> filter by all three.
+
+        filters = []
+
+        # id_personal_data may come as None or an empty/zero-like value if not used.
+        if id_personal_data not in (None, "", 0):
+            filters.append(PersonalData.id_personal_data == id_personal_data)
+
+        if first_name:
+            filters.append(PersonalData.first_name == first_name)
+
+        if last_name:
+            filters.append(PersonalData.last_name == last_name)
+
+        if not filters:
+            trace_id = log_error(ErrorCode.SQL_NO_FIELDS_PROVIDED_FOR_GET_SINGLE_PERSON)
+            raise APIError(ErrorCode.SQL_NO_FIELDS_PROVIDED_FOR_GET_SINGLE_PERSON, trace_id)
+
+        person = query.filter(*filters).one()
+        return person
+    except APIError:
+        raise
+    except Exception as error:
+        if session:
+            session.rollback()
+        trace_id = log_error(ErrorCode.SQL_ERROR_READING_SINGLE_PERSON, error)
+        raise APIError(ErrorCode.SQL_ERROR_READING_SINGLE_PERSON, trace_id) from error
+    finally:
+        if session:
+            session.close()
 
 
 def get_persons():

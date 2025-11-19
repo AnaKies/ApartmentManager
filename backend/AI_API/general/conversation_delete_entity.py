@@ -5,6 +5,7 @@ from ApartmentManager.backend.AI_API.general.logger import log_error
 from ApartmentManager.backend.AI_API.general.prompting import inject_fields_to_delete_in_prompt
 from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
 from ApartmentManager.backend.SQL_API.rental.CRUD.delete import delete_person
+from ApartmentManager.backend.SQL_API.rental.CRUD.read import get_single_person
 from ApartmentManager.backend.SQL_API.rental.rental_orm_models import PersonalData, Contract, Tenancy, Apartment
 
 # TYPE_CHECKING import is used to avoid circular imports at runtime.
@@ -105,6 +106,14 @@ def remove_entity_from_db(self: "ConversationClient",
                        parsed_args: dict,
                        user_question: str):
     result = None
+    try:
+        person = get_single_person(**parsed_args)
+    except Exception:
+        result = build_text_answer(
+            message=f"That person does not exist in the database.",
+            model=self.model_name,
+            answer_source="backend")
+        return result
 
     try:
         # Back-end calls directly the method to add an entity to SQL databank
@@ -115,10 +124,7 @@ def remove_entity_from_db(self: "ConversationClient",
             deletion_action_flag = (deletion_action_data or {}).get("result")
 
             if deletion_action_flag:
-                id_person = (deletion_action_data or {}).get("person_id")
-                first_name = (deletion_action_data or {}).get("first_name")
-                last_name = (deletion_action_data or {}).get("last_name")
-                result = build_text_answer(message=f"Person {first_name} {last_name} with ID {id_person}, was deleted successfully.",
+                result = build_text_answer(message=f"Person {person.first_name or ''} {person.last_name or ''} with ID {person.id_personal_data}, was deleted successfully.",
                                            model=self.model_name,
                                            answer_source="backend")
                 create_new_log_entry(
