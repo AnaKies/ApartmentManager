@@ -231,7 +231,6 @@ def inject_fields_to_create_prompt(class_fields, required_fields) -> str:
   system_prompt = json.dumps(combined_prompt, indent=2, ensure_ascii=False)
   return system_prompt
 
-
 STRUC_OUT_PROMPT= f"""
     You are a structured-output assistant.
     Do not perform or mention any new API calls or endpoints.

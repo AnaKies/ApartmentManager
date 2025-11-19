@@ -11,9 +11,9 @@ from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode
 from ApartmentManager.backend.AI_API.general.error_texts import APIError
 from ApartmentManager.backend.AI_API.general.logger import log_error
 
-def do_crud_check(self: "ConversationClient", user_question: str):
-    run_crud_check = False
-
+def ai_set_conversation_state(self: "ConversationClient", user_question: str):
+    crud_intent_answer = {}
+    crud_intent = {}
     try:
         # If one of the CRUD states is active, do not perform the CRUD check
         # Reason: a single CRUD state can consist of multiple conversation-cycles/iterations
@@ -22,14 +22,14 @@ def do_crud_check(self: "ConversationClient", user_question: str):
         # Check no active CRUD state (NONE state is active)
         if self.conversation_state.is_none:
             # STEP 1: LLM checks if a user asks for one of CRUD operations
-            self.crud_intent = self.llm_client.get_crud_in_user_question(user_question)
+            crud_intent_answer = self.llm_client.get_crud_in_user_question(user_question)
             run_crud_check = True
         else:
             run_crud_check = False
 
         # actualize the state of the state machine
         if run_crud_check:
-            crud_intent = self.crud_intent or {}
+            crud_intent = crud_intent_answer or {}
             if (crud_intent.get("create") or {}).get("value"):
                 self.conversation_state.set_state(CrudState.CREATE)
             elif (crud_intent.get("update") or {}).get("value"):
@@ -44,7 +44,7 @@ def do_crud_check(self: "ConversationClient", user_question: str):
         # NOTE: if we did NOT run a CRUD check (multi-turn within an active state),
         #       we DO NOT touch the existing ConversationState flags here.
 
-        return run_crud_check
+        return crud_intent
 
     except APIError:
         raise

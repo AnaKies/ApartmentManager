@@ -4,7 +4,7 @@ from google.genai import types
 from abc import ABC
 from google.genai import errors as genai_errors
 from requests import RequestException
-
+from ApartmentManager.backend.AI_API.general.conversation_state import ConversationState, CrudState
 from ApartmentManager.backend.AI_API.ai_clients.gemini.booleanOutput import BooleanOutput
 from ApartmentManager.backend.AI_API.ai_clients.gemini.function_call import FunctionCallService
 from ApartmentManager.backend.AI_API.ai_clients.gemini.structured_output import StructuredOutput
@@ -152,7 +152,8 @@ class GeminiClient:
         crud_intent_dict = self.boolean_output_service.get_boolean_llm_response(user_question)
         return crud_intent_dict
 
-    def generate_prompt_for_create_entity(self, crud_intent: dict) -> str | dict:
+    @staticmethod
+    def generate_prompt_to_create_entity(crud_intent: dict) -> str | None:
         """
         Analyzes the CRUD intent for creation of an entity (person, contract ect.)
         and generates a system prompt containing dynamic fields for an entity.
@@ -161,7 +162,7 @@ class GeminiClient:
         :return: System prompt extended with fields
         """
         create_entity_active = (crud_intent.get("create") or {}).get("value", False)
-        system_prompt = None
+        json_system_prompt = None
         try:
             #Analyze the CRUD intention and inject appropriates fields into the prompt for CREATE operation
             if create_entity_active:
@@ -185,8 +186,8 @@ class GeminiClient:
                 if all_fields:
                     # Inject the class fields in a prompt
                     system_prompt = prompting.inject_fields_to_create_prompt(all_fields, required_fields)
-
-                return system_prompt
+                    json_system_prompt = json.dumps(system_prompt, indent=2, ensure_ascii=False)
+                return json_system_prompt
             return None
 
         except APIError:

@@ -169,6 +169,7 @@ class PersonalData(Rental_Base):
     @staticmethod
     def required_fields():
         return {
+            "first_name": None,
             "last_name": None
         }
 

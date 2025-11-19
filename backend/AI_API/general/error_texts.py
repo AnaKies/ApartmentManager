@@ -46,7 +46,8 @@ class ErrorCode(Enum):
     NOT_ALLOWED_NAME_FOR_NEW_ENTITY = (1600, "Not allowed name for creating a new entity in database.")
     ERROR_DOING_GET_QUERY_TO_AN_ENDPOINT = (1605, "Error doing GET query to an endpoint.")
     ERROR_DOING_POST_QUERY_TO_AN_ENDPOINT = (1606, "Error doing POST query to an endpoint")
-    ERROR_CREATING_NEW_PERSON = (1607, "Failed creating new person.")
+    NO_ACTIVATION_OF_SYSTEM_PROMPT_FOR_CREATE_OPERATION = (1608, "System prompt for CREATE operation was not activated.")
+    NO_ACTIVATION_OF_RESPONSE_FOR_CREATE_OPERATION = (1609, "Response for CREATE operation was not activated.")
 
     # Flask error
     FLASK_ERROR_HTTP_REQUEST_INPUT_MUST_BY_JSON = (2007, "HTTP request must have the JSON type")

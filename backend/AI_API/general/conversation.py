@@ -6,7 +6,7 @@ from requests import RequestException
 from ApartmentManager.backend.AI_API.general.conversation_state import ConversationState, CrudState
 from ApartmentManager.backend.AI_API.ai_clients.gemini.gemini_client import GeminiClient
 from ApartmentManager.backend.AI_API.general import prompting
-from ApartmentManager.backend.AI_API.general.crud_check import do_crud_check
+from ApartmentManager.backend.AI_API.general.crud_check import ai_set_conversation_state
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode
 from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
 from ApartmentManager.backend.SQL_API.rental.CRUD.read import get_persons, get_apartments, get_tenancies, get_contract
@@ -23,8 +23,9 @@ class ConversationClient:
     def __init__(self, model_name):
         self.llm_client = None
         self.model_name = model_name
-        self.crud_intent = None
+        self.crud_intent_data = None
         self.conversation_state = ConversationState()
+        self.system_prompt = None
 
         # Specify the model to use
         load_dotenv()
@@ -45,26 +46,40 @@ class ConversationClient:
         """
         result = None
 
-        do_crud_check(self, user_question)
+        # Runs the CRUD check over the user question
+        # and depending on the CRUD operation in it, sets the state
+        self.crud_intent_data = ai_set_conversation_state(self, user_question)
 
         try:
             # TODO change to switch/case
             # STEP 2: do action depending on CRUD operation
             if self.conversation_state.is_create:
-                # STEP 1: Provide extended system prompt with injected data
-                # Generate new prompt for CREATE operation
-                prompt_for_entity_creation = self.llm_client.generate_prompt_for_create_entity(self.crud_intent)
-                system_prompt = json.dumps(prompt_for_entity_creation, indent=2, ensure_ascii=False)
 
-                # STEP 2: Do the LLM call to collect the data for creating an entry
+                # Generate the system prompt only once over the conversation iterations
+                if self.conversation_state.do_once:
+                    self.conversation_state.do_once = False
+
+                    # STEP 1: Provide extended system prompt with injected data
+                    # Generate new prompt for CREATE operation
+                    self.system_prompt = self.llm_client.generate_prompt_to_create_entity(self.crud_intent_data)
+
+                # STEP 2: Do the LLM call to collect the additional data for creating an entry
                 # and get the user's confirmation for them.
                 # Multiple conversation cycles logic.
-                response = self.llm_client.process_create_request(user_question, system_prompt)
+                if self.system_prompt:
+                    response = self.llm_client.process_create_request(user_question, self.system_prompt)
+                else:
+                    trace_id = log_error(ErrorCode.NO_ACTIVATION_OF_SYSTEM_PROMPT_FOR_CREATE_OPERATION)
+                    raise APIError(ErrorCode.NO_ACTIVATION_OF_SYSTEM_PROMPT_FOR_CREATE_OPERATION, trace_id)
 
                 # First, open the envelope of the structured output service
-                result_output = (response or {}).get("result")
-                payload_struct_output = (result_output or {}).get("payload")
-                llm_comment_to_payload = (payload_struct_output or {}).get("comment")
+                if response:
+                    result_output = (response or {}).get("result")
+                    payload_struct_output = (result_output or {}).get("payload")
+                    llm_comment_to_payload = (payload_struct_output or {}).get("comment")
+                else:
+                    trace_id = log_error(ErrorCode.NO_ACTIVATION_OF_RESPONSE_FOR_CREATE_OPERATION)
+                    raise APIError(ErrorCode.NO_ACTIVATION_OF_RESPONSE_FOR_CREATE_OPERATION, trace_id)
 
                 # STEP 3: Backend calls the SQL layer to create a new entry
                 if (payload_struct_output or {}).get("ready_to_post"):
@@ -72,10 +87,10 @@ class ConversationClient:
                     args = (payload_struct_output or {}).get("data")
                     parsed_args= json.loads(args)
 
-                    # Back-end calls directly the method to add a person to SQL databank
+                    # Back-end calls directly the method to add an entity to SQL databank
                     creation_action_data = create_person(**parsed_args)
 
-                    # STEP 4:
+                    # STEP 4: evaluate new entity creation
                     if creation_action_data:
                         creation_action_flag = (creation_action_data or {}).get("result")
 
@@ -91,17 +106,15 @@ class ConversationClient:
                                 backend_response=str(result),
                                 llm_answer="---"
                             )
-
+                            # resets also the do_once flag
                             self.conversation_state.reset()
-                        else: # Creation flag is not active
-                            trace_id = log_error(ErrorCode.ERROR_CREATING_NEW_PERSON, exception=None)
-                            raise APIError(ErrorCode.ERROR_CREATING_NEW_PERSON, trace_id)
 
                 # STEP 5: Wait for new conversation cycle until user provided all data
-                # and LLM set the flag redy_to_post.
+                # and LLM set the flag ready_to_post.
                 # Return the actual comment of the LLM, which should ask for missing data
                 else:
-                    self.conversation_state.set_state(CrudState.CREATE) # keep collecting until confirmation
+                     # keep collecting data for creating new entity
+                     # until the user confirmed the collected data
                     result = build_text_answer(message=llm_comment_to_payload,
                                                model=self.model_name,
                                                answer_source="llm")
@@ -150,7 +163,7 @@ class ConversationClient:
                     self.conversation_state.reset()
 
                     result = build_data_answer(payload=payload or {},
-                                               payload_comment=missing_request or "---",
+                                               payload_comment=missing_request or "Data updated", # this text shows the user reaction when the data is shown
                                                model=self.model_name,
                                                answer_source="backend")
 
