@@ -1,4 +1,7 @@
 import traceback
+
+from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
+from ApartmentManager.backend.AI_API.general.logger import log_error
 from ApartmentManager.backend.SQL_API.rental.rental_orm_models import (Apartment,
                                                                        Session,
                                                                        PersonalData,
@@ -6,9 +9,9 @@ from ApartmentManager.backend.SQL_API.rental.rental_orm_models import (Apartment
                                                                        Contract)
 
 def get_apartments():
-    session = Session()
-    apartments = None
+    session = None
     try:
+        session = Session()
         # Get all apartment data
         apartments = session.query(Apartment).all()
         """
@@ -50,48 +53,58 @@ def get_apartments():
             session.commit()
         """
     except Exception as error:
-        print(f"Error reading database: {error}")
-        traceback.print_exc()
-        session.rollback()
+        if session:
+            session.rollback()
+        trace_id = log_error(ErrorCode.SQL_ERROR_READING_ENTRY_FOR_ALL_APARTMENTS, error)
+        raise APIError(ErrorCode.SQL_ERROR_READING_ENTRY_FOR_ALL_APARTMENTS, trace_id) from error
     finally:
-        session.close()
+        if session:
+            session.close()
     return apartments
 
 def get_persons():
-    session = Session()
-    persons = None
+    session = None
+
     try:
+        session = Session()
         persons = session.query(PersonalData).all()
+        return persons
     except Exception as error:
-        print(f"Error reading database: {error}")
-        traceback.print_exc()
-        session.rollback()
+        if session:
+            session.rollback()
+        trace_id = log_error(ErrorCode.SQL_ERROR_READING_ENTRY_FOR_ALL_PERSONS, error)
+        raise APIError(ErrorCode.SQL_ERROR_READING_ENTRY_FOR_ALL_PERSONS, trace_id) from error
     finally:
-        session.close()
-    return persons
+        if session:
+            session.close()
 
 def get_tenancies():
     session = Session()
-    tenancies = None
+
     try:
         tenancies = session.query(Tenancy).all()
+        return tenancies
     except Exception as error:
-        print(f"Error reading database: {error}")
-        traceback.print_exc()
-        session.rollback()
+        if session:
+            session.rollback()
+        trace_id = log_error(ErrorCode.SQL_ERROR_READING_ENTRY_FOR_ALL_TENANCIES, error)
+        raise APIError(ErrorCode.SQL_ERROR_READING_ENTRY_FOR_ALL_TENANCIES, trace_id) from error
     finally:
-        session.close()
-    return tenancies
+        if session:
+            session.close()
+
 
 def get_contract():
-    session = Session()
-    rent_data = None
+    session = None
     try:
+        session = Session()
         rent_data = session.query(Contract).all()
+        return rent_data
     except Exception as error:
-        print(f"Error reading database: {error}")
-        traceback.print_exc()
-        session.rollback()
+        if session:
+            session.rollback()
+        trace_id = log_error(ErrorCode.SQL_ERROR_READING_ENTRY_FOR_ALL_CONTRACTS, error)
+        raise APIError(ErrorCode.SQL_ERROR_READING_ENTRY_FOR_ALL_CONTRACTS, trace_id) from error
     finally:
-        session.close()
-    return rent_data
+        if session:
+            session.close()

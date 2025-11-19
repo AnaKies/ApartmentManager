@@ -1,5 +1,6 @@
 from ApartmentManager.backend.SQL_API.rental.rental_orm_models import Apartment, Session, PersonalData
-
+from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
+from ApartmentManager.backend.AI_API.general.logger import log_error
 
 def create_person(first_name: str,
                     last_name: str,
@@ -8,17 +9,30 @@ def create_person(first_name: str,
                     email: str,
                     comment: str) -> dict:
     """
-    Adds a person to the database. Answer contains also the ID that the databank assigned.
-    :param first_name:
-    :param last_name:
-    :param bank_data:
-    :param phone_number:
-    :param email:
-    :param comment:
-    :return: Dictionary {"result": "OK", "id_personal_data": ...} or {"result": "error", "message": ...}
+    Creates a new entry for a person in the database. The function gathers
+    information about a person, validates the essential parameters, and
+    stores the data in the database. If successful, it returns a dictionary
+    containing a success indicator and stored attributes like `person_id`,
+    `first_name`, and `last_name`.
+
+    :param first_name: The first name of the person
+    :param last_name: The last name of the person
+    :param bank_data: Bank account information of the person
+    :param phone_number: The contact phone number of the person
+    :param email: Email address of the person
+    :param comment: Additional comments or contextual information regarding the person
+
+    :return: A dictionary containing the operation result, the ID of the created
+             person (if successful), `first_name`, and `last_name`.
+
+    :raises APIError: If essential parameters like `first_name` or `last_name` are
+                      invalid, or if an error occurs during database interaction.
+
     """
-    session = Session()
+    session = None
     try:
+        session = Session()
+
         person = PersonalData(
             first_name = first_name,
             last_name = last_name,
@@ -27,15 +41,28 @@ def create_person(first_name: str,
             email = email,
             comment = comment)
 
+        required_params = first_name not in (None, "") and last_name not in (None, "")
+
+        if not required_params:
+            raise APIError(ErrorCode.SQL_PARAMETER_ERROR_CREATING_NEW_PERSON)
+
         session.add(person)
         session.commit()
-        return {"result": True, "person_id": getattr(person, "id_personal_data", None)}
+
+        return {"result": True,
+                "person_id": getattr(person, "id_personal_data", None),
+                "first_name": first_name,
+                "last_name": last_name}
+    except APIError:
+        raise
     except Exception as error:
-        print(f"Error reading database: ", repr(error))
-        session.rollback()
-        return {"result": False, "message": repr(error)}
+        if session:
+            session.rollback()
+        trace_id = log_error(ErrorCode.SQL_ERROR_CREATING_ENTRY_FOR_NEW_PERSON, error)
+        raise APIError(ErrorCode.SQL_ERROR_CREATING_ENTRY_FOR_NEW_PERSON, trace_id) from error
     finally:
-        session.close()
+        if session:
+            session.close()
 
 
     """

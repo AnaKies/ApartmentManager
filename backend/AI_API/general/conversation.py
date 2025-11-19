@@ -169,8 +169,8 @@ class LlmClient:
 
                             self.conversation_state.create_state = False
                         else: # Creation flag is not active
-                            trace_id = log_error(ErrorCode.SQL_ERROR_CREATING_NEW_PERSON, exception=None)
-                            raise APIError(ErrorCode.SQL_ERROR_CREATING_NEW_PERSON, trace_id)
+                            trace_id = log_error(ErrorCode.ERROR_CREATING_NEW_PERSON, exception=None)
+                            raise APIError(ErrorCode.ERROR_CREATING_NEW_PERSON, trace_id)
 
                 # STEP 5: Wait for new conversation cycle until user provided all data
                 # and LLM set the flag redy_to_post.

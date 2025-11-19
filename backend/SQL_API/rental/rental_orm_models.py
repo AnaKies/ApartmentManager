@@ -169,7 +169,7 @@ class PersonalData(Rental_Base):
     @staticmethod
     def required_fields():
         return {
-            "last_name": None,
+            "last_name": None
         }
 
 class Contract(Rental_Base):

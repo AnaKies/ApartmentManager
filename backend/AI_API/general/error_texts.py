@@ -33,10 +33,20 @@ class ErrorCode(Enum):
     LLM_ERROR_NO_TEXT_ANSWER = (1011, "LLM does not have a text answer.")
 
     # SQL error
-    SQL_ERROR_CREATING_NEW_PERSON = (1500, "Failed creating new person.")
-    NOT_ALLOWED_NAME_FOR_NEW_ENTITY = (1501, "Not allowed name for creating a new entity in database.")
-    ERROR_DOING_GET_QUERY_TO_AN_ENDPOINT = (1502, "Error doing GET query to an endpoint.")
-    ERROR_DOING_POST_QUERY_TO_AN_ENDPOINT = (1503, "Error doing POST query to an endpoint")
+    SQL_ERROR_DELETING_ENTRY = (1501, "Failed deleting entry in database.")
+    SQL_ERROR_CREATING_ENTRY_FOR_NEW_PERSON = (1502, "Failed creating entry in database for a new person.")
+    SQL_PARAMETER_ERROR_DELETING_ENTRY = (1503, "Both first name and last name must be provided if personal ID is missing.")
+    SQL_PARAMETER_ERROR_CREATING_NEW_PERSON = (1504, "Both first name and last name must be provided to create a person.")
+    SQL_ERROR_READING_ENTRY_FOR_ALL_APARTMENTS = (1505, "Failed retrieving all apartments from the database.")
+    SQL_ERROR_READING_ENTRY_FOR_ALL_PERSONS = (1506, "Failed retrieving all persons from the database.")
+    SQL_ERROR_READING_ENTRY_FOR_ALL_TENANCIES = (1507, "Failed retrieving all tenancies from the database.")
+    SQL_ERROR_READING_ENTRY_FOR_ALL_CONTRACTS = (1508, "Failed retrieving all contracts from the database.")
+    SQL_PARAMETER_ERROR_UPDATING_ENTRY = (1509, "Both first name and last name must be provided if personal ID is missing.")
+
+    NOT_ALLOWED_NAME_FOR_NEW_ENTITY = (1600, "Not allowed name for creating a new entity in database.")
+    ERROR_DOING_GET_QUERY_TO_AN_ENDPOINT = (1605, "Error doing GET query to an endpoint.")
+    ERROR_DOING_POST_QUERY_TO_AN_ENDPOINT = (1606, "Error doing POST query to an endpoint")
+    ERROR_CREATING_NEW_PERSON = (1607, "Failed creating new person.")
 
     # Flask error
     FLASK_ERROR_HTTP_REQUEST_INPUT_MUST_BY_JSON = (2007, "HTTP request must have the JSON type")
