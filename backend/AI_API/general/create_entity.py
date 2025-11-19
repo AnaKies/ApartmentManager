@@ -110,6 +110,4 @@ def place_entity_in_db(self: "ConversationClient",
                 backend_response=str(result),
                 llm_answer="---"
             )
-            # resets also the do_once flag
-            self.conversation_state.reset()
     return result

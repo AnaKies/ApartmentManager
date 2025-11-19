@@ -24,7 +24,6 @@ def show_entity_from_db(self: "ConversationClient", user_question: str):
 
     if sql_answer:
         payload = [element.to_dict() for element in sql_answer]
-        self.conversation_state.reset()
 
         result = build_data_answer(payload=payload or {},
                                    payload_comment="Data updated",

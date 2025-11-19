@@ -3,7 +3,7 @@ import os
 from google.genai import errors as genai_errors
 from dotenv import load_dotenv
 from requests import RequestException
-from ApartmentManager.backend.AI_API.general.conversation_state import ConversationState
+from ApartmentManager.backend.AI_API.general.conversation_state import ConversationState, CrudState
 from ApartmentManager.backend.AI_API.ai_clients.gemini.gemini_client import GeminiClient
 from ApartmentManager.backend.AI_API.general import prompting
 from ApartmentManager.backend.AI_API.general.create_entity import create_entity_in_db
@@ -48,33 +48,33 @@ class ConversationClient:
         self.crud_intent_data = ai_set_conversation_state(self, user_question)
 
         try:
-            # TODO change to switch/case
-            # STEP 2: do action depending on CRUD operation
-            if self.conversation_state.is_create:
-                result = create_entity_in_db(self, user_question)
+            # STEP 2: do action depending on CRUD operation using match/case
+            match self.conversation_state.state:
+                case CrudState.CREATE:
+                    result = create_entity_in_db(self, user_question)
+                    if result:
+                        self.conversation_state.reset()
 
-            elif self.conversation_state.is_delete:
-                # Generate prompt for DELETE operation
-                if result:
-                    self.conversation_state.reset()
-                trace_id = log_error(ErrorCode.WARNING_NOT_IMPLEMENTED)
-                raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED, trace_id)
+                case CrudState.DELETE:
+                    if result:
+                        self.conversation_state.reset()
+                    trace_id = log_error(ErrorCode.WARNING_NOT_IMPLEMENTED)
+                    raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED, trace_id)
 
-            elif self.conversation_state.is_update:
-                # Generate prompt for UPDATE operation
-                if result:
-                    self.conversation_state.reset()
-                trace_id = log_error(ErrorCode.WARNING_NOT_IMPLEMENTED)
-                raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED, trace_id)
+                case CrudState.UPDATE:
+                    if result:
+                        self.conversation_state.reset()
+                    trace_id = log_error(ErrorCode.WARNING_NOT_IMPLEMENTED)
+                    raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED, trace_id)
 
-            elif self.conversation_state.is_show:
-                result = show_entity_from_db(self, user_question)
+                case CrudState.SHOW:
+                    result = show_entity_from_db(self, user_question)
+                    if result:
+                        self.conversation_state.reset()
 
-            elif  self.conversation_state.is_none:
-                # New system prompt providing a structured output for collected data
-                system_prompt = json.dumps(prompting.GET_FUNCTION_CALL_PROMPT, indent=2, ensure_ascii=False)
-                # State machine for general questions
-                result = self.llm_client.answer_general_questions(user_question, system_prompt)
+                case CrudState.NONE:
+                    system_prompt = json.dumps(prompting.GET_FUNCTION_CALL_PROMPT, indent=2, ensure_ascii=False)
+                    result = self.llm_client.answer_general_questions(user_question, system_prompt)
 
             if not result:
                 trace_id = log_error(ErrorCode.LLM_ERROR_EMPTY_ANSWER)
