@@ -9,7 +9,7 @@ from google.genai import errors as genai_errors
 from ApartmentManager.backend.SQL_API.rental.CRUD import create
 from ApartmentManager.backend.config.server_config import HOST, PORT
 import ApartmentManager.backend.SQL_API.rental.CRUD.read as read_sql
-from ApartmentManager.backend.AI_API.general.conversation import LlmClient
+from ApartmentManager.backend.AI_API.general.conversation import ConversationClient
 from ApartmentManager.backend.AI_API.general.error_texts import APIError, ErrorCode
 from ApartmentManager.backend.AI_API.general.api_data_type import build_error
 from ApartmentManager.backend.AI_API.general.logger import init_logging, get_logger, log_error
@@ -38,7 +38,7 @@ def initialize():
     # Here we put the object of LlmClient inside the extension of the Flask app
     # Then we can access it from any route inside the app using current_app.extensions["ai_client"]
     flask_app.extensions = getattr(flask_app, "extensions", {})
-    flask_app.extensions["ai_client"] = LlmClient(some_gemini_model)
+    flask_app.extensions["ai_client"] = ConversationClient(some_gemini_model)
 
     # register routes/error handlers defined on the both blueprints
     flask_app.register_blueprint(public_bp)

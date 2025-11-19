@@ -3,9 +3,10 @@ import os
 from google.genai import errors as genai_errors
 from dotenv import load_dotenv
 from requests import RequestException
-from enum import Enum
+from ApartmentManager.backend.AI_API.general.conversation_state import ConversationState, CrudState
 from ApartmentManager.backend.AI_API.ai_clients.gemini.gemini_client import GeminiClient
 from ApartmentManager.backend.AI_API.general import prompting
+from ApartmentManager.backend.AI_API.general.crud_check import do_crud_check
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode
 from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
 from ApartmentManager.backend.SQL_API.rental.CRUD.read import get_persons, get_apartments, get_tenancies, get_contract
@@ -14,47 +15,8 @@ from ApartmentManager.backend.AI_API.general.error_texts import APIError
 from ApartmentManager.backend.AI_API.general.api_data_type import build_text_answer, build_data_answer
 from ApartmentManager.backend.AI_API.general.logger import log_error
 
-class CrudState(Enum):
-    """
-    CRUD states that can be required by the user in his question.
-    """
-    SHOW = 1
-    UPDATE = 2
-    DELETE = 3
-    CREATE = 4
-    NONE = 5
 
-class ConversationState():
-    def __init__(self):
-        self.state = CrudState.NONE
-
-    def set_state(self, state: CrudState):
-        self.state = state
-
-    def reset(self):
-        self.state = CrudState.NONE
-
-    @property
-    def is_create(self) -> bool:
-        return self.state is CrudState.CREATE
-
-    @property
-    def is_update(self) -> bool:
-        return self.state is CrudState.UPDATE
-
-    @property
-    def is_delete(self) -> bool:
-        return self.state is CrudState.DELETE
-
-    @property
-    def is_show(self) -> bool:
-        return self.state is CrudState.SHOW
-
-    @property
-    def is_none(self) -> bool:
-        return self.state is CrudState.NONE
-
-class LlmClient:
+class ConversationClient:
     """
     Initializes an LLM client and offers methods to open conversation with it.
     """
@@ -82,46 +44,8 @@ class LlmClient:
         :return: Envelope with the type: "text" | "data"
         """
         result = None
-        run_crud_check = False
 
-        # TODO CRUD Check: check for a shorter way with default state only
-        try:
-            # If one of the CRUD states is active, do not perform the CRUD check
-            # Reason: a single CRUD state can consist of multiple conversation-cycles/iterations
-            # At the start even the default state is False -> the CRUD check is always done at the start
-
-            # Check no active CRUD state (NONE state is active)
-            if self.conversation_state.is_none:
-                # STEP 1: LLM checks if a user asks for one of CRUD operations
-                self.crud_intent = self.llm_client.get_crud_in_user_question(user_question)
-                run_crud_check = True
-            else:
-                run_crud_check = False
-
-            # actualize the state of the state machine
-            if run_crud_check:
-                crud_intent = self.crud_intent or {}
-                if (crud_intent.get("create") or {}).get("value"):
-                    self.conversation_state.set_state(CrudState.CREATE)
-                elif (crud_intent.get("update") or {}).get("value"):
-                    self.conversation_state.set_state(CrudState.UPDATE)
-                elif (crud_intent.get("delete") or {}).get("value"):
-                    self.conversation_state.set_state(CrudState.DELETE)
-                elif (crud_intent.get("show") or {}).get("value"):
-                    self.conversation_state.set_state(CrudState.SHOW)
-                else:
-                    # No explicit CRUD intent detected at the start of a conversation => NONE
-                    self.conversation_state.set_state(CrudState.NONE)
-            # NOTE: if we did NOT run a CRUD check (multi-turn within an active state),
-            #       we DO NOT touch the existing ConversationState flags here.
-        except APIError:
-            raise
-        # catch a Gemini error 
-        except genai_errors.APIError:
-            raise
-        except Exception as error:
-            trace_id = log_error(ErrorCode.LLM_ERROR_GETTING_CRUD_RESULT, error)
-            raise APIError(ErrorCode.LLM_ERROR_GETTING_CRUD_RESULT, trace_id) from error
+        do_crud_check(self, user_question)
 
         try:
             # TODO change to switch/case

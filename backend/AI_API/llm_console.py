@@ -1,8 +1,8 @@
-from ApartmentManager.backend.AI_API.general.conversation import LlmClient
+from ApartmentManager.backend.AI_API.general.conversation import ConversationClient
 
 
 def main():
-    ai_client = LlmClient("Gemini")
+    ai_client = ConversationClient("Gemini")
     while True:
         # User asks a question
         user_question = input("Ask me something about apartments: ")
