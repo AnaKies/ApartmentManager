@@ -38,6 +38,7 @@ class ConversationState():
     def is_create(self) -> bool:
         return self.state is CrudState.CREATE
 
+    @property
     def is_update(self) -> bool:
         return self.state is CrudState.UPDATE
 
