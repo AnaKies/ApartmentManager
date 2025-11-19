@@ -3,18 +3,14 @@ import os
 from google.genai import errors as genai_errors
 from dotenv import load_dotenv
 from requests import RequestException
-from ApartmentManager.backend.AI_API.general.conversation_state import ConversationState, CrudState
+from ApartmentManager.backend.AI_API.general.conversation_state import ConversationState
 from ApartmentManager.backend.AI_API.ai_clients.gemini.gemini_client import GeminiClient
 from ApartmentManager.backend.AI_API.general import prompting
 from ApartmentManager.backend.AI_API.general.create_entity import create_entity_in_db
 from ApartmentManager.backend.AI_API.general.crud_check import ai_set_conversation_state
-from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode
-from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
-from ApartmentManager.backend.SQL_API.rental.CRUD.read import get_persons, get_apartments, get_tenancies, get_contract
-from ApartmentManager.backend.SQL_API.rental.CRUD.create import create_person
-from ApartmentManager.backend.AI_API.general.error_texts import APIError
-from ApartmentManager.backend.AI_API.general.api_data_type import build_text_answer, build_data_answer
+from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
 from ApartmentManager.backend.AI_API.general.logger import log_error
+from ApartmentManager.backend.AI_API.general.show_entity import show_entity_from_db
 
 
 class ConversationClient:
@@ -72,42 +68,7 @@ class ConversationClient:
                 raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED, trace_id)
 
             elif self.conversation_state.is_show:
-                sql_answer = None
-
-                # STEP 1: Data preparation
-                system_prompt = json.dumps(prompting.SHOW_TYPE_CLASSIFIER_PROMPT, indent=2, ensure_ascii=False)
-                # LLM checks if the user provides the data type to show
-                prepare_data_to_show = self.llm_client.process_show_request(user_question, system_prompt)
-
-                # STEP 2: Action of the back-end
-                missing_request = None
-                # Analyzes what type of data should be shown and does the SQL calls
-                if ((prepare_data_to_show.get("result") or {}).get("payload") or {}).get("checked"):
-                    data_type_to_show = ((prepare_data_to_show.get("result") or {}).get("payload") or {}).get("type")
-                    if data_type_to_show == "person":
-                        sql_answer = get_persons()
-                    elif data_type_to_show == "apartment":
-                        sql_answer = get_apartments()
-                    elif data_type_to_show == "tenancy":
-                        sql_answer = get_tenancies()
-                    elif data_type_to_show == "contract":
-                        sql_answer = get_contract()
-                else:
-                    # Return the request that did not fit to the types above
-                    missing_request = ((prepare_data_to_show.get("result") or {}).get("payload") or {}).get("message")
-
-                if sql_answer :
-                    payload = [element.to_dict() for element in sql_answer]
-                    self.conversation_state.reset()
-
-                    result = build_data_answer(payload=payload or {},
-                                               payload_comment=missing_request or "Data updated", # this text shows the user reaction when the data is shown
-                                               model=self.model_name,
-                                               answer_source="backend")
-
-                else:
-                    trace_id = log_error(ErrorCode.TYPE_ERROR_CREATING_NEW_ENTRY)
-                    raise APIError(ErrorCode.TYPE_ERROR_CREATING_NEW_ENTRY, trace_id)
+                result = show_entity_from_db(self, user_question)
 
             elif  self.conversation_state.is_none:
                 # New system prompt providing a structured output for collected data
