@@ -6,6 +6,7 @@ from requests import RequestException
 from ApartmentManager.backend.AI_API.general.conversation_state import ConversationState, CrudState
 from ApartmentManager.backend.AI_API.ai_clients.gemini.gemini_client import GeminiClient
 from ApartmentManager.backend.AI_API.general import prompting
+from ApartmentManager.backend.AI_API.general.create_entity import create_entity_in_db
 from ApartmentManager.backend.AI_API.general.crud_check import ai_set_conversation_state
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode
 from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
@@ -54,70 +55,7 @@ class ConversationClient:
             # TODO change to switch/case
             # STEP 2: do action depending on CRUD operation
             if self.conversation_state.is_create:
-
-                # Generate the system prompt only once over the conversation iterations
-                if self.conversation_state.do_once:
-                    self.conversation_state.do_once = False
-
-                    # STEP 1: Provide extended system prompt with injected data
-                    # Generate new prompt for CREATE operation
-                    self.system_prompt = self.llm_client.generate_prompt_to_create_entity(self.crud_intent_data)
-
-                # STEP 2: Do the LLM call to collect the additional data for creating an entry
-                # and get the user's confirmation for them.
-                # Multiple conversation cycles logic.
-                if self.system_prompt:
-                    response = self.llm_client.process_create_request(user_question, self.system_prompt)
-                else:
-                    trace_id = log_error(ErrorCode.NO_ACTIVATION_OF_SYSTEM_PROMPT_FOR_CREATE_OPERATION)
-                    raise APIError(ErrorCode.NO_ACTIVATION_OF_SYSTEM_PROMPT_FOR_CREATE_OPERATION, trace_id)
-
-                # First, open the envelope of the structured output service
-                if response:
-                    result_output = (response or {}).get("result")
-                    payload_struct_output = (result_output or {}).get("payload")
-                    llm_comment_to_payload = (payload_struct_output or {}).get("comment")
-                else:
-                    trace_id = log_error(ErrorCode.NO_ACTIVATION_OF_RESPONSE_FOR_CREATE_OPERATION)
-                    raise APIError(ErrorCode.NO_ACTIVATION_OF_RESPONSE_FOR_CREATE_OPERATION, trace_id)
-
-                # STEP 3: Backend calls the SQL layer to create a new entry
-                if (payload_struct_output or {}).get("ready_to_post"):
-                    # Extract data fields to give them the function
-                    args = (payload_struct_output or {}).get("data")
-                    parsed_args= json.loads(args)
-
-                    # Back-end calls directly the method to add an entity to SQL databank
-                    creation_action_data = create_person(**parsed_args)
-
-                    # STEP 4: evaluate new entity creation
-                    if creation_action_data:
-                        creation_action_flag = (creation_action_data or {}).get("result")
-
-                        if creation_action_flag:
-                            id_person = (creation_action_data or {}).get("person_id")
-                            result = build_text_answer(message=f"Person with ID {id_person} was created successfully.",
-                                                       model=self.model_name,
-                                                       answer_source="backend")
-                            create_new_log_entry(
-                                llm_model=self.model_name,
-                                user_question=user_question or "---",
-                                request_type="person creation request",
-                                backend_response=str(result),
-                                llm_answer="---"
-                            )
-                            # resets also the do_once flag
-                            self.conversation_state.reset()
-
-                # STEP 5: Wait for new conversation cycle until user provided all data
-                # and LLM set the flag ready_to_post.
-                # Return the actual comment of the LLM, which should ask for missing data
-                else:
-                     # keep collecting data for creating new entity
-                     # until the user confirmed the collected data
-                    result = build_text_answer(message=llm_comment_to_payload,
-                                               model=self.model_name,
-                                               answer_source="llm")
+                result = create_entity_in_db(self, user_question)
 
             elif self.conversation_state.is_delete:
                 # Generate prompt for DELETE operation
