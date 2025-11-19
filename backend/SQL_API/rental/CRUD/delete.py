@@ -2,7 +2,8 @@ from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIEr
 from ApartmentManager.backend.AI_API.general.logger import log_error
 from ApartmentManager.backend.SQL_API.rental.rental_orm_models import PersonalData, Session
 
-def delete_person(first_name: str,
+def delete_person(*, # make order of arguments not important, as the LLM can mix it
+                    first_name: str,
                     last_name: str,
                     id_personal_data: int) -> dict:
     """

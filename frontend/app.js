@@ -591,7 +591,7 @@ function addMessage(role, content, isError = false, source = null, llmModel = nu
 
 async function sendToApi(userText) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  const timeoutId = setTimeout(() => controller.abort(), 100000);
   setLoading(true);
   addMessage('user', userText);
   try {

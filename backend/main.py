@@ -11,7 +11,7 @@ from ApartmentManager.backend.config.server_config import HOST, PORT
 import ApartmentManager.backend.SQL_API.rental.CRUD.read as read_sql
 from ApartmentManager.backend.AI_API.general.conversation import ConversationClient
 from ApartmentManager.backend.AI_API.general.error_texts import APIError, ErrorCode
-from ApartmentManager.backend.AI_API.general.api_data_type import build_error
+from ApartmentManager.backend.AI_API.general.api_envelopes import build_error
 from ApartmentManager.backend.AI_API.general.logger import init_logging, get_logger, log_error
 
 # Helps access the decorator names after initialization
@@ -161,8 +161,6 @@ def get_apartments():
     apartments = read_sql.get_apartments()
     apartments_to_json = [apartment.to_dict() for apartment in apartments]
     return jsonify(apartments_to_json)
-
-
 
 
 # processes all exceptions in the business logic

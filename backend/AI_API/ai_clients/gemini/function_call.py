@@ -3,7 +3,7 @@ from google import genai
 from google.genai import types
 from google.genai import errors as genai_errors
 import ApartmentManager.backend.AI_API.general.prompting as prompting
-from ApartmentManager.backend.AI_API.general.api_data_type import build_data_answer, build_text_answer
+from ApartmentManager.backend.AI_API.general.api_envelopes import build_data_answer, build_text_answer
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
 from ApartmentManager.backend.AI_API.general.logger import log_error
 from ApartmentManager.backend.RESTFUL_API import execute

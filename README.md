@@ -40,7 +40,7 @@ GEMINI_MODEL=your-gemini-model-name
     To start the Flask server, run the `flask-api.py` file:
 
     ```bash
-    python ApartmentManager/backend/RESTFUL_API/flask-api.py
+    python ApartmentManager/backend/RESTFUL_API/main.py
     ```
 
     The server will start on `http://127.0.0.1:5003`.

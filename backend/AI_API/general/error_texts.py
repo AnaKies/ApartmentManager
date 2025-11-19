@@ -48,6 +48,12 @@ class ErrorCode(Enum):
     ERROR_DOING_POST_QUERY_TO_AN_ENDPOINT = (1606, "Error doing POST query to an endpoint")
     NO_ACTIVATION_OF_SYSTEM_PROMPT_FOR_CREATE_OPERATION = (1608, "System prompt for CREATE operation was not activated.")
     NO_ACTIVATION_OF_RESPONSE_FOR_CREATE_OPERATION = (1609, "Response for CREATE operation was not activated.")
+    NO_ACTIVATION_OF_RESPONSE_FOR_DELETE_OPERATION = (1610, "Response for DELETE operation was not activated.")
+    NO_ACTIVATION_OF_SYSTEM_PROMPT_FOR_DELETE_OPERATION = (1611, "System prompt for DELETE operation was not activated.")
+    ERROR_PLACE_ENTITY_TO_DB_OR_COLLECT_MISSING_DATA = (1612, "Error placing entity to database or collecting missing data.")
+    ERROR_DELETE_ENTITY_TO_DB_OR_COLLECT_MISSING_DATA = (1613, "Error deleting entity from database or collecting missing data.")
+    ERROR_PLACE_ENTITY_TO_DB = (1614, "Error placing entity to database")
+    ERROR_REMOVE_ENTITY_FROM_DB = (1615, "Error removing entity from database")
 
     # Flask error
     FLASK_ERROR_HTTP_REQUEST_INPUT_MUST_BY_JSON = (2007, "HTTP request must have the JSON type")
@@ -55,7 +61,8 @@ class ErrorCode(Enum):
 
     # Generic glue / parsing
     ERROR_PARSING_BOOLEAN_RESPONSE = (3001, "Failed parsing boolean response.")
-    ERROR_INJECTING_FIELDS_TO_PROMPT = (3002, "Failed injecting fields to prompt.")
+    ERROR_INJECTING_FIELDS_TO_CREATE_PROMPT = (3002, "Failed injecting fields to CREATE prompt.")
+    ERROR_INJECTING_FIELDS_TO_DELETE_PROMPT = (3003, "Failed injecting fields to DELETE prompt")
     ERROR_CALLING_FUNCTION = (3006, "Error calling function.")
     ERROR_INTERPRETING_THE_FUNCTION_CALL = (3007, "Error interpreting the LLM response.")
     ERROR_DECODING_THE_STRUCT_ANSWER_TO_JSON = (3008, "Error decoding the LLM response.")

@@ -56,10 +56,15 @@ class Apartment(Rental_Base):
         }
 
     @staticmethod
-    def required_fields():
+    def required_fields_to_create():
         return {
             "address": None,
         }
+
+    @staticmethod
+    def required_fields_to_delete():
+        return {"first_possibility": ["id_apartment"],
+                "second_possibility": ["address"]}
 
 class Tenancy(Rental_Base):
     __tablename__ = "tenancy"
@@ -114,10 +119,16 @@ class Tenancy(Rental_Base):
         }
 
     @staticmethod
-    def required_fields():
+    def required_fields_to_create():
         return {
             "move_in_date": None,
         }
+
+    @staticmethod
+    def required_fields_to_delete():
+        return {"first_possibility": "id_apartment",
+                "second_possibility": "id_tenancy",
+                "third_possibility": "id_tenant_personal_data"}
 
 class PersonalData(Rental_Base):
     __tablename__ = "personal_data"
@@ -167,11 +178,16 @@ class PersonalData(Rental_Base):
         }
 
     @staticmethod
-    def required_fields():
+    def required_fields_to_create():
         return {
             "first_name": None,
             "last_name": None
         }
+
+    @staticmethod
+    def required_fields_to_delete():
+        return {"first_possibility": ["id_personal_data"],
+                "second_possibility": ["first_name", "last_name"]}
 
 class Contract(Rental_Base):
     __tablename__ = "rent_data"
@@ -221,7 +237,11 @@ class Contract(Rental_Base):
         }
 
     @staticmethod
-    def required_fields():
+    def required_fields_to_create():
         return {
             "net_rent": None,
         }
+
+    @staticmethod
+    def required_fields_to_delete():
+        return {"first_possibility": "id_rent_data"}

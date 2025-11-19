@@ -7,7 +7,7 @@ import typing
 if typing.TYPE_CHECKING:
     from ApartmentManager.backend.AI_API.general.conversation import ConversationClient
 from ApartmentManager.backend.AI_API.general import prompting
-from ApartmentManager.backend.AI_API.general.api_data_type import build_data_answer
+from ApartmentManager.backend.AI_API.general.api_envelopes import build_data_answer
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
 from ApartmentManager.backend.AI_API.general.logger import log_error
 from ApartmentManager.backend.SQL_API.rental.CRUD.read import get_persons, get_apartments, get_tenancies, get_contract
@@ -15,10 +15,10 @@ from ApartmentManager.backend.SQL_API.rental.CRUD.read import get_persons, get_a
 
 def show_entity_from_db(self: "ConversationClient", user_question: str):
     # Data preparation
-    system_prompt = json.dumps(prompting.SHOW_TYPE_CLASSIFIER_PROMPT, indent=2, ensure_ascii=False)
+    self.system_prompt = json.dumps(prompting.SHOW_TYPE_CLASSIFIER_PROMPT, indent=2, ensure_ascii=False)
 
     # LLM checks if the user provides the data type to show
-    prepare_data_to_show = self.llm_client.process_show_request(user_question, system_prompt)
+    prepare_data_to_show = self.llm_client.process_show_request(user_question, self.system_prompt)
 
     sql_answer = get_entity_from_db(prepare_data_to_show)
 
@@ -26,8 +26,7 @@ def show_entity_from_db(self: "ConversationClient", user_question: str):
         payload = [element.to_dict() for element in sql_answer]
 
         result = build_data_answer(payload=payload or {},
-                                   payload_comment="Data updated",
-                                   # this text shows the user reaction when the data is shown
+                                   payload_comment="Data updated", # it is ok even if the state is SHOW
                                    model=self.model_name,
                                    answer_source="backend")
 

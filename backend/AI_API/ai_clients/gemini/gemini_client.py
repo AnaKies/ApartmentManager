@@ -4,7 +4,6 @@ from google.genai import types
 from abc import ABC
 from google.genai import errors as genai_errors
 from requests import RequestException
-from ApartmentManager.backend.AI_API.general.conversation_state import ConversationState, CrudState
 from ApartmentManager.backend.AI_API.ai_clients.gemini.booleanOutput import BooleanOutput
 from ApartmentManager.backend.AI_API.ai_clients.gemini.function_call import FunctionCallService
 from ApartmentManager.backend.AI_API.ai_clients.gemini.structured_output import StructuredOutput
@@ -12,12 +11,11 @@ from google import genai
 from dotenv import load_dotenv
 
 from ApartmentManager.backend.AI_API.general import prompting
-from ApartmentManager.backend.AI_API.general.api_data_type import build_text_answer
+from ApartmentManager.backend.AI_API.general.api_envelopes import build_text_answer
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode
 from ApartmentManager.backend.AI_API.general.logger import log_error
 from ApartmentManager.backend.SQL_API.rental.rental_orm_models import PersonalData, Contract, Tenancy, Apartment
 from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
-from ApartmentManager.backend.AI_API.general.ai_client import LlmClient
 from ApartmentManager.backend.AI_API.general.error_texts import APIError
 
 class GeminiClient:
@@ -152,49 +150,6 @@ class GeminiClient:
         crud_intent_dict = self.boolean_output_service.get_boolean_llm_response(user_question)
         return crud_intent_dict
 
-    @staticmethod
-    def generate_prompt_to_create_entity(crud_intent: dict) -> str | None:
-        """
-        Analyzes the CRUD intent for creation of an entity (person, contract ect.)
-        and generates a system prompt containing dynamic fields for an entity.
-        :param crud_intent: Dictionary containing which CRUD operations that should be done.
-        When an operation is "CREATE" = True, then which entity should be created.
-        :return: System prompt extended with fields
-        """
-        create_entity_active = (crud_intent.get("create") or {}).get("value", False)
-        json_system_prompt = None
-        try:
-            #Analyze the CRUD intention and inject appropriates fields into the prompt for CREATE operation
-            if create_entity_active:
-                type_of_data = (crud_intent or {}).get("create").get("type", "")
-                if type_of_data == "person":
-                    all_fields = PersonalData.fields_dict()
-                    required_fields = PersonalData.required_fields()
-                elif type_of_data == "contract":
-                    all_fields = Contract.fields_dict()
-                    required_fields = Contract.required_fields()
-                elif type_of_data == "tenancy":
-                    all_fields = Tenancy.fields_dict()
-                    required_fields = Tenancy.required_fields()
-                elif type_of_data == "apartment":
-                    all_fields = Apartment.fields_dict()
-                    required_fields = Apartment.required_fields()
-                else:
-                    trace_id = log_error(ErrorCode.NOT_ALLOWED_NAME_FOR_NEW_ENTITY)
-                    raise APIError(ErrorCode.NOT_ALLOWED_NAME_FOR_NEW_ENTITY, trace_id)
-
-                if all_fields:
-                    # Inject the class fields in a prompt
-                    system_prompt = prompting.inject_fields_to_create_prompt(all_fields, required_fields)
-                    json_system_prompt = json.dumps(system_prompt, indent=2, ensure_ascii=False)
-                return json_system_prompt
-            return None
-
-        except APIError:
-            raise
-        except Exception as error:
-            trace_id = log_error(ErrorCode.ERROR_INJECTING_FIELDS_TO_PROMPT, exception=error)
-            raise APIError(ErrorCode.ERROR_INJECTING_FIELDS_TO_PROMPT, trace_id) from error
 
     def answer_general_questions(self, user_question: str, system_prompt: str) -> dict:
         """
@@ -269,6 +224,32 @@ class GeminiClient:
 
         return result
 
+    def process_delete_request(self, user_question: str, system_prompt: str) -> dict | None:
+        delete_data_scheme = types.Schema(
+            title="delete_entity",
+            type=types.Type.OBJECT,
+            properties={
+                "ready_to_delete": types.Schema(type=types.Type.BOOLEAN),
+                "data": types.Schema(type=types.Type.STRING),
+                "comment": types.Schema(type=types.Type.STRING),
+            },
+            required=["ready_to_delete", "data", "comment"]
+        )
+        try:
+            llm_response = self.structured_output_service.get_structured_llm_response(user_question,
+                                                                                      system_prompt,
+                                                                                      delete_data_scheme)
+            return llm_response
+        except APIError:
+            raise
+        # catch a Gemini error
+        except genai_errors.APIError:
+            raise
+        except Exception as error:
+            trace_id = log_error(ErrorCode.LLM_ERROR_COLLECTING_TYPE_OF_DATA_TO_SHOW, exception=error)
+            raise APIError(ErrorCode.LLM_ERROR_COLLECTING_TYPE_OF_DATA_TO_SHOW, trace_id) from error
+
+
     def process_show_request(self, user_question: str, system_prompt: str) -> dict | None:
         """
         Analyzes if the user question contains the data type, that should be shown.
@@ -283,8 +264,8 @@ class GeminiClient:
             title="data_to_show",
             type=types.Type.OBJECT,
             properties={
-                "checked": types.Schema(type=types.Type.BOOLEAN),
-                "type": types.Schema(
+                "checked": types.Schema(type=types.Type.BOOLEAN), # True if in the sentence there exists an entity to show
+                "type": types.Schema( # What should be shown (apartments, persons etc.)
                     any_of=[
                         types.Schema(type=types.Type.STRING),
                         types.Schema(type=types.Type.NULL)

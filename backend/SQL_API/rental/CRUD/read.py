@@ -24,11 +24,6 @@ def get_apartments():
             print(personal_data)
         """
 
-        """
-        # Get single row by known value
-        Anna = session.query(PersonalData).filter(PersonalData.first_name == 'Anna').one()
-        print(Anna)
-        """
 
         """
         # Get all rows by known value
@@ -61,6 +56,15 @@ def get_apartments():
         if session:
             session.close()
     return apartments
+
+def get_single_person():
+    """
+    # Get single row by known value
+    Anna = session.query(PersonalData).filter(PersonalData.first_name == 'Anna').one()
+    print(Anna)
+    """
+    pass
+
 
 def get_persons():
     session = None

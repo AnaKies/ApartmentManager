@@ -2,7 +2,7 @@ import json
 from google import genai
 from google.genai import types
 from google.genai import errors as genai_errors
-from ApartmentManager.backend.AI_API.general.api_data_type import build_data_answer
+from ApartmentManager.backend.AI_API.general.api_envelopes import build_data_answer
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
 from ApartmentManager.backend.AI_API.general.logger import log_error
 from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
