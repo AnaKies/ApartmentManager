@@ -675,7 +675,7 @@ body {
 .mode-switcher {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 0;
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -689,7 +689,10 @@ body {
 
 .mode-switcher .btn {
   position: relative;
-  padding: 10px 24px;
+  padding: 10px 0;
+  flex: 1;
+  min-width: 140px;
+  text-align: center;
   border: none;
   background: transparent;
   color: #6b7280;
@@ -731,7 +734,7 @@ body {
 
 /* Move the indicator when classical mode is active */
 .mode-switcher[data-mode="classical"]::before {
-  transform: translateX(calc(100% + 6px));
+  transform: translateX(100%);
 }
 
 /* Smooth color transitions */
@@ -761,7 +764,7 @@ body {
 /* Responsive adjustments */
 @media (max-width: 480px) {
   .mode-switcher {
-    gap: 8px;
+    gap: 0;
     padding: 4px;
   }
 
@@ -778,6 +781,6 @@ body {
   }
 
   .mode-switcher[data-mode="classical"]::before {
-    transform: translateX(calc(100% + 4px));
+    transform: translateX(100%);
   }
 }
