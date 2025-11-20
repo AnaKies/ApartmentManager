@@ -826,19 +826,21 @@ function App() {
 
   return React.createElement('div', { className: 'app' },
     React.createElement('header', { className: 'header' },
-      React.createElement('h1', { className: 'header-title' }, 'Apartment Manager'),
-      React.createElement('div', {
-        className: 'mode-switcher',
-        'data-mode': viewMode
-      },
-        React.createElement('button', {
-          className: classNames('btn', viewMode === 'chat' && 'active'),
-          onClick: () => setViewMode('chat')
-        }, 'Chat Mode'),
-        React.createElement('button', {
-          className: classNames('btn', viewMode === 'classical' && 'active'),
-          onClick: () => setViewMode('classical')
-        }, 'Classical Mode')
+      React.createElement('div', { className: 'header-content' },
+        React.createElement('h1', { className: 'header-title' }, 'Apartment Manager'),
+        React.createElement('div', {
+          className: 'mode-switcher',
+          'data-mode': viewMode
+        },
+          React.createElement('button', {
+            className: classNames('btn', viewMode === 'chat' && 'active'),
+            onClick: () => setViewMode('chat')
+          }, 'Chat Mode'),
+          React.createElement('button', {
+            className: classNames('btn', viewMode === 'classical' && 'active'),
+            onClick: () => setViewMode('classical')
+          }, 'Classical Mode')
+        )
       )
     ),
     viewMode === 'chat'
