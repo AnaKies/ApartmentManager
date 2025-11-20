@@ -330,7 +330,7 @@ body {
 .chat-input {
   display: grid;
   grid-template-columns: 1fr auto auto;
-  align-items: end;
+  align-items: center;
   gap: 8px;
   margin-top: 10px;
 }
@@ -378,7 +378,6 @@ body {
 }
 
 .chat-input .btn {
-  align-self: end;
   min-width: 80px;
 }
 
