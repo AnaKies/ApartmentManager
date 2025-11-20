@@ -14,14 +14,12 @@ class CrudState(Enum):
 class ConversationState():
     def __init__(self):
         self.state = CrudState.NONE
-        self.do_once = True
 
     def set_state(self, state: CrudState):
         self.state = state
 
     def reset(self):
         self.state = CrudState.NONE
-        self.do_once = True
 
     @property
     def is_create(self) -> bool:

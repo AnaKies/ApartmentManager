@@ -46,6 +46,8 @@ class ErrorCode(Enum):
     SQL_NO_FIELDS_PROVIDED_FOR_GET_SINGLE_PERSON = (1511, "No fields provided to retrieve a single person.")
     SQL_SUCH_PERSON_DOES_NOT_EXIST = (1512, "Such person does not exist in the database.")
 
+    # CRUD error
+    NOT_ALLOWED_NAME_TO_GENERATE_REQUIRED_FIELDS_TO_DELETE_ENTITY = (1601, "Not allowed name to generate required fields to delete an entity in database.")
     NOT_ALLOWED_NAME_FOR_NEW_ENTITY = (1600, "Not allowed name for creating a new entity in database.")
     ERROR_DOING_GET_QUERY_TO_AN_ENDPOINT = (1605, "Error doing GET query to an endpoint.")
     ERROR_DOING_POST_QUERY_TO_AN_ENDPOINT = (1606, "Error doing POST query to an endpoint")
@@ -54,9 +56,9 @@ class ErrorCode(Enum):
     NO_ACTIVATION_OF_RESPONSE_FOR_DELETE_OPERATION = (1610, "Response for DELETE operation was not activated.")
     NO_ACTIVATION_OF_SYSTEM_PROMPT_FOR_DELETE_OPERATION = (1611, "System prompt for DELETE operation was not activated.")
     ERROR_PLACE_ENTITY_TO_DB_OR_COLLECT_MISSING_DATA = (1612, "Error placing entity to database or collecting missing data.")
-    ERROR_DELETE_ENTITY_TO_DB_OR_COLLECT_MISSING_DATA = (1613, "Error deleting entity from database or collecting missing data.")
     ERROR_PLACE_ENTITY_TO_DB = (1614, "Error placing entity to database")
     ERROR_REMOVE_ENTITY_FROM_DB = (1615, "Error removing entity from database")
+    NOT_ALLOWED_NAME_TO_CHECK_ENTITY_TO_DELETE = (1616, "Not allowed name to check entity to delete.")
 
     # Flask error
     FLASK_ERROR_HTTP_REQUEST_INPUT_MUST_BY_JSON = (2007, "HTTP request must have the JSON type")

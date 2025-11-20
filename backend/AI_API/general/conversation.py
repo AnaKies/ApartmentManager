@@ -24,7 +24,8 @@ class ConversationClient:
         self.model_name = model_name
         self.crud_intent_data = None
         self.conversation_state = ConversationState()
-        self.system_prompt = None
+        self.system_prompt = prompting.GET_FUNCTION_CALL_PROMPT
+        self.do_once = True
 
         # Specify the model to use
         load_dotenv()
@@ -36,6 +37,11 @@ class ConversationClient:
         elif self.model_name == "Groq":
             #self.llm_client = GroqClient(active_model_name)
             print("Groq will answer your question.")
+
+    def reset_settings(self):
+        self.conversation_state.reset()
+        self.do_once = True
+        self.system_prompt = prompting.GET_FUNCTION_CALL_PROMPT
 
     def get_llm_answer(self, user_question: str) -> dict:
         """
@@ -61,14 +67,14 @@ class ConversationClient:
 
                 case CrudState.UPDATE:
                     if result:
-                        self.conversation_state.reset()
+                        self.reset_settings()
                     trace_id = log_error(ErrorCode.WARNING_NOT_IMPLEMENTED)
                     raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED, trace_id)
 
                 case CrudState.SHOW:
                     result = show_entity_from_db(self, user_question)
                     if result:
-                        self.conversation_state.reset()
+                        self.reset_settings()
 
                 case CrudState.NONE:
                     system_prompt = json.dumps(prompting.GET_FUNCTION_CALL_PROMPT, indent=2, ensure_ascii=False)
@@ -80,16 +86,16 @@ class ConversationClient:
             return result
 
         except APIError:
-            self.conversation_state.reset()
+            self.reset_settings()
             raise
         # catch a Gemini error
         except genai_errors.APIError:
-            self.conversation_state.reset()
+            self.reset_settings()
             raise
         except RequestException:
-            self.conversation_state.reset()
+            self.reset_settings()
             raise
         except Exception as error:
-            self.conversation_state.reset()
+            self.reset_settings()
             trace_id = log_error(ErrorCode.ERROR_PERFORMING_CRUD_OPERATION, exception=error)
             raise APIError(ErrorCode.ERROR_PERFORMING_CRUD_OPERATION, trace_id) from error

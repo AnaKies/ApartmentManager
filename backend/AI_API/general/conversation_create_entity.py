@@ -35,8 +35,8 @@ def single_iteration_system_prompt_generation(self: "ConversationClient"):
     system_prompt = None
 
     # Generate the system prompt only once over the conversation iterations
-    if self.conversation_state.do_once:
-        self.conversation_state.do_once = False
+    if self.do_once:
+        self.do_once = False
 
         # Provide an extended system prompt with injected data
         # Generate a new prompt for CREATE operation
@@ -80,7 +80,7 @@ def place_entity_in_db_or_collect_missing_data(self: "ConversationClient",
             parsed_args = json.loads(args)
             result = place_entity_in_db(self, parsed_args, user_question)
 
-            self.conversation_state.reset()
+            self.reset_settings()
 
         # Wait for new conversation cycle until user provided all data
         # and LLM set the flag ready_to_post.

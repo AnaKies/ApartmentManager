@@ -37,8 +37,8 @@ def single_iteration_system_prompt_generation(self: "ConversationClient"):
     system_prompt = None
 
     # Generate the system prompt only once over the conversation iterations
-    if self.conversation_state.do_once:
-        self.conversation_state.do_once = False
+    if self.do_once:
+        self.do_once = False
 
         # Provide an extended system prompt with injected data
         # Generate a new prompt for CREATE operation
@@ -72,34 +72,29 @@ def collect_data_for_entity_deletion(self: "ConversationClient", user_question: 
 def delete_entity_from_db_or_collect_missing_data(self: "ConversationClient",
                                                user_question: str,
                                                payload_struct_output: dict):
-    try:
-        # Backend calls the SQL layer to create a new entry
-        if (payload_struct_output or {}).get("ready_to_delete"):
-            # Extract data fields to give them the function
-            args = (payload_struct_output or {}).get("data")
+    # Backend calls the SQL layer to create a new entry
+    if (payload_struct_output or {}).get("ready_to_delete"):
+        # Extract data fields to give them the function
+        args = (payload_struct_output or {}).get("data")
 
-            # AI assistant ensures that the field's names are correct
-            parsed_args = json.loads(args)
-            result = remove_entity_from_db(self, parsed_args, user_question)
+        # AI assistant ensures that the field's names are correct
+        parsed_args = json.loads(args)
+        result = remove_entity_from_db(self, parsed_args, user_question)
 
-            self.conversation_state.reset()
+        self.reset_settings()
 
-        # Wait for new conversation cycle until user provided all data
-        # and LLM set the flag ready_to_post.
-        # Return the actual comment of the LLM, which should ask for missing data
-        else:
-            llm_comment_to_payload = (payload_struct_output or {}).get("comment")
+    # Wait for new conversation cycle until user provided all data
+    # and LLM set the flag ready_to_post.
+    # Return the actual comment of the LLM, which should ask for missing data
+    else:
+        llm_comment_to_payload = (payload_struct_output or {}).get("comment")
 
-            # keep collecting data for creating new entity
-            # until the user confirmed the collected data
-            result = build_text_answer(message=llm_comment_to_payload,
-                                       model=self.model_name,
-                                       answer_source="llm")
-        return result
-
-    except Exception as error:
-        trace_id = log_error(ErrorCode.ERROR_DELETE_ENTITY_TO_DB_OR_COLLECT_MISSING_DATA)
-        raise APIError(ErrorCode.ERROR_DELETE_ENTITY_TO_DB_OR_COLLECT_MISSING_DATA, trace_id) from error
+        # keep collecting data for creating new entity
+        # until the user confirmed the collected data
+        result = build_text_answer(message=llm_comment_to_payload,
+                                   model=self.model_name,
+                                   answer_source="llm")
+    return result
 
 
 def remove_entity_from_db(self: "ConversationClient",
@@ -107,10 +102,17 @@ def remove_entity_from_db(self: "ConversationClient",
                        user_question: str):
     result = None
     try:
-        person = get_single_person(**parsed_args)
+        type_of_data = (self.crud_intent_data or {}).get("delete").get("type", "")
+        if type_of_data == "person":
+            person = get_single_person(**parsed_args)
+        else:
+            trace_id = log_error(ErrorCode.NOT_ALLOWED_NAME_TO_CHECK_ENTITY_TO_DELETE)
+            raise APIError(ErrorCode.NOT_ALLOWED_NAME_TO_CHECK_ENTITY_TO_DELETE, trace_id)
+    except APIError:
+        raise
     except Exception:
         result = build_text_answer(
-            message=f"That person does not exist in the database.",
+            message=f"That entry does not exist in the database.",
             model=self.model_name,
             answer_source="backend")
         return result
@@ -164,8 +166,8 @@ def generate_prompt_to_delete_entity(crud_intent: dict) -> str | None:
             elif type_of_data == "apartment":
                 required_fields = Apartment.required_fields_to_delete()
             else:
-                trace_id = log_error(ErrorCode.NOT_ALLOWED_NAME_FOR_NEW_ENTITY)
-                raise APIError(ErrorCode.NOT_ALLOWED_NAME_FOR_NEW_ENTITY, trace_id)
+                trace_id = log_error(ErrorCode.NOT_ALLOWED_NAME_TO_GENERATE_REQUIRED_FIELDS_TO_DELETE_ENTITY)
+                raise APIError(ErrorCode.NOT_ALLOWED_NAME_TO_GENERATE_REQUIRED_FIELDS_TO_DELETE_ENTITY, trace_id)
 
             if required_fields:
                 # Inject the class fields in a prompt
