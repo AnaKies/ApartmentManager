@@ -321,13 +321,45 @@ body {
 }
 
 .chat-input textarea {
-  resize: vertical;
+  resize: none;
+  /* Disable default resize handle */
   min-height: 44px;
   max-height: 50vh;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: 10px 0 10px 10px;
+  /* top-left, top-right, bottom-right, bottom-left */
   border: 1px solid #e5e7eb;
   font-family: inherit;
+  width: 100%;
+}
+
+/* Custom resize handle positioned at top-right */
+.chat-input-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+}
+
+.custom-resize-handle {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 0;
+  height: 0;
+  cursor: ns-resize;
+  border-style: solid;
+  border-width: 0 12px 12px 0;
+  border-color: transparent rgba(102, 126, 234, 0.3) transparent transparent;
+  z-index: 10;
+  transition: border-color 0.2s ease;
+}
+
+.custom-resize-handle:hover {
+  border-color: transparent rgba(102, 126, 234, 0.6) transparent transparent;
+}
+
+.custom-resize-handle:active {
+  border-color: transparent rgba(102, 126, 234, 0.8) transparent transparent;
 }
 
 .chat-input .btn {

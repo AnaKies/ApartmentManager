@@ -337,6 +337,8 @@ function ChatPanel({ onSend, messages, loading }) {
   const [recognizing, setRecognizing] = useState(false);
   const recognitionRef = useRef(null);
   const [notice, setNotice] = useState('');
+  const textareaRef = useRef(null);
+  const resizeHandleRef = useRef(null);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
 
@@ -349,6 +351,44 @@ function ChatPanel({ onSend, messages, loading }) {
     rec.onerror = () => { setNotice('Voice unavailable. You can still type.'); setRecognizing(false); };
     rec.onend = () => setRecognizing(false);
     recognitionRef.current = rec;
+  }, []);
+
+  // Custom resize handle functionality
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    const handle = resizeHandleRef.current;
+    if (!textarea || !handle) return;
+
+    let startY = 0;
+    let startHeight = 0;
+
+    const onMouseDown = (e) => {
+      e.preventDefault();
+      startY = e.clientY;
+      startHeight = textarea.offsetHeight;
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    };
+
+    const onMouseMove = (e) => {
+      const deltaY = startY - e.clientY; // Inverted because we're resizing from top
+      const newHeight = Math.max(44, Math.min(window.innerHeight * 0.5, startHeight + deltaY));
+      textarea.style.height = `${newHeight}px`;
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    handle.addEventListener('mousedown', onMouseDown);
+
+    return () => {
+      handle.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
   }, []);
 
   function detectLang(text) { if (/[\u0400-\u04FF]/.test(text)) return 'ru'; if (/ä|ö|ü|ß|Ä|Ö|Ü/.test(text)) return 'de'; return 'en'; }
@@ -392,7 +432,20 @@ function ChatPanel({ onSend, messages, loading }) {
       React.createElement('div', { ref: messagesEndRef })
     ),
     React.createElement('div', { className: 'chat-input' },
-      React.createElement('textarea', { value: input, placeholder: 'Type a message…', onChange: e => setInput(e.target.value), onKeyDown }),
+      React.createElement('div', { className: 'chat-input-wrapper' },
+        React.createElement('div', {
+          ref: resizeHandleRef,
+          className: 'custom-resize-handle',
+          title: 'Drag to resize'
+        }),
+        React.createElement('textarea', {
+          ref: textareaRef,
+          value: input,
+          placeholder: 'Type a message…',
+          onChange: e => setInput(e.target.value),
+          onKeyDown
+        })
+      ),
       React.createElement('button', {
         className: 'btn btn-secondary btn-icon',
         onClick: recognizing ? stopVoice : startVoice,
