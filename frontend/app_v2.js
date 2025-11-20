@@ -763,7 +763,7 @@ function App() {
         React.createElement('section', { className: 'panel' }, React.createElement(JsonViewerPanel, { dataEnvelope })),
         React.createElement('section', { className: 'panel' }, React.createElement(ChatPanel, { onSend: sendToApi, messages, loading }))
       )
-      : React.createElement('main', { className: 'content' }, React.createElement(ClassicalModeRoot)),
+      : React.createElement('main', { className: 'content classical-mode' }, React.createElement(ClassicalModeRoot)),
     React.createElement(Modal, { open: modal.open, title: modal.title, message: modal.message, onClose: () => setModal(m => ({ ...m, open: false })) })
   );
 }
