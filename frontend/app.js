@@ -593,6 +593,7 @@ function DetailView({ title, data, onBack }) {
 
 function ClassicalTileView() {
   const [activeFloor, setActiveFloor] = useState('1. Stock');
+  const [expandedTileId, setExpandedTileId] = useState(null);
 
   // Mock data for 3 floors, 6 apartments each
   const floors = {
@@ -622,29 +623,85 @@ function ClassicalTileView() {
     ]
   };
 
+  // Helper to generate mock payment data
+  const getMockPayments = (id) => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months.map(m => ({
+      month: m,
+      rent: 1200 + (id % 10) * 50,
+      utilities: 300 + (id % 5) * 20,
+      total: 1500 + (id % 10) * 50 + (id % 5) * 20
+    }));
+  };
+
+  const handleTileClick = (id) => {
+    if (expandedTileId === id) return;
+    setExpandedTileId(id);
+  };
+
+  const handleClose = (e) => {
+    e.stopPropagation();
+    setExpandedTileId(null);
+  };
+
   return React.createElement('div', { className: 'classical-view-container' },
     React.createElement('div', { className: 'tabs-header' },
       Object.keys(floors).map(floor =>
         React.createElement('button', {
           key: floor,
           className: classNames('tab-btn', activeFloor === floor && 'active'),
-          onClick: () => setActiveFloor(floor)
+          onClick: () => { setActiveFloor(floor); setExpandedTileId(null); }
         }, floor)
       )
     ),
     React.createElement('div', { className: 'tile-grid' },
-      floors[activeFloor].map(tile =>
-        React.createElement('div', { key: tile.id, className: 'tile' },
-          React.createElement('div', { className: 'tile-header' },
-            React.createElement('span', { className: 'tile-id' }, `ID: ${tile.id}`)
+      floors[activeFloor].map(tile => {
+        const isExpanded = expandedTileId === tile.id;
+        return React.createElement('div', {
+          key: tile.id,
+          className: classNames('tile', isExpanded && 'expanded'),
+          onClick: () => handleTileClick(tile.id)
+        },
+          // Original Content Wrapper
+          React.createElement('div', { className: 'tile-original-content' },
+            React.createElement('div', { className: 'tile-header' },
+              React.createElement('span', { className: 'tile-id' }, `ID: ${tile.id}`)
+            ),
+            React.createElement('div', { className: 'tile-body' },
+              React.createElement('div', { className: 'tile-tenant-name' }, tile.tenantName),
+              React.createElement('div', { className: 'tile-address' }, tile.address || 'No Address')
+            )
           ),
-          React.createElement('div', { className: 'tile-body' },
-            React.createElement('div', { className: 'tile-tenant-name' }, tile.tenantName),
-            React.createElement('div', { className: 'tile-address' }, tile.address || 'No Address')
-          )
-        )
-      )
-    )
+          // Expanded Content (Payment Table)
+          isExpanded ? React.createElement('div', { className: 'tile-expanded-content' },
+            React.createElement('button', { className: 'btn-close-tile', onClick: handleClose }, '×'),
+            React.createElement('h3', null, 'Mietzahlungen (Letzte 12 Monate)'),
+            React.createElement('table', { className: 'payment-table' },
+              React.createElement('thead', null,
+                React.createElement('tr', null,
+                  React.createElement('th', null, 'Monat'),
+                  React.createElement('th', null, 'Miete (€)'),
+                  React.createElement('th', null, 'Nebenkosten (€)'),
+                  React.createElement('th', null, 'Gesamt (€)')
+                )
+              ),
+              React.createElement('tbody', null,
+                getMockPayments(tile.id).map((p, i) =>
+                  React.createElement('tr', { key: i },
+                    React.createElement('td', null, p.month),
+                    React.createElement('td', null, p.rent),
+                    React.createElement('td', null, p.utilities),
+                    React.createElement('td', { style: { fontWeight: 'bold' } }, p.total)
+                  )
+                )
+              )
+            )
+          ) : null
+        );
+      })
+    ),
+    // Backdrop for expanded state
+    expandedTileId ? React.createElement('div', { className: 'tile-backdrop', onClick: (e) => handleClose(e) }) : null
   );
 }
 
