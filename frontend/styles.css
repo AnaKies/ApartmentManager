@@ -575,27 +575,16 @@ body {
   gap: 8px;
 }
 
-.tile-address {
+.tile-tenant-name {
   font-size: 16px;
   font-weight: 600;
   color: #111827;
   line-height: 1.4;
 }
 
-.tile-tenant {
+.tile-address {
   font-size: 14px;
-  color: #374151;
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-}
-
-.tile-tenant .label {
   color: #6b7280;
-  font-size: 12px;
-}
-
-.tile-tenant .value {
   font-weight: 500;
 }
 

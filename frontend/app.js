@@ -639,11 +639,8 @@ function ClassicalTileView() {
             React.createElement('span', { className: 'tile-id' }, `ID: ${tile.id}`)
           ),
           React.createElement('div', { className: 'tile-body' },
-            React.createElement('div', { className: 'tile-address' }, tile.address || 'No Address'),
-            React.createElement('div', { className: 'tile-tenant' },
-              React.createElement('span', { className: 'label' }, 'Tenant: '),
-              React.createElement('span', { className: 'value' }, tile.tenantName)
-            )
+            React.createElement('div', { className: 'tile-tenant-name' }, tile.tenantName),
+            React.createElement('div', { className: 'tile-address' }, tile.address || 'No Address')
           )
         )
       )
