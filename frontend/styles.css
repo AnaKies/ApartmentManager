@@ -540,6 +540,8 @@ body {
   gap: 12px;
   transition: transform 0.2s, box-shadow 0.2s;
   border: 1px solid #e5e7eb;
+  height: 160px;
+  overflow: hidden;
 }
 
 .tile:hover {
@@ -631,7 +633,8 @@ body {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(229, 231, 235, 0.5);
-  border-bottom: none;
+  border-bottom: 1px solid transparent;
+  margin-bottom: -1px;
   border-radius: 12px 12px 0 0;
   cursor: pointer;
   font-weight: 600;
@@ -653,9 +656,9 @@ body {
   border-color: #e5e7eb;
   border-bottom: 1px solid #ffffff;
   margin-bottom: -1px;
+  transform: none;
   z-index: 1;
-  box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.04),
-    0 2px 4px rgba(102, 126, 234, 0.1);
+  box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.04);
 }
 
 /* Tile Grid Layout */
