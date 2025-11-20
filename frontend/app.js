@@ -229,7 +229,7 @@ function JsonViewerPanel({ dataEnvelope }) {
 
   function renderTree(value, depth = 0, path = [], currentSchema = schema) {
     if (depth >= maxDepth) {
-      return React.createElement('div', { className: 'json-hint' }, React.createElement('button', { className: 'btn', onClick: () => setMaxDepth(d => d + 5) }, 'Expand deeper (+5)'));
+      return React.createElement('div', { className: 'json-hint' }, React.createElement('button', { className: 'btn btn-secondary', onClick: () => setMaxDepth(d => d + 5) }, 'Expand deeper (+5)'));
     }
     if (Array.isArray(value)) {
       const key = pathKey(path);
@@ -254,7 +254,7 @@ function JsonViewerPanel({ dataEnvelope }) {
         const itemChildren = itemOpen ? renderTree(item, depth + 1, childPath, itemSchema) : null;
         return React.createElement('div', { key: indexOne }, itemHeader, itemChildren);
       }) : null;
-      const showMore = isOpen && value.length > visibleCount ? React.createElement('button', { className: 'btn', onClick: () => setVisibleCount(c => Math.min(value.length, c + itemsPerChunk)) }, 'Show more') : null;
+      const showMore = isOpen && value.length > visibleCount ? React.createElement('button', { className: 'btn btn-secondary', onClick: () => setVisibleCount(c => Math.min(value.length, c + itemsPerChunk)) }, 'Show more') : null;
       return React.createElement('div', null, header, children, showMore);
     } else if (value && typeof value === 'object') {
       const propsSchema = getObjectProperties(currentSchema) || {};
@@ -289,8 +289,8 @@ function JsonViewerPanel({ dataEnvelope }) {
 
   const toolbar = React.createElement('div', { className: 'json-toolbar' },
     React.createElement('input', { type: 'text', placeholder: 'Search keys and values…', value: search, onChange: e => setSearch(e.target.value) }),
-    isFlatUniformArray(payload) ? React.createElement('button', { className: 'btn', onClick: () => setViewMode(m => m === 'table' ? 'tree' : 'table') }, viewMode === 'table' ? 'Tree view' : 'Table view') : null,
-    viewMode === 'table' && isFlatUniformArray(payload) ? React.createElement('button', { className: 'btn', onClick: exportCsvIfTabular }, 'Export .csv') : null
+    isFlatUniformArray(payload) ? React.createElement('button', { className: 'btn btn-secondary', onClick: () => setViewMode(m => m === 'table' ? 'tree' : 'table') }, viewMode === 'table' ? 'Tree view' : 'Table view') : null,
+    viewMode === 'table' && isFlatUniformArray(payload) ? React.createElement('button', { className: 'btn btn-secondary', onClick: exportCsvIfTabular }, 'Export .csv') : null
   );
 
   let content = null;
@@ -326,7 +326,7 @@ function JsonViewerPanel({ dataEnvelope }) {
     content = React.createElement('div', { className: 'json-scroll' }, renderTree(payload, 0, [], schema));
   }
 
-  const showMore = Array.isArray(payload) && payload.length > visibleCount ? React.createElement('button', { className: 'btn', onClick: () => setVisibleCount(c => c + 200) }, 'Show more') : null;
+  const showMore = Array.isArray(payload) && payload.length > visibleCount ? React.createElement('button', { className: 'btn btn-secondary', onClick: () => setVisibleCount(c => c + 200) }, 'Show more') : null;
 
   return React.createElement('div', { className: 'panel-inner json-viewer-container' }, toolbar, content, showMore);
 }
@@ -393,8 +393,35 @@ function ChatPanel({ onSend, messages, loading }) {
     ),
     React.createElement('div', { className: 'chat-input' },
       React.createElement('textarea', { value: input, placeholder: 'Type a message…', onChange: e => setInput(e.target.value), onKeyDown }),
-      React.createElement('button', { className: 'btn secondary', onClick: recognizing ? stopVoice : startVoice }, recognizing ? 'Stop' : 'Voice'),
-      React.createElement('button', { className: 'btn', onClick: handleSend }, 'Send')
+      React.createElement('button', {
+        className: 'btn btn-secondary btn-icon',
+        onClick: recognizing ? stopVoice : startVoice,
+        title: recognizing ? 'Stop recording' : 'Voice input',
+        'aria-label': recognizing ? 'Stop recording' : 'Voice input'
+      },
+        React.createElement('svg', {
+          xmlns: 'http://www.w3.org/2000/svg',
+          viewBox: '0 0 24 24',
+          fill: 'none',
+          stroke: 'currentColor',
+          strokeWidth: '2',
+          strokeLinecap: 'round',
+          strokeLinejoin: 'round',
+          style: { width: '20px', height: '20px' }
+        },
+          recognizing
+            ? [
+              React.createElement('rect', { key: 'stop', x: '6', y: '6', width: '12', height: '12', rx: '2' })
+            ]
+            : [
+              React.createElement('path', { key: 'mic1', d: 'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z' }),
+              React.createElement('path', { key: 'mic2', d: 'M19 10v2a7 7 0 0 1-14 0v-2' }),
+              React.createElement('line', { key: 'mic3', x1: '12', y1: '19', x2: '12', y2: '22' }),
+              React.createElement('line', { key: 'mic4', x1: '8', y1: '22', x2: '16', y2: '22' })
+            ]
+        )
+      ),
+      React.createElement('button', { className: 'btn btn-primary', onClick: handleSend }, 'Send')
     ),
     notice ? React.createElement('div', { className: 'chat-hint' }, notice) : null,
     React.createElement('div', { className: 'chat-hint' }, 'Enter to send • Shift+Enter for newline')
@@ -406,7 +433,7 @@ function Modal({ open, title, message, onClose }) {
     React.createElement('div', { className: 'modal' },
       React.createElement('h3', null, title),
       React.createElement('p', null, message),
-      React.createElement('div', { style: { marginTop: 12, textAlign: 'right' } }, React.createElement('button', { className: 'btn', onClick: onClose }, 'Close'))
+      React.createElement('div', { style: { marginTop: 12, textAlign: 'right' } }, React.createElement('button', { className: 'btn btn-secondary', onClick: onClose }, 'Close'))
     )
   );
 }
@@ -486,7 +513,7 @@ function ClassicalColumn({ title, items, selectedId, onSelect }) {
 function DetailView({ title, data, onBack }) {
   if (!data) {
     return React.createElement('div', { className: 'detail-view' },
-      React.createElement('button', { className: 'btn', onClick: onBack }, '‹ Back'),
+      React.createElement('button', { className: 'btn btn-secondary', onClick: onBack }, '‹ Back'),
       React.createElement('p', null, 'No data available or not yet loaded.')
     );
   }
@@ -747,7 +774,10 @@ function App() {
   return React.createElement('div', { className: 'app' },
     React.createElement('header', { className: 'header' },
       React.createElement('h1', { className: 'header-title' }, 'Apartment Manager'),
-      React.createElement('div', { className: 'mode-switcher' },
+      React.createElement('div', {
+        className: 'mode-switcher',
+        'data-mode': viewMode
+      },
         React.createElement('button', {
           className: classNames('btn', viewMode === 'chat' && 'active'),
           onClick: () => setViewMode('chat')
