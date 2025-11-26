@@ -4,7 +4,7 @@ from groq import Groq
 from dotenv import load_dotenv
 import ApartmentManager.backend.AI_API.general.prompting as prompting
 from ApartmentManager.backend.AI_API.general.ai_client import LlmClient
-from ApartmentManager.backend.AI_API.general.json_groq import response_schema_groq, QuerySchema
+from ApartmentManager.backend.AI_API.ai_clients.groq.json_groq import response_schema_groq, QuerySchema
 
 
 class GroqClient(LlmClient):

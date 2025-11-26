@@ -62,7 +62,7 @@ class Apartment(Rental_Base):
         }
 
     @staticmethod
-    def required_fields_to_delete():
+    def required_fields_to_delete_or_update():
         return {"first_possibility": ["id_apartment"],
                 "second_possibility": ["address"]}
 
@@ -125,7 +125,7 @@ class Tenancy(Rental_Base):
         }
 
     @staticmethod
-    def required_fields_to_delete():
+    def required_fields_to_delete_or_update():
         return {"first_possibility": "id_apartment",
                 "second_possibility": "id_tenancy",
                 "third_possibility": "id_tenant_personal_data"}
@@ -185,7 +185,7 @@ class PersonalData(Rental_Base):
         }
 
     @staticmethod
-    def required_fields_to_delete():
+    def required_fields_to_delete_or_update():
         return {"first_possibility": ["id_personal_data"],
                 "second_possibility": ["first_name", "last_name"]}
 
@@ -243,5 +243,5 @@ class Contract(Rental_Base):
         }
 
     @staticmethod
-    def required_fields_to_delete():
+    def required_fields_to_delete_or_update():
         return {"first_possibility": "id_rent_data"}

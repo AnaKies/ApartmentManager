@@ -9,9 +9,9 @@ from google.genai import errors as genai_errors
 from ApartmentManager.backend.SQL_API.rental.CRUD import create
 from ApartmentManager.backend.config.server_config import HOST, PORT
 import ApartmentManager.backend.SQL_API.rental.CRUD.read as read_sql
-from ApartmentManager.backend.AI_API.general.conversation import ConversationClient
+from ApartmentManager.backend.AI_API.general.conversation_client import ConversationClient
 from ApartmentManager.backend.AI_API.general.error_texts import APIError, ErrorCode
-from ApartmentManager.backend.AI_API.general.api_envelopes import build_error
+from ApartmentManager.backend.AI_API.general.envelopes.envelopes_api import build_error, AnswerSource
 from ApartmentManager.backend.AI_API.general.logger import init_logging, get_logger, log_error
 
 # Helps access the decorator names after initialization
@@ -83,6 +83,8 @@ def chat_api():
         # LLM answers
         model_answer = ai_client.get_llm_answer(user_question_str)
 
+        result = model_answer.model_dump()
+
     except APIError:
         raise
     except genai_errors.APIError:
@@ -92,9 +94,9 @@ def chat_api():
     except Exception:
         raise
 
-    print(model_answer)
-    return model_answer, 200
-    # TODO implement close client to release the http ressourcess
+    print(result)
+    return result, 200
+    # TODO implement close client to release the http resources
 
 @internal_bp.route('/tenancies', methods=['GET'])
 def get_tenancies():
@@ -169,7 +171,7 @@ def handle_api_error(api_error: APIError):
     result = build_error(code=api_error.error_code,
                          message=api_error.message,
                          llm_model=current_app.extensions["ai_client"].model_name,
-                         answer_source="backend",
+                         answer_source=AnswerSource.BACKEND,
                          trace_id=api_error.trace_id if hasattr(api_error, "trace_id") else "")
     return result, 200
 
@@ -181,7 +183,7 @@ def handle_http_error(http_err: HTTPException):
         code=http_err.code,
         message=message,
         llm_model=current_app.extensions["ai_client"].model_name,
-        answer_source="backend",
+        answer_source=AnswerSource.BACKEND,
         trace_id=getattr(http_err, "trace_id", "-")
     )
     return result, http_err.code
@@ -200,7 +202,7 @@ def handle_unexpected_error(general_error):
     result = build_error(code=-1,
                          message=message,
                          llm_model=current_app.extensions["ai_client"].model_name,
-                         answer_source="backend",
+                         answer_source=AnswerSource.BACKEND,
                          trace_id=general_error.trace_id if hasattr(general_error, "trace_id") else "-")
 
     return result, 500
@@ -222,7 +224,7 @@ def handle_gemini_api_error(err: genai_errors.APIError):
         code=status_code,
         message=message,
         llm_model=current_app.extensions["ai_client"].model_name,
-        answer_source="backend",
+        answer_source=AnswerSource.BACKEND,
         trace_id=trace_id
     )
     return result, int(status_code or 500)

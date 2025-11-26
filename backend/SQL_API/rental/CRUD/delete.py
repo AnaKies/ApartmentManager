@@ -5,7 +5,7 @@ from ApartmentManager.backend.SQL_API.rental.rental_orm_models import PersonalDa
 def delete_person(*, # make order of arguments not important, as the LLM can mix it
                     first_name: str,
                     last_name: str,
-                    id_personal_data: int) -> dict:
+                    id_personal_data: int) -> PersonalData:
     """
     Deletes a person's record from the database based on provided identification
     or name details. Either a personal ID or both first and last names must be
@@ -54,13 +54,16 @@ def delete_person(*, # make order of arguments not important, as the LLM can mix
                 PersonalData.last_name == last_name
             )
 
+        # try to get the person to delete
+        person = query.one_or_none()
+
+        if person is None:
+            raise APIError(ErrorCode.SQL_SUCH_PERSON_DOES_NOT_EXIST)
+
         query.delete()
         session.commit()
 
-        return {"result": True,
-                "person_id": id_personal_data,
-                "first_name": first_name,
-                "last_name": last_name}
+        return person
 
     except APIError:
         raise

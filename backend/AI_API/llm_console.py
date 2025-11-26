@@ -1,4 +1,4 @@
-from ApartmentManager.backend.AI_API.general.conversation import ConversationClient
+from ApartmentManager.backend.AI_API.general.conversation_client import ConversationClient
 
 
 def main():

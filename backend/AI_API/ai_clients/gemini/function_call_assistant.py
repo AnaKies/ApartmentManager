@@ -2,14 +2,17 @@ import json
 from google import genai
 from google.genai import types
 from google.genai import errors as genai_errors
+from google.genai.types import FunctionCall
+
 import ApartmentManager.backend.AI_API.general.prompting as prompting
-from ApartmentManager.backend.AI_API.general.api_envelopes import build_data_answer, build_text_answer
+from ApartmentManager.backend.AI_API.general.envelopes.envelopes_api import build_data_answer, build_text_answer, AnswerSource, \
+    EnvelopeApi
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
 from ApartmentManager.backend.AI_API.general.logger import log_error
 from ApartmentManager.backend.RESTFUL_API import execute
 from requests.exceptions import RequestException
 
-class FunctionCallService:
+class FunctionCallAssistant:
 
     def __init__(self,
                  llm_client: genai.Client,
@@ -26,7 +29,7 @@ class FunctionCallService:
         self.session_contents = session_contents
         self.temperature = temperature
 
-        # Convert dict to the string with indentation, so that LLM can read it better
+        # Convert dict to the string with indentation so that LLM can read it better
         self.system_prompt = json.dumps(prompting.GET_FUNCTION_CALL_PROMPT, indent=2)
 
     def _define_potential_function_call(self, user_question: str, system_prompt: str) -> genai.types.Content:
@@ -82,7 +85,7 @@ class FunctionCallService:
         return func_to_call
 
 
-    def _do_call_function(self, function_call_obj) -> dict:
+    def _do_call_function(self, function_call_obj: FunctionCall) -> dict:
         """
         Calls the function which returns the result data to the LLM
         and adds the result data to the conversation history.
@@ -91,18 +94,19 @@ class FunctionCallService:
         """
         func_calling_result = None
         try:
-            # Single-dispatch map by function name (as returned by the model)
+            # Dictionary that maps the function name (str) with the function itself
             dispatch = {
                 execute.make_restful_api_get.__name__: execute.make_restful_api_get,
                 execute.make_restful_api_post.__name__: execute.make_restful_api_post,
             }
 
+            # get the function object searching the function name in the dispatch dict
             func = dispatch.get(function_call_obj.name)
             if func is None:
                 print(f"Unknown function requested by LLM: {function_call_obj.name}")
             else:
                 # Ensure args is a dict before unpacking
-                call_args = getattr(function_call_obj, "args", {}) or {}
+                call_args = function_call_obj.args or {}
                 func_calling_result = func(**call_args)
                 print(".... SQL answer: ", func_calling_result)
 
@@ -115,7 +119,7 @@ class FunctionCallService:
             )
 
             # Add the actual result of the function execution back into the conversation history,
-            # so the model can use it to generate the final response to the user in the human like form.
+            # so the model can use it to generate the final response to the user in the human-like form.
             self.session_contents.append(types.Content(role="assistant", parts=[function_response_part]))
 
             return func_calling_result
@@ -143,7 +147,7 @@ class FunctionCallService:
                     return part.text
         return None
 
-    def try_call_function(self, user_question: str, system_prompt: str) -> dict:
+    def try_call_function(self, user_question: str, system_prompt: str) -> EnvelopeApi:
         """
         Gives the user a response using data, retrieved from a function, being called by LLM.
         If LLM decides not to call the function, the answer of the LLM is returned instead.
@@ -167,7 +171,7 @@ class FunctionCallService:
         # STEP 2: the LLM model does the function call
         if func_call_obj:
             print(f".... LLM want to call the function: {func_call_obj.name} with arguments: {func_call_obj.args}")
-            func_calling_result = None
+
             try:
                 # Execute the function with its parameters
                 # and save the function call result to the conversation history.
@@ -188,16 +192,16 @@ class FunctionCallService:
             result = build_data_answer(payload=func_calling_result or {},
                                        payload_comment="-",
                                        model=self.model,
-                                       answer_source="llm",
+                                       answer_source=AnswerSource.LLM,
                                        function_call=True)
         else: # no function call
             # STEP 4a: Return envelope for the LLM answer
             # The answer can contain the simple text,
             # as the LLM decided to don't call the function.
 
-            llm_answer_without_func_call = FunctionCallService._filter_text_from_llm_response(response_func_candidate)
+            llm_answer_without_func_call = FunctionCallAssistant._filter_text_from_llm_response(response_func_candidate)
 
             result = build_text_answer(message=llm_answer_without_func_call,
                                        model=self.model,
-                                       answer_source="llm")
+                                       answer_source=AnswerSource.LLM)
         return result

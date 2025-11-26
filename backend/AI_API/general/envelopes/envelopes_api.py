@@ -1,77 +1,89 @@
-from typing import Union, Dict, Optional, Literal
-from pydantic import BaseModel, Field, model_validator
+from enum import Enum
+from typing import Union, Dict
+from pydantic import BaseModel, Field
 from typing import Any
-from flask import jsonify
-from sqlalchemy import Boolean
 
+
+# ========= ENUMS =========
+
+class AnswerSource(str, Enum):
+    LLM = "llm"
+    BACKEND = "backend"
+
+class AnswerType(str, Enum):
+    TEXT = "text"
+    DATA = "data"
+    ERROR = "error"
+
+# ========= ENVELOPE OK =========
 
 class TextResult(BaseModel):
     message: str
-    function_call: bool
 
 class DataResult(BaseModel):
     payload: Any
     function_call: bool
     message: str
 
+class EnvelopeApi(BaseModel):
+    type: AnswerType
+    result: Union[TextResult, DataResult]
+    answer_source: AnswerSource
+    llm_model: str
+
+# ========= ENVELOPE ERROR =========
+
 class ErrorBlock(BaseModel):
     code: int
     message: str
     details: Dict[str, Any] = Field(default_factory=dict)
 
-class EnvelopeOk(BaseModel):
-    type: Literal["text", "data", "error"]
-    result: Union[TextResult, DataResult]
-    answer_source: Literal["llm", "backend"]
-    llm_model: str
-
 class EnvelopeError(BaseModel):
-    type: Literal["text", "data", "error"]
+    type: AnswerType
     llm_model: str
-    answer_source: Literal["llm", "backend"]
+    answer_source: AnswerSource
     error: ErrorBlock = None
     trace_id: str
 
+# ========= FUNCTIONS TO BUILD ENVELOPES ==========
+
 def build_text_answer(message: str,
                        model: str,
-                       answer_source: Literal["llm", "backend"],
-                       function_call: bool = False):
-    env = EnvelopeOk(
-        type="text",
-        result=TextResult(message=message, function_call=function_call),
+                       answer_source: AnswerSource) -> EnvelopeApi:
+    result = EnvelopeApi(
+        type=AnswerType.TEXT,
+        result=TextResult(message=message),
         llm_model=model,
         answer_source=answer_source
     )
-    result = env.model_dump()
     return result
 
 def build_data_answer(payload: Any,
                        model: str,
-                       answer_source: Literal["llm", "backend"],
+                       answer_source: AnswerSource,
                        payload_comment: str,
                        function_call: bool = False):
-    env = EnvelopeOk(
-        type="data",
+    result = EnvelopeApi(
+        type=AnswerType.DATA,
         result=DataResult(payload=payload, function_call=function_call, message=payload_comment),
         llm_model=model,
         answer_source=answer_source
     )
-    result = env.model_dump()
+
     return result
 
 def build_error(code: int,
                 message: str,
                 llm_model: str,
-                answer_source: Literal["llm", "backend"],
+                answer_source: AnswerSource,
                 trace_id: str):
     error_block = ErrorBlock(code=code, message=message)
 
-    env = EnvelopeError(
-        type="error",
+    result = EnvelopeError(
+        type=AnswerType.ERROR,
         error=error_block,
         llm_model=llm_model,
         answer_source=answer_source,
         trace_id=trace_id
     )
-    result = env.model_dump()
     return result

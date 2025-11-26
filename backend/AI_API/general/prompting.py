@@ -1,12 +1,13 @@
 import copy
 import json
 
+from ApartmentManager.backend.AI_API.general.envelopes.envelopes_api import EnvelopeApi
 
 GET_FUNCTION_CALL_PROMPT = {
   "role": "system",
   "instructions": {
     "purpose": "Decide whether the user's request requires a GET call to the apartment rental REST API.",
-    "focus": "Answer only the user's latest request. Use session history only to resolve references; do not restate prior listings unless explicitly asked.",
+    "focus": "Answer only the user's latest request. Use session history only to resolve references; do not re prior listings unless explicitly asked.",
     "endpoints": ["/apartments", "/tenancies", "/persons", "/rent_data"],
 
     "rules": {
@@ -24,7 +25,7 @@ GET_FUNCTION_CALL_PROMPT = {
           "Never fabricate, infer, or guess information not explicitly provided by the API or user context.",
           "Never alter factual data returned from the API.",
           "Never add speculative fields, invented values, or inferred relationships.",
-          "If data is missing or incomplete, state 'unverified:' before the corresponding fact instead of guessing.",
+          "If data is missing or incomplete,  'unverified:' before the corresponding fact instead of guessing.",
           "Do not produce structured JSON to the user — return information only in natural conversational form."
         ]
       },
@@ -35,7 +36,7 @@ GET_FUNCTION_CALL_PROMPT = {
       },
 
       "unrelated_requests": "If the request is outside the apartment rental domain, respond naturally in free text without JSON or function calls.",
-      "missing_fields_policy": "The absence of a specific field in the API schema does not restrict making a GET. Do not invent concrete values. Use the 'unverified:' prefix **only** when a fact is taken from session history (not from the current API result nor from explicit statements in the latest user message), and **only** if neither the API nor the latest user message can answer the request.",
+      "missing_fields_policy": "The absence of a specific field in the API schema does not restrict making a GET. Do not invent concrete values. Use the 'unverified:' prefix **only** when a fact is taken from session history (not from the current API result nor from explicit ments in the latest user message), and **only** if neither the API nor the latest user message can answer the request.",
       "verification_policy": "Evidence order when answering: (1) current-turn GET results; (2) session history if it directly answers the request; (3) general domain reasoning per this prompt (no new API calls). Use session history only if needed; when a fact comes from session history, prefix it with 'unverified:'. If none of these provide a basis, say that you cannot verify."
     },
 
@@ -85,19 +86,95 @@ POST_FUNCTION_CALL_PROMPT = {
 }
 
 CRUD_INTENT_PROMPT = {
+  "feedback": {
+    # Injected dynamically by the backend on each turn.
+    # Readiness == False → there is an unfinished write-flow (CREATE/UPDATE/DELETE).
+    # Readiness == True → no active unfinished write-flow; you may decide intent from the current user input.
+    "readiness": True,
+
+    # The result is an opaque backend payload (for example, an envelope).
+    # You MUST NOT use it to decide the current CRUD/SHOW booleans.
+    # Its structure is not part of this prompt's contract.
+    "result": None,
+  },
   "role": "system",
   "instructions": {
-    "task": "Return ONLY a single JSON object with four booleans: {\"create\":bool, \"update\":bool, \"delete\":bool, \"show\":bool}. No prose.",
-    "decision_logic": "XOR across C/U/D/SHOW for explicit CRUD/SHOW commands only. If the user asks an informational/analytical question (QA, count, sum, average, compare) without an explicit display verb, then ALL FOUR MUST BE FALSE (handled by the general QA pipeline). Priority if multiple explicit commands: delete > update > create > show.",
-    "schema": {
-      "create": {"value": "Create/register a NEW record.", "type": "type of record"},
-      "update": {"value": "Modify an EXISTING record.", "type": "type of record"},
-      "delete": {"value": "Remove/terminate an EXISTING record.", "type": "type of record"},
-      "show": {"value": "Explicit UI display command (show/display/list/render/visualize/print/output). Not used for neutral questions like 'how many...'.", "type": "type of record"},
-    },
+    "task": (
+      "Return ONLY a single JSON object with four entries: "
+      "{\"create\": {\"value\": bool, \"type\": string}, "
+      " \"update\": {\"value\": bool, \"type\": string}, "
+      " \"delete\": {\"value\": bool, \"type\": string}, "
+      " \"show\":   {\"value\": bool, \"type\": string} }. "
+      "No prose, no additional keys."
+    ),
+
+    "feedback_contract": (
+      "The 'feedback' block is provided by the backend:"
+      "- feedback.readiness: boolean flag indicating whether the last write-flow "
+      "  (CREATE/UPDATE/DELETE) is finished or still ongoing."
+      "- feedback.result: opaque backend payload (for example, an envelope). You MUST NOT use it "
+      "  to decide the current CRUD/SHOW booleans, and you MUST NOT assume any specific structure."
+    ),
+
+    "state_logic": (
+      "Use 'feedback.readiness' as short-term state for an ongoing write-flow (CREATE/UPDATE/DELETE).\n"
+      "SHOW is normally stateless and does not depend on this readiness flag."
+      "1) If feedback.readiness == false:"
+      "   - There is an unfinished write-flow (CREATE/UPDATE/DELETE). The last CRUD decision you "
+      "     returned in this conversation for that flow is still active."
+      "   - If the current user message looks like a follow-up that supplies data or answers questions "
+      "     (for example: providing a name, address, bank details, simple 'yes'/'no', 'leave it empty', "
+      "     'here is the IBAN', etc.), you MUST treat it as part of the same ongoing write-flow."
+      "   - In that case, you MUST normally return the SAME CRUD decision (same flag true and same 'type') "
+      "     as in your last JSON output, even if the current user message does not contain any explicit "
+      "     CRUD verb."
+      "   - Only if the user very clearly starts a NEW, unrelated CRUD/SHOW task with explicit language "
+      "     (for example: 'now delete that contract', 'I want to update another tenant', "
+      "     'show me all apartments instead'), you may override the previous decision and apply the "
+      "     decision_logic for a new operation."
+
+      "2) If feedback.readiness == true:"
+      "   - There is no active unfinished write-flow from the backend's perspective."
+      "   - You MUST decide CRUD/SHOW intent from the current user input alone, using the decision_logic."
+
+      "3) Never start a new CREATE/UPDATE/DELETE/SHOW operation just because the user provides additional "
+      "   data. If the message looks like a follow-up answer ('his name is Max', 'the rent is 900', "
+      "   'no parking space', 'IBAN is ...') and feedback.readiness == false, simply reuse your own "
+      "   previous CRUD decision."
+
+      "4) If there is an active write-flow (feedback.readiness == false), but the user asks a clearly "
+      "   separate informational/analytical question (for example: 'By the way, how many tenants do I "
+      "   have in total?'), you may set all four values to false so that the general QA pipeline can "
+      "   answer that side question. Do NOT start a new CRUD operation in that case."
+    ),
+
+    "decision_logic": (
+      "Base CRUD/SHOW detection on explicit user commands and verbs."
+
+      "XOR rule (when deciding a NEW operation):"
+      "- At most ONE of create/update/delete/show may have value == true."
+      "- Priority if multiple explicit commands are present in the SAME user turn: "
+      "  delete > update > create > show."
+
+      "Informational/analytical questions (QA, count, sum, average, compare, reasoning) without an "
+      "explicit CRUD/SHOW verb MUST set ALL FOUR values to false, so that the general QA pipeline "
+      "handles them."
+    ),
+
+    # Minimal semantic hint instead of a heavy schema block
+    "schema_hint": (
+      "Each key (create, update, delete, show) MUST contain a JSON object with:"
+      "- 'value': boolean flag indicating whether this operation is active."
+      "- 'type' : free-text string describing the record type (for example: 'person', 'apartment')."
+    ),
+
     "examples": [
       {
         "input": "How many apartments?",
+        "feedback": {
+          "readiness": True,
+          "result": None
+        },
         "output": {
           "create": { "value": False, "type": "" },
           "update": { "value": False, "type": "" },
@@ -106,7 +183,11 @@ CRUD_INTENT_PROMPT = {
         }
       },
       {
-        "input": "Show all apartments in Munich",
+        "input": "Show all apartments in Munich.",
+        "feedback": {
+          "readiness": True,
+          "result": None
+        },
         "output": {
           "create": { "value": False, "type": "" },
           "update": { "value": False, "type": "" },
@@ -115,7 +196,11 @@ CRUD_INTENT_PROMPT = {
         }
       },
       {
-        "input": "Add a new tenant",
+        "input": "Add a new tenant.",
+        "feedback": {
+          "readiness": True,
+          "result": None
+        },
         "output": {
           "create": { "value": True,  "type": "person" },
           "update": { "value": False, "type": "" },
@@ -124,11 +209,28 @@ CRUD_INTENT_PROMPT = {
         }
       },
       {
-        "input": "Delete contract",
+        "input": "His name is Max Müller.",
+        "feedback": {
+          "readiness": False,
+          "result": { "any_backend_state": "ignored_for_intent" }
+        },
+        "output": {
+          "create": { "value": True,  "type": "person" },
+          "update": { "value": False, "type": "" },
+          "delete": { "value": False, "type": "" },
+          "show":   { "value": False, "type": "" }
+        }
+      },
+      {
+        "input": "Delete the current rent contract.",
+        "feedback": {
+          "readiness": True,
+          "result": None
+        },
         "output": {
           "create": { "value": False, "type": "" },
           "update": { "value": False, "type": "" },
-          "delete": { "value": True,  "type": "rent" },
+          "delete": { "value": True,  "type": "contract" },
           "show":   { "value": False, "type": "" }
         }
       }
@@ -222,11 +324,11 @@ DELETE_ENTITY_PROMPT = {
 
       # Deletion Readiness
       "Set ready_to_delete=true only after (1) at least one identifier option from 'identifier_fields' is fully collected and (2) the user gives explicit confirmation (e.g., 'yes, delete').",
-      "When ready_to_delete=true, the 'comment' should state which entity will be deleted, without asking a question.",
+      "When ready_to_delete=true, the 'comment' should  which entity will be deleted, without asking a question.",
 
       # Cancellation
       "Treat the deletion process as canceled only if the user clearly expresses that they want to stop or change the task entirely. "
-      "In that case, set ready_to_delete=false and state in the 'comment' that the operation was aborted."
+      "In that case, set ready_to_delete=false and  in the 'comment' that the operation was aborted."
     ]
   }
 }
@@ -270,7 +372,7 @@ CREATE_ENTITY_PROMPT = {
       # Readiness conditions
       "Required_fields must be non-empty to become ready. Optional fields can stay empty if the user explicitly says so.",
       "ready_to_post=false until the user gives an explicit, unambiguous confirmation (e.g. 'yes', 'confirm') without new data afterward.",
-      "When ready_to_post=true, summarize collected data in 'comment' and state that you are sending them for backend processing (no question).",
+      "When ready_to_post=true, summarize collected data in 'comment' and  that you are sending them for backend processing (no question).",
 
       # Language and brevity
       "Keep 'comment' brief and in the user's language. No prose outside JSON.",
@@ -281,6 +383,71 @@ CREATE_ENTITY_PROMPT = {
     ]
   }
 }
+
+
+UPDATE_ENTITY_PROMPT = {
+  "role": "system",
+  "instructions": {
+    "payload_template": None,      # dynamically injected: all fields of the entity
+    "required_fields": None,       # fields that MUST be present in the final update, usually identifier + any mandatory domain fields
+
+    "task": (
+      "Collect update data for an existing entity strictly according to payload_template. "
+      "Always respond with ONE JSON object matching the provided JSON Schema "
+      "(keys: ready_to_post:boolean, data:object, comment:string). "
+      "Do NOT perform or mention any API/tool calls, and do NOT update the record yourself."
+    ),
+
+    "principles": [
+
+      # Source of truth
+      "Use ONLY: (a) payload_template, (b) the user's latest turn, (c) the context of this dialogue. Never invent values.",
+
+      # Context reasoning (short-term contextual memory)
+      "Treat all user statements as amendments to the fields of the existing entity. "
+      "Pronouns or short answers like 'no', 'none', 'leave it as is' must always be interpreted "
+      "relative to the assistant’s most recent question about specific fields. "
+      "If the user starts describing a completely different entity, treat it as a task change.",
+
+      # Field-collection logic specific to UPDATE
+      "At start: show all fields from payload_template (mention which are required for the update — usually identifiers). "
+      "Ask explicitly for missing required_fields first.",
+      "For optional fields: offer them, but allow the user to skip any by saying 'no', 'skip', or similar.",
+      "When the user provides only some fields, update only those fields; all others remain unchanged (represented as null or omitted depending on schema).",
+      "If the user corrects earlier provided values, merge changes and resummarize collected data.",
+
+      # New rule – skipping optional update fields
+      "If required_fields are collected and the user indicates that they do not want to update other optional fields "
+      "(e.g., 'no', 'none', 'leave the rest unchanged'), "
+      "the assistant must stop asking for optional fields and move toward confirmation.",
+
+      # Readiness conditions
+      "Required_fields must be present for readiness. Optional fields may stay untouched/empty.",
+      "ready_to_post=false until the user gives an explicit, unambiguous confirmation (e.g. 'yes', 'confirm') without new data afterward.",
+      "When ready_to_post=true, summarize the update payload in 'comment' and state that they are being prepared for backend processing (no question).",
+
+      # Language and brevity
+      "Keep 'comment' brief and in the user's language. No prose outside JSON.",
+
+      # Cancellation or intent shift (same softened rule as CREATE)
+      "Treat the update process as canceled only if the user clearly expresses they want to stop or change the task entirely. "
+      "A refusal to update optional fields must NOT be interpreted as cancellation."
+    ]
+  }
+}
+
+def inject_feedback(feedback: (EnvelopeApi, bool)):
+  # create a copy and do not touch the originals
+  combined_prompt = copy.deepcopy(CRUD_INTENT_PROMPT)
+
+  if feedback:
+    combined_prompt["feedback"]["result"] = feedback[0]
+    combined_prompt["feedback"]["ready"] = feedback[1]
+
+  system_prompt = json.dumps(combined_prompt, indent=2, ensure_ascii=False)
+
+  return system_prompt
+
 
 def inject_fields_to_delete_in_prompt(fields_combination) -> str:
   # create a copy and do not touch the originals
@@ -310,6 +477,25 @@ def inject_fields_to_create_in_prompt(class_fields, required_fields) -> str:
   system_prompt = json.dumps(combined_prompt, indent=2, ensure_ascii=False)
   return system_prompt
 
+
+def inject_fields_to_update_in_prompt(class_fields, required_fields) -> str:
+  """
+  Adds dynamically the fields, required for creation an entity (tenant, contract ect).
+  :return: Prompt as dict, that contains instruction which fields should be asked by the LLM.
+  """
+  # create a copy and do not touch the originals
+  combined_prompt = copy.deepcopy(UPDATE_ENTITY_PROMPT)
+
+  if class_fields:
+    combined_prompt["instructions"]["payload_template"] = class_fields
+
+  if required_fields:
+      combined_prompt["instructions"]["required_fields"] = required_fields
+
+  system_prompt = json.dumps(combined_prompt, indent=2, ensure_ascii=False)
+  return system_prompt
+
+
 STRUC_OUT_PROMPT= f"""
     You are a structured-output assistant.
     Do not perform or mention any new API calls or endpoints.
@@ -324,5 +510,5 @@ STRUC_OUT_PROMPT= f"""
        {{
          "status": "no_data"
        }}
-    Your response must remain faithful to the provided conversation state and may never contain imagined values.
+    Your response must remain faithful to the provided conversation  and may never contain imagined values.
 """

@@ -1,5 +1,3 @@
-import traceback
-
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
 from ApartmentManager.backend.AI_API.general.logger import log_error
 from ApartmentManager.backend.SQL_API.rental.rental_orm_models import (Apartment,
@@ -8,45 +6,13 @@ from ApartmentManager.backend.SQL_API.rental.rental_orm_models import (Apartment
                                                                        Tenancy,
                                                                        Contract)
 
-def get_apartments():
+def get_apartments() -> list[Apartment]:
     session = None
     try:
         session = Session()
         # Get all apartment data
         apartments = session.query(Apartment).all()
-        """
-        # Get all data sorted by ...
-        personal_data = session.query(PersonalData)
-        ordered_personal_data_by_name = personal_data.order_by(asc(PersonalData.first_name))
-        get_data = ordered_personal_data_by_name.all()
-        
-        for personal_data in get_data:
-            print(personal_data)
-        """
 
-
-        """
-        # Get all rows by known value
-        apartments = session.query(Apartment).filter(Apartment.area ==  85.5).all()
-        for apartment in apartments:
-            print(apartment)
-        """
-
-        """
-        # Get rows using filter with boolean logic
-        apartments = (session.query(Apartment)
-            .filter(or_(Apartment.price_per_square_meter == 14.5, Apartment.price_per_square_meter == 16.3))
-            .all())
-        for apartment in apartments:
-            print(apartment)
-        """
-        """
-            # Get person with the Last name starting with ...
-            persons = session.query(PersonalData).filter(PersonalData.last_name.ilike("%ler%")).all()
-            for person in persons:
-                print(person)
-            session.commit()
-        """
     except Exception as error:
         if session:
             session.rollback()
@@ -56,6 +22,39 @@ def get_apartments():
         if session:
             session.close()
     return apartments
+    """
+    # Get all data sorted by ...
+    personal_data = session.query(PersonalData)
+    ordered_personal_data_by_name = personal_data.order_by(asc(PersonalData.first_name))
+    get_data = ordered_personal_data_by_name.all()
+    
+    for personal_data in get_data:
+        print(personal_data)
+    """
+
+
+    """
+    # Get all rows by known value
+    apartments = session.query(Apartment).filter(Apartment.area ==  85.5).all()
+    for apartment in apartments:
+        print(apartment)
+    """
+
+    """
+    # Get rows using filter with boolean logic
+    apartments = (session.query(Apartment)
+        .filter(or_(Apartment.price_per_square_meter == 14.5, Apartment.price_per_square_meter == 16.3))
+        .all())
+    for apartment in apartments:
+        print(apartment)
+    """
+    """
+        # Get person with the Last name starting with ...
+        persons = session.query(PersonalData).filter(PersonalData.last_name.ilike("%ler%")).all()
+        for person in persons:
+            print(person)
+        session.commit()
+    """
 
 def get_single_person(*,first_name: str, last_name: str, id_personal_data: int) -> PersonalData:
     session = None
@@ -99,7 +98,7 @@ def get_single_person(*,first_name: str, last_name: str, id_personal_data: int) 
             session.close()
 
 
-def get_persons():
+def get_persons() -> list[PersonalData]:
     session = None
 
     try:
@@ -115,7 +114,7 @@ def get_persons():
         if session:
             session.close()
 
-def get_tenancies():
+def get_tenancies() -> list[Tenancy]:
     session = Session()
 
     try:
@@ -131,12 +130,14 @@ def get_tenancies():
             session.close()
 
 
-def get_contract():
+def get_contract() -> list[Contract]:
     session = None
     try:
         session = Session()
         rent_data = session.query(Contract).all()
+
         return rent_data
+
     except Exception as error:
         if session:
             session.rollback()

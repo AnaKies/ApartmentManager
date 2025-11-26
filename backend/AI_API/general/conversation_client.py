@@ -1,0 +1,84 @@
+import json
+import os
+from google.genai import errors as genai_errors
+from dotenv import load_dotenv
+from requests import RequestException
+from ApartmentManager.backend.AI_API.ai_clients.gemini.gemini_client import GeminiClient
+from ApartmentManager.backend.AI_API.general import prompting
+from ApartmentManager.backend.AI_API.general.conversation_write_actions import write_action_to_entity
+from ApartmentManager.backend.AI_API.general.envelopes.envelopes_api import EnvelopeApi
+from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
+from ApartmentManager.backend.AI_API.general.logger import log_error
+from ApartmentManager.backend.AI_API.general.conversation_read_action import read_action_to_entity
+
+
+class ConversationClient:
+    """
+    Initializes an LLM and offers methods to open conversation with it.
+    """
+    def __init__(self, model_name):
+        self.llm_client = None
+        self.model_name = model_name
+        self.crud_intent_data = None
+        self.result = None
+
+        # Specify the model to use
+        load_dotenv()
+        some_gemini_model = os.getenv("GEMINI_MODEL") # for example, gemini-2.5-flash
+
+        if self.model_name == some_gemini_model:
+            self.llm_client = GeminiClient(some_gemini_model)
+            print("Gemini will answer your question.")
+        elif self.model_name == "Groq":
+            #self.llm_client = GroqClient(active_model_name)
+            print("Groq will answer your question.")
+
+
+    def get_llm_answer(self, user_question: str) -> EnvelopeApi:
+        """
+        Get a response of the LLM model on the user's question.
+        :param user_question: User question.
+        :return: Envelope with the type: "text" | "data"
+        """
+        cycle_is_ready = True
+        try:
+            # Run main head assistant
+            # LLM checks if a user asks for one of CRUD operations
+            crud_intent_answer = self.llm_client.crud_intent_assistant.get_crud_llm_response(user_question, self.result)
+
+            # Write operations (cyclic behavior)
+            if (crud_intent_answer.create.value or
+                crud_intent_answer.update.value or
+                crud_intent_answer.delete.value):
+
+                envelope_api, cycle_is_ready = write_action_to_entity(self, user_question)
+
+            # Read operation
+            elif crud_intent_answer.show.value:
+                envelope_api = read_action_to_entity(self)
+
+            # Read operation with interpretation in the second llm call
+            else:
+                # No explicit CRUD intent detected at the start of a conversation => NONE
+                system_prompt = json.dumps(prompting.GET_FUNCTION_CALL_PROMPT, indent=2, ensure_ascii=False)
+                envelope_api = self.llm_client.general_answer_assistant.answer_general_question(user_question, system_prompt)
+
+                if not envelope_api:
+                    trace_id = log_error(ErrorCode.LLM_ERROR_EMPTY_ANSWER)
+                    raise APIError(ErrorCode.LLM_ERROR_EMPTY_ANSWER, trace_id)
+
+            # save the envelope for the feedback to the LLM
+            self.result = (envelope_api.model_dump(), cycle_is_ready)
+
+            return envelope_api
+
+        except APIError:
+            raise
+        # catch a Gemini error
+        except genai_errors.APIError:
+            raise
+        except RequestException:
+            raise
+        except Exception as error:
+            trace_id = log_error(ErrorCode.ERROR_PERFORMING_CRUD_OPERATION, exception=error)
+            raise APIError(ErrorCode.ERROR_PERFORMING_CRUD_OPERATION, trace_id) from error

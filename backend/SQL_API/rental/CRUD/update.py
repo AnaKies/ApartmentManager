@@ -1,5 +1,3 @@
-import traceback
-
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
 from ApartmentManager.backend.AI_API.general.logger import log_error
 from ApartmentManager.backend.SQL_API.rental.rental_orm_models import PersonalData, Session
@@ -13,7 +11,7 @@ def update_person(
                     bank_data: str,
                     phone_number: str,
                     email: str,
-                    comment: str) -> dict:
+                    comment: str) -> PersonalData:
     session = None
 
     try:
@@ -38,31 +36,35 @@ def update_person(
                 PersonalData.last_name == old_last_name
             )
 
-        # for that person's unique data get one column from the table -> the person
-        person_to_update = query.one()
+        # try to get the person to update
+        person = query.one_or_none()
+
+        if person is None:
+            raise APIError(ErrorCode.SQL_SUCH_PERSON_DOES_NOT_EXIST)
 
         # update person with new data
         if first_name not in (None, ""):
-            person_to_update.first_name = first_name
+            person.first_name = first_name
 
         if last_name not in (None, ""):
-            person_to_update.last_name = last_name
+            person.last_name = last_name
 
         if bank_data not in (None, ""):
-            person_to_update.bank_data = bank_data
+            person.bank_data = bank_data
 
         if phone_number not in (None, ""):
-            person_to_update.phone_number = phone_number
+            person.phone_number = phone_number
 
         if email not in (None, ""):
-            person_to_update.email = email
+            person.email = email
 
         if comment not in (None, ""):
-            person_to_update.comment = comment
+            person.comment = comment
 
         session.commit()
-        return {"result": True,
-                "person_data": person_to_update.to_dict()}
+
+        return person
+
     except Exception as error:
         if session:
             session.rollback()

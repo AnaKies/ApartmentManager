@@ -1,4 +1,4 @@
-from ApartmentManager.backend.SQL_API.rental.rental_orm_models import Apartment, Session, PersonalData
+from ApartmentManager.backend.SQL_API.rental.rental_orm_models import Session, PersonalData
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
 from ApartmentManager.backend.AI_API.general.logger import log_error
 
@@ -7,27 +7,13 @@ def create_person(first_name: str,
                     bank_data: str,
                     phone_number: str,
                     email: str,
-                    comment: str) -> dict:
+                    comment: str) -> PersonalData:
     """
     Creates a new entry for a person in the database. The function gathers
     information about a person, validates the essential parameters, and
     stores the data in the database. If successful, it returns a dictionary
     containing a success indicator and stored attributes like `person_id`,
     `first_name`, and `last_name`.
-
-    :param first_name: The first name of the person
-    :param last_name: The last name of the person
-    :param bank_data: Bank account information of the person
-    :param phone_number: The contact phone number of the person
-    :param email: Email address of the person
-    :param comment: Additional comments or contextual information regarding the person
-
-    :return: A dictionary containing the operation result, the ID of the created
-             person (if successful), `first_name`, and `last_name`.
-
-    :raises APIError: If essential parameters like `first_name` or `last_name` are
-                      invalid, or if an error occurs during database interaction.
-
     """
     session = None
     try:
@@ -49,10 +35,9 @@ def create_person(first_name: str,
         session.add(person)
         session.commit()
 
-        return {"result": True,
-                "person_id": getattr(person, "id_personal_data", None),
-                "first_name": first_name,
-                "last_name": last_name}
+        return person
+
+
     except APIError:
         raise
     except Exception as error:
