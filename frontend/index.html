@@ -1,36 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Apartment Manager</title>
-    <link rel="stylesheet" href="styles.css?v=2" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  </head>
-  <body>
-    <div id="root"></div>
-    <!-- The order of these scripts is critical for the app to run -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 
-    <!--
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Apartment Manager</title>
+  <link rel="stylesheet" href="styles.css?v=2" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
+</head>
+
+<body>
+  <div id="root"></div>
+  <!-- The order of these scripts is critical for the app to run -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+
+  <!--
       Load the configuration synchronously before the app starts.
       This is the most reliable way to ensure the config is ready.
     -->
-    <script type="text/javascript">
-      (function() {
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', './classicalConfig.json', false); // 'false' makes the request synchronous
-        xhr.send(null);
-        if (xhr.status === 200) {
-          window.__CLASSICAL_CONFIG__ = JSON.parse(xhr.responseText);
-        }
-      })();
-    </script>
-    <script src="app.js"></script>
-    <script src="useClassicalConfig.js"></script>
+  <script type="text/javascript">
+    (function () {
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', './classicalConfig.json', false); // 'false' makes the request synchronous
+      xhr.send(null);
+      if (xhr.status === 200) {
+        window.__CLASSICAL_CONFIG__ = JSON.parse(xhr.responseText);
+      }
+    })();
+  </script>
+  <script src="app.js"></script>
+  <script src="useClassicalConfig.js"></script>
 
-  </body>
-  </html>
+</body>
+
+</html>
