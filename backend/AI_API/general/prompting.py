@@ -88,10 +88,15 @@ POST_FUNCTION_CALL_PROMPT = {
 CRUD_INTENT_PROMPT = {
   "feedback": {
     # Injected dynamically by the backend on each turn.
-    # Readiness == False → there is an unfinished write-flow (CREATE/UPDATE/DELETE).
-    # Readiness == True → no active unfinished write-flow; you may decide intent from the current user input.
-    "readiness": True,
-    "operation_id": None, # Unique ID of the current operation (if any)
+    # operation_id indicates the state:
+    # - Empty or None → no active operation, ready for new operation
+    # - Non-empty → operation is in progress (not ready)
+    "operation_id": None, # Unique ID of the current active operation (if any)
+
+    # Dictionary of interrupted operations (short-term memory)
+    # Structure: {operation_type: {"operation_id": str, "type": str, "envelope": dict}}
+    # Example: {"update": {"operation_id": "abc123", "type": "person", "envelope": {...}}}
+    "interrupted_operations": {},
 
     # The result is an opaque backend payload (for example, an envelope).
     # You MUST NOT use it to decide the current CRUD/SHOW booleans.
@@ -111,39 +116,64 @@ CRUD_INTENT_PROMPT = {
 
     "feedback_contract": (
       "The 'feedback' block is provided by the backend:"
-      "- feedback.readiness: boolean flag indicating whether the last write-flow "
-      "  (CREATE/UPDATE/DELETE) is finished or still ongoing."
-      "- feedback.operation_id: a unique identifier for the current operation."
+      "- feedback.operation_id: unique identifier for the current active operation. "
+      "  Empty/None means no active operation (ready). Non-empty means operation in progress (not ready)."
+      "- feedback.interrupted_operations: dictionary of interrupted CRUD operations stored in short-term memory. "
+      "  Keys are operation types ('create', 'update', 'delete'), values contain operation_id, type, and envelope."
       "- feedback.result: opaque backend payload (for example, an envelope). You MUST NOT use it "
       "  to decide the current CRUD/SHOW booleans, and you MUST NOT assume any specific structure."
     ),
 
     "state_logic": (
-      "Use 'feedback.readiness' and 'feedback.operation_id' as short-term state for an ongoing write-flow (CREATE/UPDATE/DELETE).\n"
-      "SHOW is normally stateless and does not depend on this readiness flag."
-      "1) If feedback.readiness == false AND feedback.operation_id is NOT None:"
-      "   - There is an unfinished write-flow (CREATE/UPDATE/DELETE) identified by operation_id. The last CRUD decision you "
-      "     returned in this conversation for that flow is still active."
-      "   - You MUST treat ALL user messages as part of this ongoing write-flow, even if they contain verbs like 'update', 'delete', or 'create'."
-      "     For example, if the user says 'update comment', and you are in an UPDATE flow, this is a field update, NOT a new intent."
-      "   - In that case, you MUST return the SAME CRUD decision (same flag true and same 'type') "
-      "     as in your last JSON output."
-      "   - IMPORTANT: You MUST include the 'feedback.operation_id' in the 'operation_id' field of the active operation."
+      "Use 'feedback.operation_id' as short-term state for an ongoing write-flow (CREATE/UPDATE/DELETE).\n"
+      "SHOW is normally stateless and does not depend on operation_id."
+      "\n\nSTATE DETERMINATION:\n"
+      "1) If feedback.operation_id is NOT empty and NOT None (Active Operation):"
+      "   - There is an active unfinished write-flow identified by operation_id."
+      "   - CHECK: Does the user input indicate a CLEAR INTENT to start a DIFFERENT operation?"
+      "     * IF YES (Interruption):"
+      "       - Stop the current operation: Set its 'value' to False, but KEEP its 'operation_id' (to save it as interrupted)."
+      "       - Start the new operation: Set its 'value' to True (and 'operation_id' to 'NEW' for write ops, or '' for show)."
+      "       - CRITICAL EXCEPTION: If the NEW operation is the SAME TYPE as the ACTIVE one (e.g. Create -> Create),"
+      "         you CANNOT do both. You MUST ask the user to cancel the current one first."
+      "     * IF NO (Continuation):"
+      "       - Continue the current operation: Set its 'value' to True and KEEP its 'operation_id'."
+      "       - Treat the input as data/feedback for this operation."
       "   - Only if the user explicitly cancels/ends the current operation with clear language "
-      "     (for example: 'cancel', 'stop', 'abort', 'forget it'), you may override the previous decision and apply the "
-      "     decision_logic for a new operation."
+      "     (for example: 'cancel', 'stop', 'abort', 'forget it'), set its 'value' to False and 'operation_id' to \"\"."
 
-      "2) If feedback.readiness == true:"
-      "   - There is no active unfinished write-flow from the backend's perspective."
-      "   - You MUST decide CRUD/SHOW intent from the current user input alone, using the decision_logic."
+      "\n2) If feedback.operation_id is empty or None:"
+      "   - There is no active operation from the backend's perspective."
+      "   - You MUST decide CRUD/SHOW intent from the current user input alone, using decision_logic."
       "   - In this case, set 'operation_id' to empty string \"\" for all operations."
+      
+      "\n\nINTERRUPTED OPERATIONS MANAGEMENT:\n"
+      "3) Preserve interrupted operation_ids: If an operation is in feedback.interrupted_operations, echo it back with value=False and the same operation_id."
+      
+      "\n4) Generate 'NEW' for new operations: When starting a new operation, set operation_id to 'NEW'."
+      
+      "\n5) Clear operation_ids ONLY on user cancellation: Set operation_id to \"\" ONLY when the user explicitly confirms they want to cancel an operation."
 
-      "3) Never start a new CREATE/UPDATE/DELETE/SHOW operation just because the user provides additional "
+      "\n\nSTRICT CONFLICT DETECTION - YOU MUST ASK BEFORE PROCEEDING:\n"
+      "6) Same Operation Type Conflict:"
+      "   - If you want to start a NEW write operation (create/update/delete) with operation_id='NEW'"
+      "   - AND (feedback.interrupted_operations has that type OR it is the currently ACTIVE operation type)"
+      "   - THEN: You CANNOT start a 'NEW' operation yet. You MUST resolve the conflict first."
+      "   - ACTION: Set the EXISTING/INTERRUPTED operation to Active ('value': True) and use its EXISTING 'operation_id'."
+      "   - This will route the user to the specific operation agent, where you MUST ask: 'You have an unfinished operation. Do you want to continue it or start a new one?'"
+      
+      "7) Too Many Interrupted Operations:"
+      "   - If feedback.interrupted_operations contains MORE THAN 2 different operation_ids"
+      "   - AND user wants to start ANY new write operation (create/update/delete)"
+      "   - THEN: YOU MUST ASK user to cancel one or more operations BEFORE proceeding."
+      "   - Set all operation values to False and list the interrupted operations in the response."
+
+      "\n8) Never start a new CREATE/UPDATE/DELETE/SHOW operation just because the user provides additional "
       "   data. If the message looks like a follow-up answer ('his name is Max', 'the rent is 900', "
-      "   'no parking space', 'IBAN is ...') and feedback.readiness == false, simply reuse your own "
+      "   'no parking space', 'IBAN is ...') and feedback.operation_id is NOT empty, simply reuse your own "
       "   previous CRUD decision."
 
-      "4) If there is an active write-flow (feedback.readiness == false), but the user asks a clearly "
+      "\n9) If there is an active write-flow (feedback.operation_id is NOT empty), but the user asks a clearly "
       "   separate informational/analytical question (for example: 'By the way, how many tenants do I "
       "   have in total?'), you may set all four values to false so that the general QA pipeline can "
       "   answer that side question. Do NOT start a new CRUD operation in that case."
@@ -173,70 +203,56 @@ CRUD_INTENT_PROMPT = {
 
     "examples": [
       {
-        "input": "How many apartments?",
+        "input": "Show all persons",
         "feedback": {
-          "readiness": True,
+          "operation_id": None,
+          "interrupted_operations": {
+            "create": {"operation_id": "abc123", "type": "person"}
+          },
           "result": None
         },
         "output": {
-          "create": { "value": False, "type": "person", "operation_id": "" },
+          "create": { "value": False, "type": "person", "operation_id": "abc123" },
           "update": { "value": False, "type": "person", "operation_id": "" },
           "delete": { "value": False, "type": "person", "operation_id": "" },
-          "show":   { "value": False, "type": "apartment", "operation_id": "", "single": False }
+          "show":   { "value": True,  "type": "person", "operation_id": "", "single": False }
         }
       },
       {
-        "input": "Show all apartments in Munich.",
+        "input": "Create a new person",
         "feedback": {
-          "readiness": True,
+          "operation_id": None,
+          "interrupted_operations": {
+            "create": {"operation_id": "abc123", "type": "person"}
+          },
           "result": None
         },
         "output": {
-          "create": { "value": False, "type": "person", "operation_id": "" },
-          "update": { "value": False, "type": "person", "operation_id": "" },
-          "delete": { "value": False, "type": "person", "operation_id": "" },
-          "show":   { "value": True,  "type": "apartment", "operation_id": "", "single": False }
-        }
-      },
-      {
-        "input": "Add a new tenant.",
-        "feedback": {
-          "readiness": True,
-          "result": None
-        },
-        "output": {
-          "create": { "value": True,  "type": "person", "operation_id": "" },
+          "create": { "value": True, "type": "person", "operation_id": "abc123" },
           "update": { "value": False, "type": "person", "operation_id": "" },
           "delete": { "value": False, "type": "person", "operation_id": "" },
           "show":   { "value": False, "type": "person", "operation_id": "", "single": False }
         }
+        # The model activates the OLD operation so the Create Agent can ask: "Resume or New?"
       },
       {
-        "input": "His name is Max Müller.",
+        "input": "Create a new tenancy",
         "feedback": {
-          "readiness": False,
-          "operation_id": "abc12345",
-          "result": { "any_backend_state": "ignored_for_intent" }
-        },
-        "output": {
-          "create": { "value": True,  "type": "person", "operation_id": "abc12345" },
-          "update": { "value": False, "type": "person", "operation_id": "" },
-          "delete": { "value": False, "type": "person", "operation_id": "" },
-          "show":   { "value": False, "type": "person", "operation_id": "", "single": False }
-        }
-      },
-      {
-        "input": "Delete the current rent contract.",
-        "feedback": {
-          "readiness": True,
+          "operation_id": None,
+          "interrupted_operations": {
+            "create": {"operation_id": "abc123", "type": "person"},
+            "update": {"operation_id": "def456", "type": "apartment"},
+            "delete": {"operation_id": "ghi789", "type": "contract"}
+          },
           "result": None
         },
         "output": {
-          "create": { "value": False, "type": "person", "operation_id": "" },
-          "update": { "value": False, "type": "person", "operation_id": "" },
-          "delete": { "value": True,  "type": "contract", "operation_id": "" },
+          "create": { "value": False, "type": "person", "operation_id": "abc123" },
+          "update": { "value": False, "type": "apartment", "operation_id": "def456" },
+          "delete": { "value": False, "type": "contract", "operation_id": "ghi789" },
           "show":   { "value": False, "type": "person", "operation_id": "", "single": False }
         }
+        # Implicitly, the model should generate a text response asking to cancel one of the operations
       }
     ]
   }
@@ -412,8 +428,11 @@ UPDATE_ENTITY_PROMPT = {
       "The JSON field 'ready' must reflect the state of the update flow:\n"
       "- Set ready=false while you are still collecting identifier and/or update fields.\n"
       "- Once a person is identified (by ID, last name, or first+last name) AND at least one update field has a non-empty value, "
-      "summarize the planned changes and explicitly ask the user to confirm.\n"
-      "- If the user clearly confirms (e.g. 'yes', 'confirm') and no new data is introduced in the same turn, "
+      "summarize the planned changes and explicitly ask the user to confirm the EXECUTION.\n"
+      "- IMPORTANT: Your confirmation question MUST be unambiguous about writing data. Use phrases like: "
+      "'Do you want to execute this update?', 'Shall I save these changes now?', or 'Are you ready to apply this update?'. "
+      "Do NOT use ambiguous phrases like 'Is this correct?' which might be interpreted as just confirming the data validity.\n"
+      "- If the user clearly confirms (e.g. 'yes', 'confirm', 'do it') and no new data is introduced in the same turn, "
       "set ready=true and put a short summary of the update in 'comment'.\n"
       "- If the user clearly refuses at the confirmation stage (e.g. 'no, do not update'), treat this as a cancellation, "
       "set ready=false, and explain briefly in 'comment' that no changes will be applied.",
@@ -439,16 +458,18 @@ class Prompt(Enum):
   POST_FUNCTION_CALL = POST_FUNCTION_CALL_PROMPT
 
 
-def inject_feedback(feedback: (EnvelopeApi, bool), operation_id: str = None):
+def inject_feedback(feedback: (EnvelopeApi, bool), operation_id: str = None, interrupted_operations: dict = None):
   # create a copy and do not touch the originals
   combined_prompt = copy.deepcopy(Prompt.CRUD_INTENT.value)
 
   if feedback:
     combined_prompt["feedback"]["result"] = feedback[0]
-    combined_prompt["feedback"]["ready"] = feedback[1]
 
   if operation_id:
     combined_prompt["feedback"]["operation_id"] = operation_id
+  
+  if interrupted_operations:
+    combined_prompt["feedback"]["interrupted_operations"] = interrupted_operations
 
   system_prompt = dumps_for_llm_prompt(combined_prompt)
 

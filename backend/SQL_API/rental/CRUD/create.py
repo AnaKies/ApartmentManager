@@ -45,6 +45,8 @@ def create_person(first_name: str,
         return person_data
 
     except APIError:
+        if session:
+            session.rollback()
         raise
     except Exception as error:
         if session:

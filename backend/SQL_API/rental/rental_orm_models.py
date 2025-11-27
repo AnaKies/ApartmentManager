@@ -8,7 +8,9 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
 DB_PATH = os.path.join(BASE_DIR, "data", "apartment_app.db")
 
 # Create a database connection
-rental_engine = create_engine(f'sqlite:///{DB_PATH}', echo=True)
+rental_engine = create_engine(f'sqlite:///{DB_PATH}',
+                              connect_args={'check_same_thread': False, "timeout": 15},
+                              echo=True)
 
 # Create a database session (performs CRUD operations with ORM objects)
 Session = sessionmaker(bind=rental_engine) # returns Fabric

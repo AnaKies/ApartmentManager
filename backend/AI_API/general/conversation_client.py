@@ -37,6 +37,30 @@ class ConversationClient:
             #self.llm_client = GroqClient(active_model_name)
             print("Groq will answer your question.")
 
+    def extract_operation_ids_from_crud_answer(self) -> dict:
+        """
+        Extracts operation_ids from the last CRUD intent answer.
+        Returns dict suitable for interrupted_operations injection.
+        Structure: {operation_type: {"operation_id": str, "type": str}}
+        Only includes operations where value=False and operation_id is not empty.
+        """
+        if not self.crud_intent_answer:
+            return {}
+
+        interrupted_ops = {}
+
+        # Check each operation type (show is excluded - stateless)
+        for crud_operation_type in ["create", "update", "delete"]:
+            operation = getattr(self.crud_intent_answer, crud_operation_type)
+            # If the operation is not active (value=False) but has operation_id, it's interrupted
+            if not operation.value and operation.operation_id:
+                interrupted_ops[crud_operation_type] = {
+                    "operation_id": operation.operation_id,
+                    "type": operation.type
+                }
+
+        return interrupted_ops
+
 
     def get_llm_answer(self, user_question: str) -> EnvelopeApi:
         """
@@ -60,16 +84,33 @@ class ConversationClient:
                 self.crud_intent_answer.update.value or
                 self.crud_intent_answer.delete.value):
 
-                # Generate a new operation_id if none exists
-                if not self.operation_id:
-                    self.operation_id = str(uuid.uuid4())[:8]
+                # Replace "NEW" markers with actual UUIDs (only for create/update/delete)
+                for op_type in ["create", "update", "delete"]:
+                    operation = getattr(self.crud_intent_answer, op_type)
+                    if operation.value and operation.operation_id == "NEW":
+                        operation.operation_id = str(uuid.uuid4())[:8]
+
+                # Sync self.operation_id with the active operation's ID
+                # This ensures we switch IDs correctly if the operation type changes (e.g. Create -> Update)
+                if self.crud_intent_answer.create.value:
+                    self.operation_id = self.crud_intent_answer.create.operation_id
+                elif self.crud_intent_answer.update.value:
+                    self.operation_id = self.crud_intent_answer.update.operation_id
+                elif self.crud_intent_answer.delete.value:
+                    self.operation_id = self.crud_intent_answer.delete.operation_id
 
                 # if more cycles are required to collect information, the method sets cycle_is_ready=False
                 envelope_api, cycle_is_ready = write_action_to_entity(self)
 
-                # Reset operation_id if the conversation cycle is finished
+                # Clear operation_ids when operations complete (only for create/update/delete)
                 if cycle_is_ready:
                     self.operation_id = None
+                    if self.crud_intent_answer.create.value:
+                        self.crud_intent_answer.create.operation_id = ""
+                    elif self.crud_intent_answer.update.value:
+                        self.crud_intent_answer.update.operation_id = ""
+                    elif self.crud_intent_answer.delete.value:
+                        self.crud_intent_answer.delete.operation_id = ""
 
             # Read operation
             elif self.crud_intent_answer.show.value:

@@ -70,6 +70,8 @@ def delete_person(*, # make order of arguments not important, as the LLM can mix
         return person_data
 
     except APIError:
+        if session:
+            session.rollback()
         raise
     except Exception as error:
         if session:

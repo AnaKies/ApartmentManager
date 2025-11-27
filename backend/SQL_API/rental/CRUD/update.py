@@ -78,4 +78,5 @@ def update_person(
         trace_id = log_error(ErrorCode.SQL_ERROR_CREATING_ENTRY_FOR_NEW_PERSON, error)
         raise APIError(ErrorCode.SQL_ERROR_CREATING_ENTRY_FOR_NEW_PERSON, trace_id) from error
     finally:
-        session.close()
+        if session:
+            session.close()
