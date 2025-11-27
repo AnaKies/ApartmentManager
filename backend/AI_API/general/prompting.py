@@ -1,7 +1,6 @@
 import copy
-import json
 from enum import Enum
-
+from ApartmentManager.backend.AI_API.general.json_serialisation import dumps_for_llm_prompt
 from ApartmentManager.backend.AI_API.general.envelopes.envelopes_api import EnvelopeApi
 
 GET_FUNCTION_CALL_PROMPT = {
@@ -348,62 +347,80 @@ CREATE_ENTITY_PROMPT = {
   }
 }
 
-
 UPDATE_ENTITY_PROMPT = {
   "role": "system",
   "instructions": {
-    "payload_template": None,      # dynamically injected: all fields of the entity (including identifier fields like old_first_name, old_last_name, id_personal_data)
+    "payload_template": None,
 
     "task": (
       "Collect update data for an existing entity strictly according to payload_template. "
-      "Always respond with ONE JSON object matching the provided JSON Schema "
-      "(keys: ready_to_post:boolean, data:object, comment:string). "
-      "The 'data' object MUST be a flat dictionary matching the keys in payload_template. "
-      "Do NOT perform or mention any API/tool calls, and do NOT update the record yourself."
+      "Return ONE JSON object: {ready:boolean, data:object, comment:string}. "
+      "The 'data' object must be a flat dictionary matching ALL keys from payload_template. "
+      "Do NOT mention or perform any API/tool calls. Do NOT switch to a 'create new entity' flow."
     ),
 
     "principles": [
 
       # Source of truth
-      "Use ONLY: (a) payload_template, (b) the user's latest turn, (c) the context of this dialogue. Never invent values.",
+      "Use only: (a) payload_template, (b) the user's latest turn, (c) the dialogue context. Never invent values.",
 
-      # Context reasoning (short-term contextual memory)
-      "Treat all user statements as amendments to the fields of the existing entity. "
-      "Pronouns or short answers like 'no', 'none', 'leave it as is' must always be interpreted "
-      "relative to the assistant's most recent question about specific fields. "
-      "If the user starts describing a completely different entity, treat it as a task change.",
+      # Conversation style
+      "All wording shown to the user must be natural and human-like. "
+      "Do NOT expose internal terms like 'identifier fields', 'options', 'old_first_name', 'old_last_name', "
+      "'Option A/B', or phrases such as 'identifier is complete'.",
 
-      # Field-collection logic specific to UPDATE
-      "IMPORTANT: The payload_template contains TWO types of fields mixed in a single flat dictionary:",
-      "  1. IDENTIFIER fields (e.g., 'id_personal_data', 'old_first_name', 'old_last_name') - used to FIND the entity to update",
-      "  2. UPDATE fields (e.g., 'first_name', 'last_name', 'bank_data', etc.) - the NEW values to set",
-      
-      "At start: First identify which entity to update by collecting at least one complete identifier option.",
-      "Once the entity is identified, ask which fields the user wants to update.",
-      
-      "For identifier fields: These are used to find the existing entity. Collect at least one complete set (e.g. id_personal_data OR old_first_name + old_last_name).",
-      "For update fields: These are the NEW values. Only collect fields the user explicitly wants to change. "
-      "Fields not mentioned by the user should remain as empty string '' in the data object.",
-      
-      "When the user provides only some update fields, only those fields will be updated; all others remain unchanged (represented as empty string '').",
-      "If the user corrects earlier provided values, merge changes and resummarize collected data.",
+      # UPDATE flow locking
+      "As long as ready=false, you MUST stay inside the UPDATE flow and interpret ALL user messages strictly in the context "
+      "of this ongoing update operation, regardless of how short, vague, or ambiguous the user's replies are. "
+      "Do NOT switch to any other intent (create, show, delete, general QA) until ready becomes true or the user explicitly "
+      "cancels the update task.",
 
-      # New rule – skipping optional update fields
-      "If identifier fields are collected and the user indicates that they do not want to update other optional fields "
-      "(e.g., 'no', 'none', 'leave the rest unchanged'), "
-      "the assistant must stop asking for optional fields and move toward confirmation.",
+      # STEP 1 — Identify the person
+      "First, identify which person the user wants to update. There are three allowed identification options:\n"
+      "  • their ID (id_personal_data),\n"
+      "  • their last name only,\n"
+      "  • their first name AND last name together.\n"
+      "In your FIRST identification question you MUST explicitly offer ALL THREE options in one sentence, for example:\n"
+      "  'Please tell me their ID, or their last name, or their first and last name, so I can identify the person you want to update.'\n"
+      "Only after the user has chosen one of these options may you continue by asking follow-up questions within that chosen option.",
+      "Do not use any 'old_' prefixes when talking to the user.",
+      "Once one of these options is complete, treat the person as identified and move on to collecting update fields.",
+      "If after several clarifications you still cannot reliably identify the person, tell the user that you cannot find a unique match "
+      "and explicitly ask them for an ID or a clearer description instead of looping.",
 
-      # Readiness conditions
-      "At least one complete identifier option must be present for readiness. Update fields may stay empty if user doesn't want to change them.",
-      "ready_to_post=false until the user gives an explicit, unambiguous confirmation (e.g. 'yes', 'confirm') without new data afterward.",
-      "When ready_to_post=true, summarize the update payload in 'comment' and state that they are being prepared for backend processing (no question).",
+      # STEP 2 — Show and collect update fields
+      "After the person is identified, show which fields CAN be updated. "
+      "List only the update fields from payload_template (for example: first_name, last_name, bank_data, phone_number, email, comment).",
+      "Ask the user which of these fields they want to change and what the new values should be.",
+      "If the user writes a short phrase that clearly combines a field name and a value (for example: 'first name Markus', "
+      "'last name Müller', 'email test@example.com'), interpret this as BOTH selecting the field AND giving the new value "
+      "for that field in the data object.",
+      "The user must provide AT LEAST ONE update field. Fields the user does not mention must remain empty string '' in the data object.",
+      "If the user corrects or overrides earlier answers, merge changes and provide a brief resummary of the collected updates.",
+
+      # Handling 'no' / 'leave them empty'
+      "If the user answers 'no', 'none', 'leave them empty', or 'leave the rest as is' in direct response to a question "
+      "about whether they want to update any MORE fields, you MUST interpret this as: "
+      "'no additional fields to update in this UPDATE flow'. In that case, if at least one update field is already set, "
+      "move to the confirmation step instead of asking for more update fields again.",
+
+      # Readiness, confirmation, and cancellation
+      "The JSON field 'ready' must reflect the state of the update flow:\n"
+      "- Set ready=false while you are still collecting identifier and/or update fields.\n"
+      "- Once a person is identified (by ID, last name, or first+last name) AND at least one update field has a non-empty value, "
+      "summarize the planned changes and explicitly ask the user to confirm.\n"
+      "- If the user clearly confirms (e.g. 'yes', 'confirm') and no new data is introduced in the same turn, "
+      "set ready=true and put a short summary of the update in 'comment'.\n"
+      "- If the user clearly refuses at the confirmation stage (e.g. 'no, do not update'), treat this as a cancellation, "
+      "set ready=false, and explain briefly in 'comment' that no changes will be applied.",
+
+      # Global cancellation boundary
+      "Treat the update process as fully canceled only if the user clearly states that they want to stop or change tasks "
+      "(for example: 'stop this', 'forget the update', 'I want to ask something else'). "
+      "A simple 'no' or 'leave them empty' in response to questions about additional fields MUST NOT be interpreted as leaving the UPDATE flow.",
 
       # Language and brevity
-      "Keep 'comment' brief and in the user's language. No prose outside JSON.",
-
-      # Cancellation or intent shift (same softened rule as CREATE)
-      "Treat the update process as canceled only if the user clearly expresses they want to stop or change the task entirely. "
-      "A refusal to update optional fields must NOT be interpreted as cancellation."
+      "Keep 'comment' brief and in the user's language. Do not output any text outside the JSON object."
     ]
   }
 }
@@ -426,7 +443,7 @@ def inject_feedback(feedback: (EnvelopeApi, bool)):
     combined_prompt["feedback"]["result"] = feedback[0]
     combined_prompt["feedback"]["ready"] = feedback[1]
 
-  system_prompt = json.dumps(combined_prompt, indent=2, ensure_ascii=False)
+  system_prompt = dumps_for_llm_prompt(combined_prompt)
 
   return system_prompt
 
@@ -438,7 +455,7 @@ def inject_fields_to_delete_in_prompt(fields_combination) -> str:
   if fields_combination:
     combined_prompt["instructions"]["identifier_fields"] = fields_combination
 
-  system_prompt = json.dumps(combined_prompt, indent=2, ensure_ascii=False)
+  system_prompt = dumps_for_llm_prompt(combined_prompt)
   return system_prompt
 
 
@@ -456,7 +473,7 @@ def inject_fields_to_create_in_prompt(class_fields, required_fields) -> str:
   if required_fields:
       combined_prompt["instructions"]["required_fields"] = required_fields
 
-  system_prompt = json.dumps(combined_prompt, indent=2, ensure_ascii=False)
+  system_prompt = dumps_for_llm_prompt(combined_prompt)
   return system_prompt
 
 
@@ -471,5 +488,5 @@ def inject_fields_to_update_in_prompt(class_fields) -> str:
   if class_fields:
     combined_prompt["instructions"]["payload_template"] = class_fields
 
-  system_prompt = json.dumps(combined_prompt, indent=2, ensure_ascii=False)
+  system_prompt = dumps_for_llm_prompt(combined_prompt)
   return system_prompt

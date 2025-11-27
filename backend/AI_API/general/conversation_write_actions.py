@@ -1,6 +1,6 @@
 import json
 import typing
-
+from ApartmentManager.backend.AI_API.general.json_serialisation import dumps_for_llm_prompt
 from ApartmentManager.backend.AI_API.general.envelopes.envelopes_business_logic \
     import CrudIntentModel, DataTypeInDB, CollectData, get_json_schema, validate_model
 from ApartmentManager.backend.AI_API.general.logger import log_error
@@ -78,9 +78,8 @@ def call_db_or_collect_missing_data(conversation_client: "ConversationClient",
             create_new_log_entry(
                 llm_model=conversation_client.model_name,
                 user_question=conversation_client.user_question or "---",
-                request_type="call DB",
                 backend_response="---",
-                llm_answer=str(result),
+                llm_answer=result.model_dump_json(),
                 system_prompt_name=conversation_client.system_prompt_name
             )
 
@@ -98,9 +97,8 @@ def call_db_or_collect_missing_data(conversation_client: "ConversationClient",
             create_new_log_entry(
                 llm_model=conversation_client.model_name,
                 user_question=conversation_client.user_question or "---",
-                request_type="collect missing data",
                 backend_response="---",
-                llm_answer=str(result),
+                llm_answer=result.model_dump_json(),
                 system_prompt_name=conversation_client.system_prompt_name
             )
 
@@ -135,8 +133,7 @@ def remove_entity_from_db(conversation_client: "ConversationClient",
                 create_new_log_entry(
                     llm_model=conversation_client.model_name,
                     user_question=conversation_client.user_question or "---",
-                    request_type="person deletion",
-                    backend_response=str(result),
+                    backend_response=result.model_dump_json(),
                     llm_answer="---",
                     system_prompt_name=conversation_client.system_prompt_name
                 )
@@ -189,8 +186,7 @@ def place_entity_in_db(conversation_client: "ConversationClient",
                 create_new_log_entry(
                     llm_model=conversation_client.model_name,
                     user_question=conversation_client.user_question or "---",
-                    request_type="person creation",
-                    backend_response=str(result),
+                    backend_response=result.model_dump_json(),
                     llm_answer="---",
                     system_prompt_name=conversation_client.system_prompt_name
                 )
@@ -242,8 +238,7 @@ def update_person_in_db(conversation_client: "ConversationClient",
                 create_new_log_entry(
                     llm_model=conversation_client.model_name,
                     user_question=conversation_client.user_question or "---",
-                    request_type="person updating",
-                    backend_response=str(result),
+                    backend_response=result.model_dump_json(),
                     llm_answer="---",
                     system_prompt_name=conversation_client.system_prompt_name)
 
@@ -306,7 +301,8 @@ def generate_prompt_to_delete_entity(conversation_client: "ConversationClient") 
             # Inject the class fields in a prompt
             system_prompt = prompting.inject_fields_to_delete_in_prompt(required_fields)
             conversation_client.system_prompt_name = Prompt.DELETE_ENTITY.name
-            json_system_prompt = json.dumps(system_prompt, indent=2, ensure_ascii=False)
+
+            json_system_prompt = dumps_for_llm_prompt(system_prompt)
         return json_system_prompt
 
     except APIError:
@@ -352,7 +348,8 @@ def generate_prompt_to_create_entity(conversation_client: "ConversationClient") 
             # Inject the class fields in a prompt
             system_prompt = prompting.inject_fields_to_create_in_prompt(all_fields, required_fields)
             conversation_client.system_prompt_name = Prompt.CREATE_ENTITY.name
-            json_system_prompt = json.dumps(system_prompt, indent=2, ensure_ascii=False)
+
+            json_system_prompt = dumps_for_llm_prompt(system_prompt)
         return json_system_prompt
 
     except APIError:
@@ -394,7 +391,8 @@ def generate_prompt_to_update_entity(conversation_client: "ConversationClient") 
             # Inject the class fields in a prompt
             system_prompt = prompting.inject_fields_to_update_in_prompt(all_fields)
             conversation_client.system_prompt_name = Prompt.UPDATE_ENTITY.name
-            json_system_prompt = json.dumps(system_prompt, indent=2, ensure_ascii=False)
+
+            json_system_prompt = dumps_for_llm_prompt(system_prompt)
         return json_system_prompt
 
     except APIError:

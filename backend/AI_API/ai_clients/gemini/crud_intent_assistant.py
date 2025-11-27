@@ -85,7 +85,6 @@ class CrudIntentAssistant:
             create_new_log_entry(
                 llm_model=self.model,
                 user_question=conversation_client.user_question or "",
-                request_type="CRUD request",
                 backend_response="---",
                 llm_answer=llm_answer_crud_str,
                 system_prompt_name=conversation_client.system_prompt_name

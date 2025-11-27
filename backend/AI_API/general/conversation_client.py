@@ -1,4 +1,4 @@
-import json
+from ApartmentManager.backend.AI_API.general.json_serialisation import dumps_for_llm_prompt
 import os
 from google.genai import errors as genai_errors
 from dotenv import load_dotenv
@@ -65,7 +65,7 @@ class ConversationClient:
             # Read operation with interpretation in the second llm call
             else:
                 # No explicit CRUD intent detected at the start of a conversation => NONE
-                self.system_prompt = json.dumps(Prompt.GET_FUNCTION_CALL.value, indent=2, ensure_ascii=False)
+                self.system_prompt = dumps_for_llm_prompt(Prompt.GET_FUNCTION_CALL.value)
                 self.system_prompt_name = Prompt.GET_FUNCTION_CALL.name
                 envelope_api = self.llm_client.general_answer_assistant.answer_general_question(self)
 
@@ -74,7 +74,7 @@ class ConversationClient:
                     raise APIError(ErrorCode.LLM_ERROR_EMPTY_ANSWER, trace_id)
 
             # save the envelope for the feedback to the LLM
-            self.result = (envelope_api.model_dump(), cycle_is_ready)
+            self.result = (envelope_api.model_dump(mode='json'), cycle_is_ready)
 
             return envelope_api
 

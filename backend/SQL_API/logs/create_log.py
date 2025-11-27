@@ -4,7 +4,6 @@ from ApartmentManager.backend.SQL_API.logs.logs_orm_models import Log, Session
 
 def create_new_log_entry(llm_model: str,
                          user_question: str,
-                         request_type: str,
                          backend_response: str,
                          llm_answer: str,
                          system_prompt_name: str):
@@ -16,7 +15,6 @@ def create_new_log_entry(llm_model: str,
     args = {
         "llm_model": llm_model,
         "user_question": user_question,
-        "request_type": request_type,
         "backend_response": backend_response,
         "llm_answer": llm_answer,
         "system_prompt_name": system_prompt_name
@@ -29,7 +27,6 @@ def create_new_log_entry(llm_model: str,
 
         log_entry = Log(ai_model=llm_model,
                         user_question=user_question,
-                        request_type=request_type,
                         back_end_response=backend_response,
                         ai_answer=llm_answer,
                         system_prompt_name=system_prompt_name)

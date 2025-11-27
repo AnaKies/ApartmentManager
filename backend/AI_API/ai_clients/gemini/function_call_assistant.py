@@ -1,6 +1,5 @@
-import json
+from ApartmentManager.backend.AI_API.general.json_serialisation import dumps_for_llm_prompt
 import typing
-
 from google import genai
 from google.genai import types
 from google.genai import errors as genai_errors
@@ -38,7 +37,7 @@ class FunctionCallAssistant:
         Saves the user question to the conversation history.
         """
         # Convert dict to the string with indentation so that LLM can read it better
-        system_prompt = json.dumps(Prompt.GET_FUNCTION_CALL.value, indent=2)
+        system_prompt = dumps_for_llm_prompt(Prompt.GET_FUNCTION_CALL.value)
         conversation_client.system_prompt_name = Prompt.GET_FUNCTION_CALL.name
 
         # Add the user prompt to the summary request to LLM

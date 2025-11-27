@@ -12,6 +12,7 @@ from ApartmentManager.backend.AI_API.general.envelopes.envelopes_api import buil
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
 from ApartmentManager.backend.AI_API.general.logger import log_error
 from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
+from ApartmentManager.backend.AI_API.general.json_serialisation import dumps_for_logging
 
 class GeneralAnswerAssistant:
     def __init__(self,
@@ -81,7 +82,10 @@ class GeneralAnswerAssistant:
             raise APIError(ErrorCode.ERROR_INTERPRETING_THE_FUNCTION_CALL, trace_id) from error
 
         # STEP 2: Unified logging
-        llm_answer_str = json.dumps(result, indent=2, ensure_ascii=False, default=str)
+        if isinstance(result, EnvelopeApi):
+            llm_answer_str = result.model_dump_json(indent=2)
+        else:
+            llm_answer_str = dumps_for_logging(result)
         try:
             func_result_data_or_text = func_call_data_or_llm_text_dict.result
 
@@ -89,11 +93,9 @@ class GeneralAnswerAssistant:
             if isinstance(func_result_data_or_text, DataResult):
                 is_func_call = func_result_data_or_text.function_call
 
-            request_type = "function call" if is_func_call else "plain text"
-
             if is_func_call:
                 payload_result = func_result_data_or_text.payload
-                payload_result_str = json.dumps(payload_result, indent=2, ensure_ascii=False, default=str)
+                payload_result_str = dumps_for_logging(payload_result)
                 backend_response_str = payload_result_str if payload_result_str is not None else "---"
             else:
                 backend_response_str = "---"
@@ -101,7 +103,6 @@ class GeneralAnswerAssistant:
             create_new_log_entry(
                 llm_model=self.model,
                 user_question=conversation_client.user_question or "---",
-                request_type=request_type,
                 backend_response=backend_response_str,
                 llm_answer=llm_answer_str,
                 system_prompt_name=conversation_client.system_prompt_name

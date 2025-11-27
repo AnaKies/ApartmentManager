@@ -3,6 +3,7 @@ import typing
 
 from ApartmentManager.backend.AI_API.general.envelopes.envelopes_business_logic import DataTypeInDB, \
     ShowOperationData, CrudIntentModel
+from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
 
 # TYPE_CHECKING import is used to avoid circular imports at runtime.
 # At runtime this block is skipped, but type checkers see it and provide
@@ -19,6 +20,16 @@ def read_action_to_entity(conversation_client: "ConversationClient") -> Envelope
     type_to_show = conversation_client.crud_intent_answer.show.type
 
     result = get_entity_from_db(type_to_show, conversation_client.model_name)
+    from ApartmentManager.backend.AI_API.general.json_serialisation import dumps_for_logging
+    result_str = dumps_for_logging(result)
+
+    create_new_log_entry(
+        llm_model=conversation_client.model_name,
+        user_question=conversation_client.user_question or "---",
+        backend_response=result_str,
+        llm_answer="---",
+        system_prompt_name=conversation_client.system_prompt_name
+    )
 
     return result
 

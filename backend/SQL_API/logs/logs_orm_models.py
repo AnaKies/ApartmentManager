@@ -23,7 +23,6 @@ class Log(Log_Base):
     id_log = Column(Integer, primary_key=True, autoincrement=True)
     ai_model = Column(String)
     user_question = Column(String)
-    request_type = Column(String)
     back_end_response = Column(String)
     ai_answer = Column(String)
     system_prompt_name = Column(String)
