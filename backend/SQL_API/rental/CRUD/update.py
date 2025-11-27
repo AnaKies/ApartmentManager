@@ -11,7 +11,7 @@ def update_person(
                     bank_data: str,
                     phone_number: str,
                     email: str,
-                    comment: str) -> PersonalData:
+                    comment: str) -> dict:
     session = None
 
     try:
@@ -61,9 +61,16 @@ def update_person(
         if comment not in (None, ""):
             person.comment = comment
 
+        if person:
+            # save the data of the person, that will be deleted in the next step
+            person_data = person.to_dict()
+        else:
+            trace_id = log_error(ErrorCode.SQL_SUCH_PERSON_DOES_NOT_EXIST)
+            raise APIError(ErrorCode.SQL_SUCH_PERSON_DOES_NOT_EXIST, trace_id)
+
         session.commit()
 
-        return person
+        return person_data
 
     except Exception as error:
         if session:

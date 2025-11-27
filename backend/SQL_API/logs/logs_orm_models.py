@@ -26,4 +26,5 @@ class Log(Log_Base):
     request_type = Column(String)
     back_end_response = Column(String)
     ai_answer = Column(String)
+    system_prompt_name = Column(String)
     timestamp = Column(DateTime(timezone=True), server_default=func.now())

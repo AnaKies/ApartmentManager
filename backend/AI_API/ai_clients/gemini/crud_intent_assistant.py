@@ -1,10 +1,13 @@
 import json
+import typing
+
 from google.genai import errors as genai_errors
 from google import genai
 from google.genai import types
 import ApartmentManager.backend.AI_API.general.prompting as prompting
+if typing.TYPE_CHECKING:
+    from ApartmentManager.backend.AI_API.general.conversation_client import ConversationClient
 from ApartmentManager.backend.AI_API.general.envelopes import envelopes_business_logic
-from ApartmentManager.backend.AI_API.general.envelopes.envelopes_api import EnvelopeApi
 from ApartmentManager.backend.AI_API.general.envelopes.envelopes_business_logic import CrudIntentModel, validate_model
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
 from ApartmentManager.backend.AI_API.general.logger import log_error
@@ -19,17 +22,18 @@ class CrudIntentAssistant:
         """
         Service for requesting boolean output from the LLM model.
         """
-        self.client = llm_client
+        self.llm_client = llm_client
         self.model = model_name
         self.session_contents = session_contents
         self.temperature = temperature
 
-    def get_crud_llm_response(self, user_question: str, result: (EnvelopeApi, bool)) -> CrudIntentModel:
+    def get_crud_llm_response(self,
+                              conversation_client: "ConversationClient") -> CrudIntentModel:
         """
         Analyses for CRUD intent in the user question.
         """
-        system_prompt_crud_intent = prompting.inject_feedback(result)
-
+        system_prompt_crud_intent = prompting.inject_feedback(conversation_client.result)
+        conversation_client.system_prompt_name = prompting.Prompt.CRUD_INTENT.name
         schema_crud = envelopes_business_logic.get_json_schema(CrudIntentModel)
 
         # Configuration for the LLM call
@@ -44,10 +48,10 @@ class CrudIntentAssistant:
         try:
             user_content = types.Content(
                 role="user",
-                parts=[types.Part(text=user_question)]
+                parts=[types.Part(text=conversation_client.user_question)]
             )
 
-            llm_answer = self.client.models.generate_content(
+            llm_answer = self.llm_client.models.generate_content(
                 model=self.model,
                 contents=[user_content],
                 config=crud_llm_config,
@@ -80,10 +84,11 @@ class CrudIntentAssistant:
             # Add LLM response to log
             create_new_log_entry(
                 llm_model=self.model,
-                user_question=user_question or "",
+                user_question=conversation_client.user_question or "",
                 request_type="CRUD request",
                 backend_response="---",
-                llm_answer=llm_answer_crud_str
+                llm_answer=llm_answer_crud_str,
+                system_prompt_name=conversation_client.system_prompt_name
             )
         except Exception as error:
             trace_id = log_error(ErrorCode.LOG_ERROR_FOR_CRUD_INTENT_RESPONSE, exception=error)

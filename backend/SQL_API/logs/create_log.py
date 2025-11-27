@@ -6,19 +6,22 @@ def create_new_log_entry(llm_model: str,
                          user_question: str,
                          request_type: str,
                          backend_response: str,
-                         llm_answer: str):
+                         llm_answer: str,
+                         system_prompt_name: str):
+
+    # create the Session only for one log
+    session = Session()
+
     # Put arguments to dict to do the input check in the next step
     args = {
         "llm_model": llm_model,
         "user_question": user_question,
         "request_type": request_type,
         "backend_response": backend_response,
-        "llm_answer": llm_answer
+        "llm_answer": llm_answer,
+        "system_prompt_name": system_prompt_name
     }
     try:
-        # create the Session only for one log
-        session = Session()
-
         # Input check
         for name, value in args.items():
             if not isinstance(value, str):
@@ -28,7 +31,8 @@ def create_new_log_entry(llm_model: str,
                         user_question=user_question,
                         request_type=request_type,
                         back_end_response=backend_response,
-                        ai_answer=llm_answer)
+                        ai_answer=llm_answer,
+                        system_prompt_name=system_prompt_name)
         session.add(log_entry)
         session.commit()
 

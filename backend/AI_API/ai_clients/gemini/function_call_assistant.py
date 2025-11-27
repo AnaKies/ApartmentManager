@@ -1,14 +1,17 @@
 import json
+import typing
+
 from google import genai
 from google.genai import types
 from google.genai import errors as genai_errors
 from google.genai.types import FunctionCall
-
-import ApartmentManager.backend.AI_API.general.prompting as prompting
+if typing.TYPE_CHECKING:
+    from ApartmentManager.backend.AI_API.general.conversation_client import ConversationClient
 from ApartmentManager.backend.AI_API.general.envelopes.envelopes_api import build_data_answer, build_text_answer, AnswerSource, \
     EnvelopeApi
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
 from ApartmentManager.backend.AI_API.general.logger import log_error
+from ApartmentManager.backend.AI_API.general.prompting import Prompt
 from ApartmentManager.backend.RESTFUL_API import execute
 from requests.exceptions import RequestException
 
@@ -29,19 +32,17 @@ class FunctionCallAssistant:
         self.session_contents = session_contents
         self.temperature = temperature
 
-        # Convert dict to the string with indentation so that LLM can read it better
-        self.system_prompt = json.dumps(prompting.GET_FUNCTION_CALL_PROMPT, indent=2)
-
-    def _define_potential_function_call(self, user_question: str, system_prompt: str) -> genai.types.Content:
+    def _define_potential_function_call(self, conversation_client: "ConversationClient") -> genai.types.Content:
         """
         Retrieves a response from LLM with a proposal of function calling.
         Saves the user question to the conversation history.
-        :param user_question: Question from the user
-        :param system_prompt: Combined system prompt
-        :return: An object containing the information to the function being called
         """
+        # Convert dict to the string with indentation so that LLM can read it better
+        system_prompt = json.dumps(Prompt.GET_FUNCTION_CALL.value, indent=2)
+        conversation_client.system_prompt_name = Prompt.GET_FUNCTION_CALL.name
+
         # Add the user prompt to the summary request to LLM
-        user_part = types.Part(text=user_question)
+        user_part = types.Part(text=conversation_client.user_question)
         user_part_content = types.Content(
             role="user",
             parts=[user_part]
@@ -147,16 +148,15 @@ class FunctionCallAssistant:
                     return part.text
         return None
 
-    def try_call_function(self, user_question: str, system_prompt: str) -> EnvelopeApi:
+    def try_call_function(self, conversation_client: "ConversationClient") -> EnvelopeApi:
         """
         Gives the user a response using data, retrieved from a function, being called by LLM.
         If LLM decides not to call the function, the answer of the LLM is returned instead.
-        :param user_question: Question from the user
-        :param system_prompt: Combined system prompt
+        :param conversation_client:
         :return: dict with function call as string or LLM answer as Content.
         """
         # STEP 1: get the potential function calling response
-        response_func_candidate = self._define_potential_function_call(user_question, system_prompt)
+        response_func_candidate = self._define_potential_function_call(conversation_client)
 
         # Try to extract a function call from the candidate response
         func_call_obj = None

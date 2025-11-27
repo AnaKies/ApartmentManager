@@ -1,5 +1,6 @@
 import copy
 import json
+from enum import Enum
 
 from ApartmentManager.backend.AI_API.general.envelopes.envelopes_api import EnvelopeApi
 
@@ -238,43 +239,6 @@ CRUD_INTENT_PROMPT = {
   }
 }
 
-
-SHOW_TYPE_CLASSIFIER_PROMPT = {
-  "role": "system",
-  "instructions": {
-    "purpose": "Determine what the user wants to SHOW within the rental domain.",
-    "allowed_types": ["apartment", "tenancy", "person", "contract"],
-
-    "rules": [
-      "Infer from the user's request what single entity should be shown.",
-      "The entity type must be one of: apartment, tenancy, person, contract.",
-      "If the request clearly matches an allowed type, return checked: true and that type.",
-      "If the request is outside these categories (e.g., cars, stars, unrelated topics), return checked: false and type with the detected (invalid) category.",
-      "If the user says 'show' without specifying what, return checked: false and type: \"\" (empty string).",
-      "Respond ONLY with one JSON object. No prose outside the JSON."
-    ],
-
-    "output_format": "Return JSON: {\"checked\": boolean, \"type\": string, \"message\": string}",
-
-    "message_guidelines": [
-      "Write 'message' in the user's language.",
-      "Keep it short (1–2 sentences).",
-      "For checked=false with empty type → ask the user to choose: apartment, tenancy, person, or contract.",
-      "For checked=false with invalid type → say it's not supported and offer the same four choices.",
-      "For checked=true → 'message' is a short confirmation."
-    ],
-
-    "examples": [
-      {"input": "Show me all apartments.",      "output": {"checked": True,  "type": "apartment", "message": "Showing apartments."}},
-      {"input": "List all tenants",             "output": {"checked": True,  "type": "person",    "message": "Listing tenants."}},
-      {"input": "Display all contracts.",       "output": {"checked": True,  "type": "contract",  "message": "Showing contracts."}},
-      {"input": "Show me",                      "output": {"checked": False, "type": "",          "message": "What should I show: apartment, tenancy, person, or contract?"}},
-      {"input": "Show me stars in the sky",     "output": {"checked": False, "type": "stars",     "message": "Not supported. Choose: apartment, tenancy, person, or contract."}},
-      {"input": "Show me cars in tenant garages","output": {"checked": False, "type": "cars",     "message": "Not supported. Choose: apartment, tenancy, person, or contract."}}
-    ]
-  }
-}
-
 DELETE_ENTITY_PROMPT = {
   "role": "system",
   "instructions": {
@@ -388,13 +352,13 @@ CREATE_ENTITY_PROMPT = {
 UPDATE_ENTITY_PROMPT = {
   "role": "system",
   "instructions": {
-    "payload_template": None,      # dynamically injected: all fields of the entity
-    "required_fields": None,       # fields that MUST be present in the final update, usually identifier + any mandatory domain fields
+    "payload_template": None,      # dynamically injected: all fields of the entity (including identifier fields like old_first_name, old_last_name, id_personal_data)
 
     "task": (
       "Collect update data for an existing entity strictly according to payload_template. "
       "Always respond with ONE JSON object matching the provided JSON Schema "
       "(keys: ready_to_post:boolean, data:object, comment:string). "
+      "The 'data' object MUST be a flat dictionary matching the keys in payload_template. "
       "Do NOT perform or mention any API/tool calls, and do NOT update the record yourself."
     ),
 
@@ -406,23 +370,31 @@ UPDATE_ENTITY_PROMPT = {
       # Context reasoning (short-term contextual memory)
       "Treat all user statements as amendments to the fields of the existing entity. "
       "Pronouns or short answers like 'no', 'none', 'leave it as is' must always be interpreted "
-      "relative to the assistant’s most recent question about specific fields. "
+      "relative to the assistant's most recent question about specific fields. "
       "If the user starts describing a completely different entity, treat it as a task change.",
 
       # Field-collection logic specific to UPDATE
-      "At start: show all fields from payload_template (mention which are required for the update — usually identifiers). "
-      "Ask explicitly for missing required_fields first.",
-      "For optional fields: offer them, but allow the user to skip any by saying 'no', 'skip', or similar.",
-      "When the user provides only some fields, update only those fields; all others remain unchanged (represented as null or omitted depending on schema).",
+      "IMPORTANT: The payload_template contains TWO types of fields mixed in a single flat dictionary:",
+      "  1. IDENTIFIER fields (e.g., 'id_personal_data', 'old_first_name', 'old_last_name') - used to FIND the entity to update",
+      "  2. UPDATE fields (e.g., 'first_name', 'last_name', 'bank_data', etc.) - the NEW values to set",
+      
+      "At start: First identify which entity to update by collecting at least one complete identifier option.",
+      "Once the entity is identified, ask which fields the user wants to update.",
+      
+      "For identifier fields: These are used to find the existing entity. Collect at least one complete set (e.g. id_personal_data OR old_first_name + old_last_name).",
+      "For update fields: These are the NEW values. Only collect fields the user explicitly wants to change. "
+      "Fields not mentioned by the user should remain as empty string '' in the data object.",
+      
+      "When the user provides only some update fields, only those fields will be updated; all others remain unchanged (represented as empty string '').",
       "If the user corrects earlier provided values, merge changes and resummarize collected data.",
 
       # New rule – skipping optional update fields
-      "If required_fields are collected and the user indicates that they do not want to update other optional fields "
+      "If identifier fields are collected and the user indicates that they do not want to update other optional fields "
       "(e.g., 'no', 'none', 'leave the rest unchanged'), "
       "the assistant must stop asking for optional fields and move toward confirmation.",
 
       # Readiness conditions
-      "Required_fields must be present for readiness. Optional fields may stay untouched/empty.",
+      "At least one complete identifier option must be present for readiness. Update fields may stay empty if user doesn't want to change them.",
       "ready_to_post=false until the user gives an explicit, unambiguous confirmation (e.g. 'yes', 'confirm') without new data afterward.",
       "When ready_to_post=true, summarize the update payload in 'comment' and state that they are being prepared for backend processing (no question).",
 
@@ -436,9 +408,19 @@ UPDATE_ENTITY_PROMPT = {
   }
 }
 
+
+class Prompt(Enum):
+  CREATE_ENTITY = CREATE_ENTITY_PROMPT
+  UPDATE_ENTITY = UPDATE_ENTITY_PROMPT
+  DELETE_ENTITY = DELETE_ENTITY_PROMPT
+  CRUD_INTENT = CRUD_INTENT_PROMPT
+  GET_FUNCTION_CALL = GET_FUNCTION_CALL_PROMPT
+  POST_FUNCTION_CALL = POST_FUNCTION_CALL_PROMPT
+
+
 def inject_feedback(feedback: (EnvelopeApi, bool)):
   # create a copy and do not touch the originals
-  combined_prompt = copy.deepcopy(CRUD_INTENT_PROMPT)
+  combined_prompt = copy.deepcopy(Prompt.CRUD_INTENT.value)
 
   if feedback:
     combined_prompt["feedback"]["result"] = feedback[0]
@@ -451,7 +433,7 @@ def inject_feedback(feedback: (EnvelopeApi, bool)):
 
 def inject_fields_to_delete_in_prompt(fields_combination) -> str:
   # create a copy and do not touch the originals
-  combined_prompt = copy.deepcopy(DELETE_ENTITY_PROMPT)
+  combined_prompt = copy.deepcopy(Prompt.DELETE_ENTITY.value)
 
   if fields_combination:
     combined_prompt["instructions"]["identifier_fields"] = fields_combination
@@ -466,7 +448,7 @@ def inject_fields_to_create_in_prompt(class_fields, required_fields) -> str:
   :return: Prompt as dict, that contains instruction which fields should be asked by the LLM.
   """
   # create a copy and do not touch the originals
-  combined_prompt = copy.deepcopy(CREATE_ENTITY_PROMPT)
+  combined_prompt = copy.deepcopy(Prompt.CREATE_ENTITY.value)
 
   if class_fields:
     combined_prompt["instructions"]["payload_template"] = class_fields
@@ -478,37 +460,16 @@ def inject_fields_to_create_in_prompt(class_fields, required_fields) -> str:
   return system_prompt
 
 
-def inject_fields_to_update_in_prompt(class_fields, required_fields) -> str:
+def inject_fields_to_update_in_prompt(class_fields) -> str:
   """
   Adds dynamically the fields, required for creation an entity (tenant, contract ect).
   :return: Prompt as dict, that contains instruction which fields should be asked by the LLM.
   """
   # create a copy and do not touch the originals
-  combined_prompt = copy.deepcopy(UPDATE_ENTITY_PROMPT)
+  combined_prompt = copy.deepcopy(Prompt.UPDATE_ENTITY.value)
 
   if class_fields:
     combined_prompt["instructions"]["payload_template"] = class_fields
 
-  if required_fields:
-      combined_prompt["instructions"]["required_fields"] = required_fields
-
   system_prompt = json.dumps(combined_prompt, indent=2, ensure_ascii=False)
   return system_prompt
-
-
-STRUC_OUT_PROMPT= f"""
-    You are a structured-output assistant.
-    Do not perform or mention any new API calls or endpoints.
-    Return ONLY raw JSON (starting with '{{' or '[') representing that data in the required structure.
-    
-    Rules:
-    1. Use exclusively the data explicitly present in the last conversation step.
-    2. Do not recall, invent, or infer information from any prior sessions or external sources.
-    3. Never generate hypothetical or fabricated data.
-    4. If a required field cannot be filled truthfully, output it as `null` or `"no data"`.
-    5. If there is no usable data at all, respond only with:
-       {{
-         "status": "no_data"
-       }}
-    Your response must remain faithful to the provided conversation  and may never contain imagined values.
-"""

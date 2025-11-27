@@ -4,7 +4,7 @@ from google.genai import errors as genai_errors
 from dotenv import load_dotenv
 from requests import RequestException
 from ApartmentManager.backend.AI_API.ai_clients.gemini.gemini_client import GeminiClient
-from ApartmentManager.backend.AI_API.general import prompting
+from ApartmentManager.backend.AI_API.general.prompting import Prompt
 from ApartmentManager.backend.AI_API.general.conversation_write_actions import write_action_to_entity
 from ApartmentManager.backend.AI_API.general.envelopes.envelopes_api import EnvelopeApi
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
@@ -19,8 +19,11 @@ class ConversationClient:
     def __init__(self, model_name):
         self.llm_client = None
         self.model_name = model_name
-        self.crud_intent_data = None
         self.result = None
+        self.system_prompt = Prompt.GET_FUNCTION_CALL.value # separate with the name because of prompt injection
+        self.system_prompt_name = Prompt.GET_FUNCTION_CALL.name
+        self.user_question = None
+        self.crud_intent_answer = None
 
         # Specify the model to use
         load_dotenv()
@@ -40,28 +43,31 @@ class ConversationClient:
         :param user_question: User question.
         :return: Envelope with the type: "text" | "data"
         """
+        self.user_question = user_question
         cycle_is_ready = True
+
         try:
             # Run main head assistant
             # LLM checks if a user asks for one of CRUD operations
-            crud_intent_answer = self.llm_client.crud_intent_assistant.get_crud_llm_response(user_question, self.result)
+            self.crud_intent_answer = self.llm_client.crud_intent_assistant.get_crud_llm_response(self)
 
             # Write operations (cyclic behavior)
-            if (crud_intent_answer.create.value or
-                crud_intent_answer.update.value or
-                crud_intent_answer.delete.value):
+            if (self.crud_intent_answer.create.value or
+                self.crud_intent_answer.update.value or
+                self.crud_intent_answer.delete.value):
 
-                envelope_api, cycle_is_ready = write_action_to_entity(self, user_question)
+                envelope_api, cycle_is_ready = write_action_to_entity(self)
 
             # Read operation
-            elif crud_intent_answer.show.value:
+            elif self.crud_intent_answer.show.value:
                 envelope_api = read_action_to_entity(self)
 
             # Read operation with interpretation in the second llm call
             else:
                 # No explicit CRUD intent detected at the start of a conversation => NONE
-                system_prompt = json.dumps(prompting.GET_FUNCTION_CALL_PROMPT, indent=2, ensure_ascii=False)
-                envelope_api = self.llm_client.general_answer_assistant.answer_general_question(user_question, system_prompt)
+                self.system_prompt = json.dumps(Prompt.GET_FUNCTION_CALL.value, indent=2, ensure_ascii=False)
+                self.system_prompt_name = Prompt.GET_FUNCTION_CALL.name
+                envelope_api = self.llm_client.general_answer_assistant.answer_general_question(self)
 
                 if not envelope_api:
                     trace_id = log_error(ErrorCode.LLM_ERROR_EMPTY_ANSWER)

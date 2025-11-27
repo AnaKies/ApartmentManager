@@ -1,8 +1,10 @@
 import json
-
+import typing
 from google import genai
 from google.genai import errors as genai_errors, types
 from requests import RequestException
+if typing.TYPE_CHECKING:
+    from ApartmentManager.backend.AI_API.general.conversation_client import ConversationClient
 from ApartmentManager.backend.AI_API.general.envelopes.envelopes_api import AnswerSource, EnvelopeApi, TextResult, \
     DataResult
 from ApartmentManager.backend.AI_API.ai_clients.gemini.function_call_assistant import FunctionCallAssistant
@@ -28,19 +30,19 @@ class GeneralAnswerAssistant:
         self.function_call_service = function_call_service
 
 
-    def answer_general_question(self, user_question: str, system_prompt: str) -> dict:
+    def answer_general_question(self, conversation_client: "ConversationClient") -> EnvelopeApi:
         """
         Analyzes if the GET operation is required and performs the function call to retrieve the data from the databank.
         Then convert the data to the plain text.
         If no data bank calling was done, then it responds to the question directly.
-        :param user_question: Question from the user.
+        :param conversation_client:
         :param system_prompt: System prompt with instructions for function calling.
         :return: Data from the database as a dictionary.
         """
 
         try:
             # STEP 1: LLM generates an answer as dict with the possible function call inside using GET tool
-            func_call_data_or_llm_text_dict = self.function_call_service.try_call_function(user_question, system_prompt)
+            func_call_data_or_llm_text_dict = self.function_call_service.try_call_function(conversation_client)
 
             func_result_data_or_text = func_call_data_or_llm_text_dict.result
 
@@ -70,7 +72,7 @@ class GeneralAnswerAssistant:
             else:
                 # LLM is interpreting the data from a function call to the human language.
                 # Dictionary with data for the interpretation is taken from the conversation history.
-                result = self.get_textual_llm_response(user_question, system_prompt)
+                result = self.get_textual_llm_response(conversation_client)
         # catch a Gemini error
         except genai_errors.APIError:
             raise
@@ -98,10 +100,11 @@ class GeneralAnswerAssistant:
 
             create_new_log_entry(
                 llm_model=self.model,
-                user_question=user_question or "---",
+                user_question=conversation_client.user_question or "---",
                 request_type=request_type,
                 backend_response=backend_response_str,
-                llm_answer=llm_answer_str
+                llm_answer=llm_answer_str,
+                system_prompt_name=conversation_client.system_prompt_name
             )
         except Exception as error:
             trace_id = log_error(ErrorCode.LOG_ERROR_FOR_FUNCTION_CALLING, exception=error)
@@ -110,15 +113,15 @@ class GeneralAnswerAssistant:
         return result
 
 
-    def get_textual_llm_response(self, user_question: str, system_prompt: str) -> EnvelopeApi:
+    def get_textual_llm_response(self, conversation_client: "ConversationClient") -> EnvelopeApi:
         # Add the user prompt to the summary request to LLM
-        user_part = types.Part(text=user_question)
+        user_part = types.Part(text=conversation_client.user_question)
         user_part_content = types.Content(
             role="user",
             parts=[user_part]
         )
         self.session_contents.append(user_part_content)
-        result = self.interpret_llm_response_from_conversation(system_prompt=system_prompt)
+        result = self.interpret_llm_response_from_conversation(system_prompt=conversation_client.system_prompt)
 
         return result
 

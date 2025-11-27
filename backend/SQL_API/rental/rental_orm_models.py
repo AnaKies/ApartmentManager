@@ -62,7 +62,7 @@ class Apartment(Rental_Base):
         }
 
     @staticmethod
-    def required_fields_to_delete_or_update():
+    def required_fields_to_delete():
         return {"first_possibility": ["id_apartment"],
                 "second_possibility": ["address"]}
 
@@ -125,7 +125,7 @@ class Tenancy(Rental_Base):
         }
 
     @staticmethod
-    def required_fields_to_delete_or_update():
+    def required_fields_to_delete():
         return {"first_possibility": "id_apartment",
                 "second_possibility": "id_tenancy",
                 "third_possibility": "id_tenant_personal_data"}
@@ -185,7 +185,26 @@ class PersonalData(Rental_Base):
         }
 
     @staticmethod
-    def required_fields_to_delete_or_update():
+    def fields_dict_for_update():
+        """
+        Used to get all fields required for updating a person.
+        Includes both identifier fields (to find the person) and update fields (to update the person).
+        :return: Dictionary with all fields needed for update_person() function
+        """
+        return {
+            "old_first_name": None,
+            "old_last_name": None,
+            "id_personal_data": None,
+            "first_name": None,
+            "last_name": None,
+            "bank_data": None,
+            "phone_number": None,
+            "email": None,
+            "comment": None
+        }
+
+    @staticmethod
+    def required_fields_to_delete():
         return {"first_possibility": ["id_personal_data"],
                 "second_possibility": ["first_name", "last_name"]}
 
@@ -243,5 +262,5 @@ class Contract(Rental_Base):
         }
 
     @staticmethod
-    def required_fields_to_delete_or_update():
+    def required_fields_to_delete():
         return {"first_possibility": "id_rent_data"}

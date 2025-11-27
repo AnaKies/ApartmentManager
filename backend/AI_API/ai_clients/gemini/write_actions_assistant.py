@@ -1,8 +1,11 @@
 import json
+import typing
+
 from google import genai
 from google.genai import types
 from google.genai import errors as genai_errors
-
+if typing.TYPE_CHECKING:
+    from ApartmentManager.backend.AI_API.general.conversation_client import ConversationClient
 from ApartmentManager.backend.AI_API.ai_clients.gemini.crud_intent_assistant import CrudIntentAssistant
 from ApartmentManager.backend.AI_API.ai_clients.gemini.function_call_assistant import FunctionCallAssistant
 from ApartmentManager.backend.AI_API.general.envelopes.envelopes_business_logic \
@@ -29,18 +32,10 @@ class WriteActionsAssistant:
         self.function_call = function_call
 
 
-    def run_llm_call(self, user_prompt: str, system_prompt: str) -> CollectData:
-        json_schema = get_json_schema(CollectData)
-        llm_response = self.do_llm_call(user_prompt, system_prompt, json_schema)
-        entity_data = validate_model(CollectData, llm_response)
-
-        return entity_data
-
-
-    def do_llm_call(self, user_prompt: str,
-                    system_prompt: str, json_schema: dict) -> dict:
+    def do_llm_call(self, conversation_client: "ConversationClient", json_schema: dict) -> dict:
         """
         Request a structured response that conforms to the schema.
+        :param conversation_client:
         :param json_schema:
         :param system_prompt: Instructions how the LLM model should respond.
         :param user_prompt: Question from the user
@@ -51,11 +46,11 @@ class WriteActionsAssistant:
                 response_mime_type="application/json",
                 response_schema=json_schema,
                 temperature=self.temperature,
-                system_instruction=types.Part(text=system_prompt)
+                system_instruction=types.Part(text=conversation_client.system_prompt)
             )
 
             # Add the user prompt to the summary request to LLM
-            user_part = types.Part(text=user_prompt)
+            user_part = types.Part(text=conversation_client.user_question)
             user_part_content = types.Content(
                 role="user",
                 parts=[user_part]

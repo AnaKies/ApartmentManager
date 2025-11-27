@@ -5,7 +5,7 @@ from ApartmentManager.backend.SQL_API.rental.rental_orm_models import PersonalDa
 def delete_person(*, # make order of arguments not important, as the LLM can mix it
                     first_name: str,
                     last_name: str,
-                    id_personal_data: int) -> PersonalData:
+                    id_personal_data: int) -> dict:
     """
     Deletes a person's record from the database based on provided identification
     or name details. Either a personal ID or both first and last names must be
@@ -14,10 +14,10 @@ def delete_person(*, # make order of arguments not important, as the LLM can mix
     execution and commits the changes if successful. In case of errors during
     execution, an appropriate rollback is performed.
 
-    :param first_name: First name of the person whose record is to be deleted,
+    :param first_name: First name of the person whose record is to be deleted
         if the ID is not given.
     :type first_name: str
-    :param last_name: Last name of the person whose record is to be deleted,
+    :param last_name: Last name of the person whose record is to be deleted
         if the ID is not given.
     :type last_name: str
     :param id_personal_data: Unique identifier (personal data ID) of the person
@@ -57,13 +57,17 @@ def delete_person(*, # make order of arguments not important, as the LLM can mix
         # try to get the person to delete
         person = query.one_or_none()
 
-        if person is None:
-            raise APIError(ErrorCode.SQL_SUCH_PERSON_DOES_NOT_EXIST)
+        if person:
+            # save the data of the person, that will be deleted in the next step
+            person_data = person.to_dict()
+        else:
+            trace_id = log_error(ErrorCode.SQL_SUCH_PERSON_DOES_NOT_EXIST)
+            raise APIError(ErrorCode.SQL_SUCH_PERSON_DOES_NOT_EXIST, trace_id)
 
         query.delete()
         session.commit()
 
-        return person
+        return person_data
 
     except APIError:
         raise

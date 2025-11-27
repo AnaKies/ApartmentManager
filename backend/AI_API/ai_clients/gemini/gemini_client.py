@@ -1,7 +1,6 @@
 import os
 from google.genai import types
 from abc import ABC
-from google.genai import errors as genai_errors
 from ApartmentManager.backend.AI_API.ai_clients.gemini.crud_intent_assistant import CrudIntentAssistant
 from ApartmentManager.backend.AI_API.ai_clients.gemini.function_call_assistant import FunctionCallAssistant
 from ApartmentManager.backend.AI_API.ai_clients.gemini.write_actions_assistant import WriteActionsAssistant
