@@ -91,6 +91,7 @@ CRUD_INTENT_PROMPT = {
     # Readiness == False → there is an unfinished write-flow (CREATE/UPDATE/DELETE).
     # Readiness == True → no active unfinished write-flow; you may decide intent from the current user input.
     "readiness": True,
+    "operation_id": None, # Unique ID of the current operation (if any)
 
     # The result is an opaque backend payload (for example, an envelope).
     # You MUST NOT use it to decide the current CRUD/SHOW booleans.
@@ -101,10 +102,10 @@ CRUD_INTENT_PROMPT = {
   "instructions": {
     "task": (
       "Return ONLY a single JSON object with four entries: "
-      "{\"create\": {\"value\": bool, \"type\": string}, "
-      " \"update\": {\"value\": bool, \"type\": string}, "
-      " \"delete\": {\"value\": bool, \"type\": string}, "
-      " \"show\":   {\"value\": bool, \"type\": string} }. "
+      "{\"create\": {\"value\": bool, \"type\": string, \"operation_id\": string}, "
+      " \"update\": {\"value\": bool, \"type\": string, \"operation_id\": string}, "
+      " \"delete\": {\"value\": bool, \"type\": string, \"operation_id\": string}, "
+      " \"show\":   {\"value\": bool, \"type\": string, \"operation_id\": string, \"single\": bool} }. "
       "No prose, no additional keys."
     ),
 
@@ -112,30 +113,30 @@ CRUD_INTENT_PROMPT = {
       "The 'feedback' block is provided by the backend:"
       "- feedback.readiness: boolean flag indicating whether the last write-flow "
       "  (CREATE/UPDATE/DELETE) is finished or still ongoing."
+      "- feedback.operation_id: a unique identifier for the current operation."
       "- feedback.result: opaque backend payload (for example, an envelope). You MUST NOT use it "
       "  to decide the current CRUD/SHOW booleans, and you MUST NOT assume any specific structure."
     ),
 
     "state_logic": (
-      "Use 'feedback.readiness' as short-term state for an ongoing write-flow (CREATE/UPDATE/DELETE).\n"
+      "Use 'feedback.readiness' and 'feedback.operation_id' as short-term state for an ongoing write-flow (CREATE/UPDATE/DELETE).\n"
       "SHOW is normally stateless and does not depend on this readiness flag."
-      "1) If feedback.readiness == false:"
-      "   - There is an unfinished write-flow (CREATE/UPDATE/DELETE). The last CRUD decision you "
+      "1) If feedback.readiness == false AND feedback.operation_id is NOT None:"
+      "   - There is an unfinished write-flow (CREATE/UPDATE/DELETE) identified by operation_id. The last CRUD decision you "
       "     returned in this conversation for that flow is still active."
-      "   - If the current user message looks like a follow-up that supplies data or answers questions "
-      "     (for example: providing a name, address, bank details, simple 'yes'/'no', 'leave it empty', "
-      "     'here is the IBAN', etc.), you MUST treat it as part of the same ongoing write-flow."
-      "   - In that case, you MUST normally return the SAME CRUD decision (same flag true and same 'type') "
-      "     as in your last JSON output, even if the current user message does not contain any explicit "
-      "     CRUD verb."
-      "   - Only if the user very clearly starts a NEW, unrelated CRUD/SHOW task with explicit language "
-      "     (for example: 'now delete that contract', 'I want to update another tenant', "
-      "     'show me all apartments instead'), you may override the previous decision and apply the "
+      "   - You MUST treat ALL user messages as part of this ongoing write-flow, even if they contain verbs like 'update', 'delete', or 'create'."
+      "     For example, if the user says 'update comment', and you are in an UPDATE flow, this is a field update, NOT a new intent."
+      "   - In that case, you MUST return the SAME CRUD decision (same flag true and same 'type') "
+      "     as in your last JSON output."
+      "   - IMPORTANT: You MUST include the 'feedback.operation_id' in the 'operation_id' field of the active operation."
+      "   - Only if the user explicitly cancels/ends the current operation with clear language "
+      "     (for example: 'cancel', 'stop', 'abort', 'forget it'), you may override the previous decision and apply the "
       "     decision_logic for a new operation."
 
       "2) If feedback.readiness == true:"
       "   - There is no active unfinished write-flow from the backend's perspective."
       "   - You MUST decide CRUD/SHOW intent from the current user input alone, using the decision_logic."
+      "   - In this case, set 'operation_id' to empty string \"\" for all operations."
 
       "3) Never start a new CREATE/UPDATE/DELETE/SHOW operation just because the user provides additional "
       "   data. If the message looks like a follow-up answer ('his name is Max', 'the rent is 900', "
@@ -166,6 +167,8 @@ CRUD_INTENT_PROMPT = {
       "Each key (create, update, delete, show) MUST contain a JSON object with:"
       "- 'value': boolean flag indicating whether this operation is active."
       "- 'type' : free-text string describing the record type (for example: 'person', 'apartment')."
+      "- 'operation_id': string, MUST match 'feedback.operation_id' if continuing an operation, otherwise empty string."
+      "- 'single': boolean (ONLY for 'show'), true if requesting a specific record, false for list/all."
     ),
 
     "examples": [
@@ -176,10 +179,10 @@ CRUD_INTENT_PROMPT = {
           "result": None
         },
         "output": {
-          "create": { "value": False, "type": "" },
-          "update": { "value": False, "type": "" },
-          "delete": { "value": False, "type": "" },
-          "show":   { "value": False, "type": "" }
+          "create": { "value": False, "type": "person", "operation_id": "" },
+          "update": { "value": False, "type": "person", "operation_id": "" },
+          "delete": { "value": False, "type": "person", "operation_id": "" },
+          "show":   { "value": False, "type": "apartment", "operation_id": "", "single": False }
         }
       },
       {
@@ -189,10 +192,10 @@ CRUD_INTENT_PROMPT = {
           "result": None
         },
         "output": {
-          "create": { "value": False, "type": "" },
-          "update": { "value": False, "type": "" },
-          "delete": { "value": False, "type": "" },
-          "show":   { "value": True,  "type": "apartment" }
+          "create": { "value": False, "type": "person", "operation_id": "" },
+          "update": { "value": False, "type": "person", "operation_id": "" },
+          "delete": { "value": False, "type": "person", "operation_id": "" },
+          "show":   { "value": True,  "type": "apartment", "operation_id": "", "single": False }
         }
       },
       {
@@ -202,23 +205,24 @@ CRUD_INTENT_PROMPT = {
           "result": None
         },
         "output": {
-          "create": { "value": True,  "type": "person" },
-          "update": { "value": False, "type": "" },
-          "delete": { "value": False, "type": "" },
-          "show":   { "value": False, "type": "" }
+          "create": { "value": True,  "type": "person", "operation_id": "" },
+          "update": { "value": False, "type": "person", "operation_id": "" },
+          "delete": { "value": False, "type": "person", "operation_id": "" },
+          "show":   { "value": False, "type": "person", "operation_id": "", "single": False }
         }
       },
       {
         "input": "His name is Max Müller.",
         "feedback": {
           "readiness": False,
+          "operation_id": "abc12345",
           "result": { "any_backend_state": "ignored_for_intent" }
         },
         "output": {
-          "create": { "value": True,  "type": "person" },
-          "update": { "value": False, "type": "" },
-          "delete": { "value": False, "type": "" },
-          "show":   { "value": False, "type": "" }
+          "create": { "value": True,  "type": "person", "operation_id": "abc12345" },
+          "update": { "value": False, "type": "person", "operation_id": "" },
+          "delete": { "value": False, "type": "person", "operation_id": "" },
+          "show":   { "value": False, "type": "person", "operation_id": "", "single": False }
         }
       },
       {
@@ -228,10 +232,10 @@ CRUD_INTENT_PROMPT = {
           "result": None
         },
         "output": {
-          "create": { "value": False, "type": "" },
-          "update": { "value": False, "type": "" },
-          "delete": { "value": True,  "type": "contract" },
-          "show":   { "value": False, "type": "" }
+          "create": { "value": False, "type": "person", "operation_id": "" },
+          "update": { "value": False, "type": "person", "operation_id": "" },
+          "delete": { "value": True,  "type": "contract", "operation_id": "" },
+          "show":   { "value": False, "type": "person", "operation_id": "", "single": False }
         }
       }
     ]
@@ -435,13 +439,16 @@ class Prompt(Enum):
   POST_FUNCTION_CALL = POST_FUNCTION_CALL_PROMPT
 
 
-def inject_feedback(feedback: (EnvelopeApi, bool)):
+def inject_feedback(feedback: (EnvelopeApi, bool), operation_id: str = None):
   # create a copy and do not touch the originals
   combined_prompt = copy.deepcopy(Prompt.CRUD_INTENT.value)
 
   if feedback:
     combined_prompt["feedback"]["result"] = feedback[0]
     combined_prompt["feedback"]["ready"] = feedback[1]
+
+  if operation_id:
+    combined_prompt["feedback"]["operation_id"] = operation_id
 
   system_prompt = dumps_for_llm_prompt(combined_prompt)
 

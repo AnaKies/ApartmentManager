@@ -15,6 +15,7 @@ class DataTypeInDB(str, Enum): # str because of serialization in Pydantic
 class CrudOperationData(BaseModel):
     value: bool
     type: DataTypeInDB
+    operation_id: str
 
 class ShowOperationData(CrudOperationData):
     single: bool # True -> get one entity, False -> get all entities

@@ -10,7 +10,7 @@ from ApartmentManager.backend.AI_API.general.envelopes.envelopes_api import Enve
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
 from ApartmentManager.backend.AI_API.general.logger import log_error
 from ApartmentManager.backend.AI_API.general.conversation_read_action import read_action_to_entity
-
+import uuid
 
 class ConversationClient:
     """
@@ -24,6 +24,7 @@ class ConversationClient:
         self.system_prompt_name = Prompt.GET_FUNCTION_CALL.name
         self.user_question = None
         self.crud_intent_answer = None
+        self.operation_id = None
 
         # Specify the model to use
         load_dotenv()
@@ -44,6 +45,9 @@ class ConversationClient:
         :return: Envelope with the type: "text" | "data"
         """
         self.user_question = user_question
+
+        # is cyclically set to False by the cycled LLM call.
+        # if not reset means a READ operation without extra cycles for collecting information
         cycle_is_ready = True
 
         try:
@@ -56,11 +60,22 @@ class ConversationClient:
                 self.crud_intent_answer.update.value or
                 self.crud_intent_answer.delete.value):
 
+                # Generate a new operation_id if none exists
+                if not self.operation_id:
+                    self.operation_id = str(uuid.uuid4())[:8]
+
+                # if more cycles are required to collect information, the method sets cycle_is_ready=False
                 envelope_api, cycle_is_ready = write_action_to_entity(self)
+
+                # Reset operation_id if the conversation cycle is finished
+                if cycle_is_ready:
+                    self.operation_id = None
 
             # Read operation
             elif self.crud_intent_answer.show.value:
                 envelope_api = read_action_to_entity(self)
+                # Show is stateless, ensure no operation_id hangs around (though it shouldn't)
+                self.operation_id = None
 
             # Read operation with interpretation in the second llm call
             else:
@@ -68,10 +83,13 @@ class ConversationClient:
                 self.system_prompt = dumps_for_llm_prompt(Prompt.GET_FUNCTION_CALL.value)
                 self.system_prompt_name = Prompt.GET_FUNCTION_CALL.name
                 envelope_api = self.llm_client.general_answer_assistant.answer_general_question(self)
+                self.operation_id = None
 
                 if not envelope_api:
                     trace_id = log_error(ErrorCode.LLM_ERROR_EMPTY_ANSWER)
                     raise APIError(ErrorCode.LLM_ERROR_EMPTY_ANSWER, trace_id)
+
+            # Read operations do not have the feedback to the LLM
 
             # save the envelope for the feedback to the LLM
             self.result = (envelope_api.model_dump(mode='json'), cycle_is_ready)

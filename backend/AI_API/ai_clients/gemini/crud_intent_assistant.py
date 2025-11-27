@@ -32,7 +32,8 @@ class CrudIntentAssistant:
         """
         Analyses for CRUD intent in the user question.
         """
-        system_prompt_crud_intent = prompting.inject_feedback(conversation_client.result)
+        system_prompt_crud_intent = prompting.inject_feedback(conversation_client.result, conversation_client.operation_id)
+        conversation_client.system_prompt = system_prompt_crud_intent
         conversation_client.system_prompt_name = prompting.Prompt.CRUD_INTENT.name
         schema_crud = envelopes_business_logic.get_json_schema(CrudIntentModel)
 

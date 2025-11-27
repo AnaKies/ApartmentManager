@@ -85,6 +85,10 @@ def chat_api():
 
         result = model_answer.model_dump(mode='json')
 
+        print(result)
+        return result, 200
+        # TODO implement close client to release the http resources
+
     except APIError:
         raise
     except genai_errors.APIError:
@@ -93,10 +97,6 @@ def chat_api():
         raise
     except Exception:
         raise
-
-    print(result)
-    return result, 200
-    # TODO implement close client to release the http resources
 
 @internal_bp.route('/tenancies', methods=['GET'])
 def get_tenancies():
