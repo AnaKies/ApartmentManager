@@ -19,6 +19,9 @@ class APIError(Exception):
         return (f"APIError {self.error_code}: {self.message} "
                 f"(trace_id={self.trace_id}). ")
 
+class SystemErrorCodes(Enum):
+    pass
+
 class ErrorCode(Enum):
     # LLM
     LLM_RESPONSE_INTERPRETATION_ERROR = (1001, "Failed at interpretation the LLM response.")

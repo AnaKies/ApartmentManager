@@ -592,36 +592,77 @@ function DetailView({ title, data, onBack }) {
 }
 
 function ClassicalTileView() {
-  const [activeFloor, setActiveFloor] = useState('1. Stock');
+  const [activeFloor, setActiveFloor] = useState('');
   const [expandedTileId, setExpandedTileId] = useState(null);
+  const [floors, setFloors] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Mock data for 3 floors, 6 apartments each
-  const floors = {
-    '1. Stock': [
-      { id: 101, address: 'Musterstraße 1, 10115 Berlin', tenantName: 'Max Mustermann' },
-      { id: 102, address: 'Beispielweg 12, 20095 Hamburg', tenantName: 'Erika Musterfrau' },
-      { id: 103, address: 'Schlossallee 42, 80331 München', tenantName: 'Vacant' },
-      { id: 104, address: 'Hauptstraße 5, 50667 Köln', tenantName: 'John Doe' },
-      { id: 105, address: 'Nebenstraße 9, 01067 Dresden', tenantName: 'Jane Doe' },
-      { id: 106, address: 'Goetheplatz 7, 60313 Frankfurt', tenantName: 'Johann Wolfgang' },
-    ],
-    '2. Stock': [
-      { id: 201, address: 'Musterstraße 1, 10115 Berlin', tenantName: 'Alice Smith' },
-      { id: 202, address: 'Beispielweg 12, 20095 Hamburg', tenantName: 'Bob Jones' },
-      { id: 203, address: 'Schlossallee 42, 80331 München', tenantName: 'Charlie Brown' },
-      { id: 204, address: 'Hauptstraße 5, 50667 Köln', tenantName: 'David Wilson' },
-      { id: 205, address: 'Nebenstraße 9, 01067 Dresden', tenantName: 'Eva Green' },
-      { id: 206, address: 'Goetheplatz 7, 60313 Frankfurt', tenantName: 'Frank White' },
-    ],
-    '3. Stock': [
-      { id: 301, address: 'Musterstraße 1, 10115 Berlin', tenantName: 'George Black' },
-      { id: 302, address: 'Beispielweg 12, 20095 Hamburg', tenantName: 'Hannah Blue' },
-      { id: 303, address: 'Schlossallee 42, 80331 München', tenantName: 'Ivan Grey' },
-      { id: 304, address: 'Hauptstraße 5, 50667 Köln', tenantName: 'Julia Red' },
-      { id: 305, address: 'Nebenstraße 9, 01067 Dresden', tenantName: 'Kevin Orange' },
-      { id: 306, address: 'Goetheplatz 7, 60313 Frankfurt', tenantName: 'Laura Purple' },
-    ]
-  };
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true);
+        // Fetch apartments and persons as requested, though we can't link them without tenancies yet.
+        const [apartmentsRes, personsRes] = await Promise.all([
+          fetch(`${API_BASE}/internal/apartments`),
+          fetch(`${API_BASE}/internal/persons`)
+        ]);
+
+        if (!apartmentsRes.ok || !personsRes.ok) {
+          throw new Error('Failed to fetch data');
+        }
+
+        const apartments = await apartmentsRes.json();
+        const persons = await personsRes.json(); // Available for future use
+
+        const groupedFloors = {};
+
+        apartments.forEach(apt => {
+          // Determine floor from ID (e.g., 101 -> 1. Stock, 201 -> 2. Stock)
+          const floorNum = Math.floor(apt.id_apartment / 100);
+          const floorName = `${floorNum}. Stock`;
+
+          if (!groupedFloors[floorName]) {
+            groupedFloors[floorName] = [];
+          }
+
+          // Without tenancies, we cannot determine who lives where.
+          // Defaulting to 'Vacant' for now.
+          const tenantName = 'Vacant';
+
+          groupedFloors[floorName].push({
+            id: apt.id_apartment,
+            address: apt.address,
+            tenantName: tenantName,
+            rawApartment: apt
+          });
+        });
+
+        // Sort floors keys
+        const sortedFloorKeys = Object.keys(groupedFloors).sort();
+        const sortedFloors = {};
+        sortedFloorKeys.forEach(key => {
+          sortedFloors[key] = groupedFloors[key].sort((a, b) => a.id - b.id);
+        });
+
+        setFloors(sortedFloors);
+        if (sortedFloorKeys.length > 0) {
+          setActiveFloor(sortedFloorKeys[0]);
+        }
+      } catch (err) {
+        console.error("Error fetching classical mode data:", err);
+        setError(err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchData();
+  }, []);
+
+  if (loading) return React.createElement('div', { className: 'classical-view-container' }, 'Loading data...');
+  if (error) return React.createElement('div', { className: 'classical-view-container' }, 'Error loading data.');
+  if (Object.keys(floors).length === 0) return React.createElement('div', { className: 'classical-view-container' }, 'No apartments found.');
 
   // Helper to generate mock payment data
   const getMockPayments = (id) => {
