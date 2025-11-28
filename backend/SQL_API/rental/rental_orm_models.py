@@ -44,45 +44,6 @@ class Apartment(Rental_Base):
             "utility_billing_provider_id": self.utility_billing_provider_id
         }
 
-    @staticmethod
-    def fields_dict():
-        """
-        Used to get all class fields as string without creating a class object.
-        :return:
-        """
-        return {
-            "area": None,
-            "address": None,
-            "price_per_square_meter": None,
-            "utility_billing_provider_id": None
-        }
-
-    @staticmethod
-    def required_fields_to_create():
-        return {
-            "address": None,
-        }
-
-    @staticmethod
-    def fields_dict_for_update():
-        """
-        Used to get all fields required for updating an apartment.
-        Includes both identifier fields (to find the apartment) and update fields (to update the apartment).
-        :return: Dictionary with all fields needed for update_apartment() function
-        """
-        return {
-            "old_address": None,
-            "id_apartment": None,
-            "area": None,
-            "address": None,
-            "price_per_square_meter": None,
-            "utility_billing_provider_id": None
-        }
-
-    @staticmethod
-    def required_fields_to_delete():
-        return {"first_possibility": ["id_apartment"],
-                "second_possibility": ["address"]}
 
 class Tenancy(Rental_Base):
     __tablename__ = "tenancy"
@@ -122,54 +83,6 @@ class Tenancy(Rental_Base):
             "comment": self.comment
         }
 
-    @staticmethod
-    def fields_dict():
-        """
-        Used to get all class fields as string without creating a class object.
-        :return:
-        """
-        return {
-            "id_apartment": None,
-            "id_tenant_personal_data": None,
-            "id_contract": None,
-            "move_in_date": None,
-            "move_out_date": None,
-            "deposit": None,
-            "registered_address": None,
-            "comment": None
-        }
-
-    @staticmethod
-    def required_fields_to_create():
-        return {
-            "move_in_date": None,
-            "registered_address": None,
-        }
-
-    @staticmethod
-    def fields_dict_for_update():
-        """
-        Used to get all fields required for updating a tenancy.
-        Includes both identifier fields (to find the tenancy) and update fields (to update the tenancy).
-        :return: Dictionary with all fields needed for update_tenancy() function
-        """
-        return {
-            "id_tenancy": None,
-            "id_apartment": None,
-            "id_tenant_personal_data": None,
-            "id_contract": None,
-            "move_in_date": None,
-            "move_out_date": None,
-            "deposit": None,
-            "registered_address": None,
-            "comment": None
-        }
-
-    @staticmethod
-    def required_fields_to_delete():
-        return {"first_possibility": "id_apartment",
-                "second_possibility": "id_tenancy",
-                "third_possibility": "id_tenant_personal_data"}
 
 class PersonalData(Rental_Base):
     __tablename__ = "personal_data"
@@ -203,51 +116,6 @@ class PersonalData(Rental_Base):
             "comment": self.comment
         }
 
-    @staticmethod
-    def fields_dict():
-        """
-        Used to get all class fields as string without creating a class object.
-        :return:
-        """
-        return {
-            "first_name": None,
-            "last_name": None,
-            "bank_data": None,
-            "phone_number": None,
-            "email": None,
-            "comment": None
-        }
-
-    @staticmethod
-    def required_fields_to_create():
-        return {
-            "first_name": None,
-            "last_name": None
-        }
-
-    @staticmethod
-    def fields_dict_for_update():
-        """
-        Used to get all fields required for updating a person.
-        Includes both identifier fields (to find the person) and update fields (to update the person).
-        :return: Dictionary with all fields needed for update_person() function
-        """
-        return {
-            "old_first_name": None,
-            "old_last_name": None,
-            "id_personal_data": None,
-            "first_name": None,
-            "last_name": None,
-            "bank_data": None,
-            "phone_number": None,
-            "email": None,
-            "comment": None
-        }
-
-    @staticmethod
-    def required_fields_to_delete():
-        return {"first_possibility": ["id_personal_data"],
-                "second_possibility": ["first_name", "last_name"]}
 
 class Contract(Rental_Base):
     __tablename__ = "contract"
@@ -280,45 +148,3 @@ class Contract(Rental_Base):
             "parking_spot": self.parking_spot,
             "comment": self.comment
         }
-
-    @staticmethod
-    def fields_dict():
-        """
-        Used to get all class fields as string without creating a class object.
-        :return:
-        """
-        return {
-            "net_rent": None,
-            "utility_costs": None,
-            "vat": None,
-            "garage": None,
-            "parking_spot": None,
-            "comment": None
-        }
-
-    @staticmethod
-    def required_fields_to_create():
-        return {
-            "net_rent": None,
-        }
-
-    @staticmethod
-    def fields_dict_for_update():
-        """
-        Used to get all fields required for updating a contract.
-        Includes both identifier fields (to find the contract) and update fields (to update the contract).
-        :return: Dictionary with all fields needed for update_contract() function
-        """
-        return {
-            "id_contract": None,
-            "net_rent": None,
-            "utility_costs": None,
-            "vat": None,
-            "garage": None,
-            "parking_spot": None,
-            "comment": None
-        }
-
-    @staticmethod
-    def required_fields_to_delete():
-        return {"first_possibility": "id_contract"}
