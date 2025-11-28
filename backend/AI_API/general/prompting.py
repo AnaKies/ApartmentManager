@@ -344,7 +344,7 @@ CREATE_ENTITY_PROMPT = {
       # Field collection logic
       "At start: show all fields from payload_template to the user (mentioning which are required and which are optional). "
       "Ask explicitly for required_fields first, then offer optional ones.",
-      "Treat any later user message as an amendment to fields (even after confirmation). Merge changes, then resummarize collected data.",
+      "Treat any later user message as an amendment to fields (even after confirmation). Update the fields with the new values. If a field already has a value, replace it with the new one. Do NOT concatenate values.",
 
       # New rule – required done, optional skipped
       "If all required_fields are already collected and the user indicates they do not want to fill optional fields "
@@ -416,7 +416,7 @@ UPDATE_ENTITY_PROMPT = {
       "'last name Müller', 'email test@example.com'), interpret this as BOTH selecting the field AND giving the new value "
       "for that field in the data object.",
       "The user must provide AT LEAST ONE update field. Fields the user does not mention must remain empty string '' in the data object.",
-      "If the user corrects or overrides earlier answers, merge changes and provide a brief resummary of the collected updates.",
+      "If the user corrects or overrides earlier answers, replace the old values with the new ones. Do NOT concatenate values. Provide a brief resummary of the collected updates.",
 
       # Handling 'no' / 'leave them empty'
       "If the user answers 'no', 'none', 'leave them empty', or 'leave the rest as is' in direct response to a question "

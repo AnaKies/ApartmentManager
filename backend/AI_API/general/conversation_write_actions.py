@@ -1,4 +1,4 @@
-import json
+import inspect
 import typing
 from ApartmentManager.backend.AI_API.general.json_serialisation import dumps_for_llm_prompt
 from ApartmentManager.backend.AI_API.general.envelopes.envelopes_business_logic \
@@ -62,7 +62,10 @@ def call_db_or_collect_missing_data(conversation_client: "ConversationClient",
         # Backend calls the SQL layer to delete an entry
         if entity_data.ready:
             # Extract data fields to give them the function
-            parsed_args = json.loads(entity_data.data)
+            if entity_data.data:
+                parsed_args = entity_data.data.model_dump()
+            else:
+                parsed_args = {}
 
             if conversation_client.crud_intent_answer.delete.value:
                 result = remove_entity_from_db(conversation_client, parsed_args)
@@ -117,7 +120,9 @@ def remove_entity_from_db(conversation_client: "ConversationClient",
         type_to_delete = conversation_client.crud_intent_answer.delete.type
 
         if type_to_delete is DataTypeInDB.PERSON:
-            person = delete_person(**parsed_args)
+            valid_keys = inspect.signature(delete_person).parameters.keys()
+            filtered_args = {k: v for k, v in parsed_args.items() if k in valid_keys}
+            person = delete_person(**filtered_args)
             first_name = person.get("first_name" or "")
             last_name = person.get("last_name" or "")
             id_person = person.get("id_personal_data" or "")
@@ -139,7 +144,9 @@ def remove_entity_from_db(conversation_client: "ConversationClient",
                 )
 
         elif type_to_delete is DataTypeInDB.TENANCY:
-            tenancy = delete_tenancy(**parsed_args)
+            valid_keys = inspect.signature(delete_tenancy).parameters.keys()
+            filtered_args = {k: v for k, v in parsed_args.items() if k in valid_keys}
+            tenancy = delete_tenancy(**filtered_args)
             id_tenancy = tenancy.get("id_tenancy")
 
             if tenancy:
@@ -155,7 +162,9 @@ def remove_entity_from_db(conversation_client: "ConversationClient",
                 )
 
         elif type_to_delete is DataTypeInDB.CONTRACT:
-            contract = delete_contract(**parsed_args)
+            valid_keys = inspect.signature(delete_contract).parameters.keys()
+            filtered_args = {k: v for k, v in parsed_args.items() if k in valid_keys}
+            contract = delete_contract(**filtered_args)
             id_contract = contract.get("id_contract")
 
             if contract:
@@ -171,7 +180,9 @@ def remove_entity_from_db(conversation_client: "ConversationClient",
                 )
 
         elif type_to_delete is DataTypeInDB.APARTMENT:
-            apartment = delete_apartment(**parsed_args)
+            valid_keys = inspect.signature(delete_apartment).parameters.keys()
+            filtered_args = {k: v for k, v in parsed_args.items() if k in valid_keys}
+            apartment = delete_apartment(**filtered_args)
             id_apartment = apartment.get("id_apartment")
             address = apartment.get("address")
 
@@ -207,7 +218,9 @@ def place_entity_in_db(conversation_client: "ConversationClient",
     try:
         type_to_create = conversation_client.crud_intent_answer.create.type
         if type_to_create is DataTypeInDB.PERSON:
-            person_created_data = create_person(**parsed_args)
+            valid_keys = inspect.signature(create_person).parameters.keys()
+            filtered_args = {k: v for k, v in parsed_args.items() if k in valid_keys}
+            person_created_data = create_person(**filtered_args)
 
             # Evaluate new entity creation
             if person_created_data:
@@ -229,7 +242,9 @@ def place_entity_in_db(conversation_client: "ConversationClient",
                 )
 
         elif type_to_create is DataTypeInDB.TENANCY:
-            tenancy_created_data = create_tenancy(**parsed_args)
+            valid_keys = inspect.signature(create_tenancy).parameters.keys()
+            filtered_args = {k: v for k, v in parsed_args.items() if k in valid_keys}
+            tenancy_created_data = create_tenancy(**filtered_args)
 
             if tenancy_created_data:
                 id_tenancy = tenancy_created_data.get("id_tenancy")
@@ -245,7 +260,9 @@ def place_entity_in_db(conversation_client: "ConversationClient",
                 )
 
         elif type_to_create is DataTypeInDB.CONTRACT:
-            contract_created_data = create_contract(**parsed_args)
+            valid_keys = inspect.signature(create_contract).parameters.keys()
+            filtered_args = {k: v for k, v in parsed_args.items() if k in valid_keys}
+            contract_created_data = create_contract(**filtered_args)
 
             if contract_created_data:
                 id_contract = contract_created_data.get("id_contract")
@@ -261,7 +278,9 @@ def place_entity_in_db(conversation_client: "ConversationClient",
                 )
 
         elif type_to_create is DataTypeInDB.APARTMENT:
-            apartment_created_data = create_apartment(**parsed_args)
+            valid_keys = inspect.signature(create_apartment).parameters.keys()
+            filtered_args = {k: v for k, v in parsed_args.items() if k in valid_keys}
+            apartment_created_data = create_apartment(**filtered_args)
 
             if apartment_created_data:
                 id_apartment = apartment_created_data.get("id_apartment")
@@ -295,7 +314,9 @@ def update_entity_in_db(conversation_client: "ConversationClient",
         type_to_update = conversation_client.crud_intent_answer.update.type
 
         if type_to_update is DataTypeInDB.PERSON:
-            person = update_person(**parsed_args)
+            valid_keys = inspect.signature(update_person).parameters.keys()
+            filtered_args = {k: v for k, v in parsed_args.items() if k in valid_keys}
+            person = update_person(**filtered_args)
 
             # Evaluate entity update
             if person:
@@ -317,7 +338,9 @@ def update_entity_in_db(conversation_client: "ConversationClient",
                     system_prompt_name=conversation_client.system_prompt_name)
 
         elif type_to_update is DataTypeInDB.TENANCY:
-            tenancy = update_tenancy(**parsed_args)
+            valid_keys = inspect.signature(update_tenancy).parameters.keys()
+            filtered_args = {k: v for k, v in parsed_args.items() if k in valid_keys}
+            tenancy = update_tenancy(**filtered_args)
             id_tenancy = tenancy.get("id_tenancy")
 
             if tenancy:
@@ -332,7 +355,9 @@ def update_entity_in_db(conversation_client: "ConversationClient",
                     system_prompt_name=conversation_client.system_prompt_name)
 
         elif type_to_update is DataTypeInDB.CONTRACT:
-            contract = update_contract(**parsed_args)
+            valid_keys = inspect.signature(update_contract).parameters.keys()
+            filtered_args = {k: v for k, v in parsed_args.items() if k in valid_keys}
+            contract = update_contract(**filtered_args)
             id_contract = contract.get("id_contract")
 
             if contract:
@@ -347,7 +372,9 @@ def update_entity_in_db(conversation_client: "ConversationClient",
                     system_prompt_name=conversation_client.system_prompt_name)
 
         elif type_to_update is DataTypeInDB.APARTMENT:
-            apartment = update_apartment(**parsed_args)
+            valid_keys = inspect.signature(update_apartment).parameters.keys()
+            filtered_args = {k: v for k, v in parsed_args.items() if k in valid_keys}
+            apartment = update_apartment(**filtered_args)
             id_apartment = apartment.get("id_apartment")
             address = apartment.get("address")
 

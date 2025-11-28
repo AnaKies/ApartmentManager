@@ -63,6 +63,10 @@ class WriteActionsAssistant:
                 config=json_config,
                 contents=self.session_contents)
 
+            # Append the model's response to the session history
+            if response_content.candidates and response_content.candidates[0].content:
+                self.session_contents.append(response_content.candidates[0].content)
+
             try:
                 # Scenario 1: SDK has the parsed version of the answer, get it
                 llm_response = getattr(response_content, "parsed", None)
