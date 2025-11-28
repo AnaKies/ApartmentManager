@@ -3,9 +3,9 @@ from ApartmentManager.backend.AI_API.general.logger import log_error
 from ApartmentManager.backend.SQL_API.rental.rental_orm_models import PersonalData, Session, Apartment, Tenancy, Contract
 
 def delete_person(*, # make order of arguments not important, as the LLM can mix it
-                    first_name: str,
-                    last_name: str,
-                    id_personal_data: int) -> dict:
+                    first_name: str | None = None,
+                    last_name: str | None = None,
+                    id_personal_data: int | None = None) -> dict:
     """
     Deletes a person's record from the database based on provided identification
     or name details. Either a personal ID or both first and last names must be
@@ -83,8 +83,8 @@ def delete_person(*, # make order of arguments not important, as the LLM can mix
             session.close()
 
 def delete_apartment(*,
-                     address: str,
-                     id_apartment: int) -> dict:
+                     address: str | None = None,
+                 id_apartment: int | None = None) -> dict:
     session = None
 
     try:
@@ -137,9 +137,9 @@ def delete_apartment(*,
             session.close()
 
 def delete_tenancy(*,
-                   id_tenancy: int,
-                   id_apartment: int,
-                   id_tenant_personal_data: int) -> dict:
+                   id_tenancy: int | None = None,
+                   id_apartment: int | None = None,
+                   id_tenant_personal_data: int | None = None) -> dict:
     session = None
 
     try:
@@ -194,8 +194,7 @@ def delete_tenancy(*,
         if session:
             session.close()
 
-def delete_contract(*,
-                    id_contract: int) -> dict:
+def delete_contract(id_contract: int | None = None) -> dict:
     session = None
 
     try:

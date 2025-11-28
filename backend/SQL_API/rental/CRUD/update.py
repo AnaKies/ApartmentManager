@@ -3,21 +3,21 @@ from ApartmentManager.backend.AI_API.general.logger import log_error
 from ApartmentManager.backend.SQL_API.rental.rental_orm_models import PersonalData, Session, Apartment, Tenancy, Contract
 
 def update_person(
-                    old_first_name: str,
-                    old_last_name: str,
-                    id_personal_data: int,
-                    first_name: str,
-                    last_name: str,
-                    bank_data: str,
-                    phone_number: str,
-                    email: str,
-                    comment: str) -> dict:
+                    first_name: str | None = None,
+                    last_name: str | None = None,
+                    id_personal_data: int | None = None,
+                    new_first_name: str | None = None,
+                    new_last_name: str | None = None,
+                    new_bank_data: str | None = None,
+                    new_phone_number: str | None = None,
+                    new_email: str | None = None,
+                    new_comment: str | None = None) -> dict:
     session = None
 
     try:
         # Parameter validation rules
         id_given = id_personal_data not in (None, "")
-        name_given = old_first_name not in (None, "") and old_last_name not in (None, "")
+        name_given = first_name not in (None, "") and last_name not in (None, "")
 
         # If just one of both (first name and last name) are provided, and the ID is not provided
         if not id_given and not name_given:
@@ -32,8 +32,8 @@ def update_person(
             )
         else: # filter by first name and last name
             query = session.query(PersonalData).filter(
-                PersonalData.first_name == old_first_name,
-                PersonalData.last_name == old_last_name
+                PersonalData.first_name == first_name,
+                PersonalData.last_name == last_name
             )
 
         # try to get the person to update
@@ -43,23 +43,23 @@ def update_person(
             raise APIError(ErrorCode.SQL_SUCH_PERSON_DOES_NOT_EXIST)
 
         # update person with new data
-        if first_name not in (None, ""):
-            person.first_name = first_name
+        if new_first_name not in (None, ""):
+            person.first_name = new_first_name
 
-        if last_name not in (None, ""):
-            person.last_name = last_name
+        if new_last_name not in (None, ""):
+            person.last_name = new_last_name
 
-        if bank_data not in (None, ""):
-            person.bank_data = bank_data
+        if new_bank_data not in (None, ""):
+            person.bank_data = new_bank_data
 
-        if phone_number not in (None, ""):
-            person.phone_number = phone_number
+        if new_phone_number not in (None, ""):
+            person.phone_number = new_phone_number
 
-        if email not in (None, ""):
-            person.email = email
+        if new_email not in (None, ""):
+            person.email = new_email
 
-        if comment not in (None, ""):
-            person.comment = comment
+        if new_comment not in (None, ""):
+            person.comment = new_comment
 
         if person:
             # save the data of the person, that will be deleted in the next step
@@ -82,18 +82,18 @@ def update_person(
             session.close()
 
 def update_apartment(
-                    old_address: str,
-                    id_apartment: int,
-                    area: float,
-                    address: str,
-                    price_per_square_meter: float,
-                    utility_billing_provider_id: int) -> dict:
+                    address: str | None = None,
+                    id_apartment: int | None = None,
+                    new_area: float | None = None,
+                    new_address: str | None = None,
+                    new_price_per_square_meter: float | None = None,
+                    new_utility_billing_provider_id: int | None = None) -> dict:
     session = None
 
     try:
         # Parameter validation rules
         id_given = id_apartment not in (None, "")
-        address_given = old_address not in (None, "")
+        address_given = address not in (None, "")
 
         # If just one of both (first name and last name) are provided, and the ID is not provided
         if not id_given and not address_given:
@@ -108,7 +108,7 @@ def update_apartment(
             )
         else: # filter by first name and last name
             query = session.query(Apartment).filter(
-                Apartment.address == old_address
+                Apartment.address == address
             )
 
         # try to get the person to update
@@ -118,17 +118,17 @@ def update_apartment(
             raise APIError(ErrorCode.SQL_SUCH_APARTMENT_DOES_NOT_EXIST) # Assuming error code
 
         # update person with new data
-        if area not in (None, ""):
-            apartment.area = area
+        if new_area not in (None, ""):
+            apartment.area = new_area
 
-        if address not in (None, ""):
-            apartment.address = address
+        if new_address not in (None, ""):
+            apartment.address = new_address
 
-        if price_per_square_meter not in (None, ""):
-            apartment.price_per_square_meter = price_per_square_meter
+        if new_price_per_square_meter not in (None, ""):
+            apartment.price_per_square_meter = new_price_per_square_meter
 
-        if utility_billing_provider_id not in (None, ""):
-            apartment.utility_billing_provider_id = utility_billing_provider_id
+        if new_utility_billing_provider_id not in (None, ""):
+            apartment.utility_billing_provider_id = new_utility_billing_provider_id
 
         if apartment:
             # save the data of the person, that will be deleted in the next step
@@ -151,15 +151,15 @@ def update_apartment(
             session.close()
 
 def update_tenancy(
-                    id_tenancy: int,
-                    id_apartment: int,
-                    id_tenant_personal_data: int,
-                    id_contract: int,
-                    move_in_date: str,
-                    move_out_date: str,
-                    deposit: float,
-                    registered_address: str,
-                    comment: str) -> dict:
+                    id_tenancy: int | None = None,
+                    id_apartment: int | None = None,
+                    id_tenant_personal_data: int | None = None,
+                    id_contract: int | None = None,
+                    new_move_in_date: str | None = None,
+                    new_move_out_date: str | None = None,
+                    new_deposit: float | None = None,
+                    new_registered_address: str | None = None,
+                    new_comment: str | None = None) -> dict:
     session = None
 
     try:
@@ -193,20 +193,20 @@ def update_tenancy(
         if id_contract not in (None, ""):
             tenancy.id_contract = id_contract
 
-        if move_in_date not in (None, ""):
-            tenancy.move_in_date = move_in_date
+        if new_move_in_date not in (None, ""):
+            tenancy.move_in_date = new_move_in_date
 
-        if move_out_date not in (None, ""):
-            tenancy.move_out_date = move_out_date
+        if new_move_out_date not in (None, ""):
+            tenancy.move_out_date = new_move_out_date
 
-        if deposit not in (None, ""):
-            tenancy.deposit = deposit
+        if new_deposit not in (None, ""):
+            tenancy.deposit = new_deposit
 
-        if registered_address not in (None, ""):
-            tenancy.registered_address = registered_address
+        if new_registered_address not in (None, ""):
+            tenancy.registered_address = new_registered_address
 
-        if comment not in (None, ""):
-            tenancy.comment = comment
+        if new_comment not in (None, ""):
+            tenancy.comment = new_comment
 
         if tenancy:
             # save the data of the person, that will be deleted in the next step
@@ -229,13 +229,13 @@ def update_tenancy(
             session.close()
 
 def update_contract(
-                    id_contract: int,
-                    net_rent: float,
-                    utility_costs: float,
-                    vat: float,
-                    garage: float,
-                    parking_spot: float,
-                    comment: str) -> dict:
+                    id_contract: int | None = None,
+                    new_net_rent: float | None = None,
+                    new_utility_costs: float | None = None,
+                    new_vat: float | None = None,
+                    new_garage: float | None = None,
+                    new_parking_spot: float | None = None,
+                    new_comment: str | None = None) -> dict:
     session = None
 
     try:
@@ -260,23 +260,23 @@ def update_contract(
             raise APIError(ErrorCode.SQL_SUCH_CONTRACT_DOES_NOT_EXIST) # Assuming error code
 
         # update person with new data
-        if net_rent not in (None, ""):
-            contract.net_rent = net_rent
+        if new_net_rent not in (None, ""):
+            contract.net_rent = new_net_rent
 
-        if utility_costs not in (None, ""):
-            contract.utility_costs = utility_costs
+        if new_utility_costs not in (None, ""):
+            contract.utility_costs = new_utility_costs
 
-        if vat not in (None, ""):
-            contract.vat = vat
+        if new_vat not in (None, ""):
+            contract.vat = new_vat
 
-        if garage not in (None, ""):
-            contract.garage = garage
+        if new_garage not in (None, ""):
+            contract.garage = new_garage
 
-        if parking_spot not in (None, ""):
-            contract.parking_spot = parking_spot
+        if new_parking_spot not in (None, ""):
+            contract.parking_spot = new_parking_spot
 
-        if comment not in (None, ""):
-            contract.comment = comment
+        if new_comment not in (None, ""):
+            contract.comment = new_comment
 
         if contract:
             # save the data of the person, that will be deleted in the next step

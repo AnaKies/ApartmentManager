@@ -9,7 +9,7 @@ if typing.TYPE_CHECKING:
 from ApartmentManager.backend.AI_API.ai_clients.gemini.crud_intent_assistant import CrudIntentAssistant
 from ApartmentManager.backend.AI_API.ai_clients.gemini.function_call_assistant import FunctionCallAssistant
 from ApartmentManager.backend.AI_API.general.envelopes.envelopes_business_logic \
-    import get_json_schema, validate_model, CollectData
+    import get_json_schema, validate_model, CollectCreate
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
 from ApartmentManager.backend.AI_API.general.logger import log_error
 

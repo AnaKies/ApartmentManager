@@ -6,3 +6,6 @@ requests
 werkzeug
 sqlalchemy
 google.genai
+phonenumbers
+pydantic_extra_types
+pydantic[email]

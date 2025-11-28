@@ -285,6 +285,8 @@ DELETE_ENTITY_PROMPT = {
       "Treat 'identifier_fields' as a set of alternative identifier options. Each option is a list of field names that, when all are filled, uniquely identifies one entity.",
       "At the beginning, if no identifier values have been provided yet, briefly explain to the user that there are multiple ways to identify the entity, "
       "based on the options described in 'identifier_fields' (for example, one option may require a single field, another option may require two fields). "
+      "Use natural language. Do NOT mention data types (e.g. 'string', 'integer') unless the user provides a value that is clearly invalid. "
+      "When mentioning field names, ALWAYS convert them to human-readable text by replacing underscores with spaces (e.g., 'first_name' -> 'first name'). "
       "Invite the user to choose one of these options.",
       "Once the user starts providing values for one or more fields, infer which identifier option from 'identifier_fields' best matches the fields they are using, "
       "and focus on completing that option.",
@@ -343,6 +345,8 @@ CREATE_ENTITY_PROMPT = {
 
       # Field collection logic
       "At start: show all fields from payload_template to the user (mentioning which are required and which are optional). "
+      "Use natural language for field names. Do NOT mention data types (e.g. 'string', 'integer', 'float') unless the user provides a value that is clearly invalid (e.g. text for a numeric field). "
+      "When mentioning field names, ALWAYS convert them to human-readable text by replacing underscores with spaces (e.g., 'price_per_square_meter' -> 'price per square meter'). "
       "Ask explicitly for required_fields first, then offer optional ones.",
       "Treat any later user message as an amendment to fields (even after confirmation). Update the fields with the new values. If a field already has a value, replace it with the new one. Do NOT concatenate values.",
 
@@ -410,7 +414,9 @@ UPDATE_ENTITY_PROMPT = {
 
       # STEP 2 — Show and collect update fields
       "After the person is identified, show which fields CAN be updated. "
-      "List only the update fields from payload_template (for example: first_name, last_name, bank_data, phone_number, email, comment).",
+      "List only the update fields from payload_template (for example: first_name, last_name, bank_data, phone_number, email, comment). "
+      "Use natural language. Do NOT mention data types (e.g. 'string', 'integer') unless the user provides a value that is clearly invalid. "
+      "When mentioning field names, ALWAYS convert them to human-readable text by replacing underscores with spaces (e.g., 'phone_number' -> 'phone number').",
       "Ask the user which of these fields they want to change and what the new values should be.",
       "If the user writes a short phrase that clearly combines a field name and a value (for example: 'first name Markus', "
       "'last name Müller', 'email test@example.com'), interpret this as BOTH selecting the field AND giving the new value "

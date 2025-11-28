@@ -1,8 +1,12 @@
 import inspect
 import typing
+from typing import Any
+from pydantic import BaseModel
+
 from ApartmentManager.backend.AI_API.general.json_serialisation import dumps_for_llm_prompt
 from ApartmentManager.backend.AI_API.general.envelopes.envelopes_business_logic \
-    import CrudIntentModel, DataTypeInDB, CollectData, get_json_schema, validate_model
+    import DataTypeInDB, validate_model, get_json_schema, PersonDelete, TenancyDelete, ContractDelete, ApartmentDelete, \
+    PersonUpdate, TenancyUpdate, ContractUpdate, ApartmentUpdate
 from ApartmentManager.backend.AI_API.general.logger import log_error
 from ApartmentManager.backend.AI_API.general.prompting import Prompt
 from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
@@ -10,6 +14,13 @@ from ApartmentManager.backend.SQL_API.rental.CRUD.create import create_person, c
 from ApartmentManager.backend.SQL_API.rental.CRUD.delete import delete_person, delete_apartment, delete_tenancy, delete_contract
 from ApartmentManager.backend.SQL_API.rental.CRUD.update import update_person, update_apartment, update_tenancy, update_contract
 from ApartmentManager.backend.SQL_API.rental.rental_orm_models import PersonalData, Contract, Tenancy, Apartment
+from ApartmentManager.backend.AI_API.general.envelopes.envelopes_business_logic import (
+    CollectCreate,
+    PersonCreate,
+    TenancyCreate,
+    ContractCreate,
+    ApartmentCreate,
+)
 
 # TYPE_CHECKING import is used to avoid circular imports at runtime.
 # At runtime this block is skipped, but type checkers see it and provide
@@ -23,31 +34,81 @@ from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIEr
 
 
 def write_action_to_entity(conversation_client: "ConversationClient") -> (EnvelopeApi, bool):
-    # generates a system prompt with fields injection depending on the CRUD analysis
-    if conversation_client.crud_intent_answer.delete.value:
-        conversation_client.system_prompt = generate_prompt_to_delete_entity(conversation_client)
-
-    elif conversation_client.crud_intent_answer.create.value:
-        conversation_client.system_prompt = generate_prompt_to_create_entity(conversation_client)
-
-    elif conversation_client.crud_intent_answer.update.value:
-        conversation_client.system_prompt = generate_prompt_to_update_entity(conversation_client)
 
     db_entity_data = collect_missing_entity_data(conversation_client)
+
     envelope_api, ready = call_db_or_collect_missing_data(conversation_client, db_entity_data)
 
     return envelope_api, ready
 
+def get_data_model_for_crud_answer(conversation_client: "ConversationClient") -> type[BaseModel] | None:
+    crud_intent = conversation_client.crud_intent_answer
 
-def collect_missing_entity_data(conversation_client: "ConversationClient") -> CollectData:
+    if crud_intent.create.value:
+        conversation_client.system_prompt = Prompt.CREATE_ENTITY
+        type_crud = crud_intent.create.type
+
+        if type_crud == DataTypeInDB.PERSON:
+            return CollectCreate[PersonCreate]
+        if type_crud == DataTypeInDB.TENANCY:
+            return CollectCreate[TenancyCreate]
+        if type_crud == DataTypeInDB.CONTRACT:
+            return CollectCreate[ContractCreate]
+        if type_crud == DataTypeInDB.APARTMENT:
+            return CollectCreate[ApartmentCreate]
+
+    elif crud_intent.delete.value:
+        conversation_client.system_prompt = Prompt.DELETE_ENTITY
+        type_crud = crud_intent.delete.type
+
+        if type_crud == DataTypeInDB.PERSON:
+            return CollectCreate[PersonDelete]
+        if type_crud == DataTypeInDB.TENANCY:
+            return CollectCreate[TenancyDelete]
+        if type_crud == DataTypeInDB.CONTRACT:
+            return CollectCreate[ContractDelete]
+        if type_crud == DataTypeInDB.APARTMENT:
+            return CollectCreate[ApartmentDelete]
+
+    elif crud_intent.update.value:
+        conversation_client.system_prompt = Prompt.UPDATE_ENTITY
+        type_crud = crud_intent.update.type
+
+        if type_crud == DataTypeInDB.PERSON:
+            return CollectCreate[PersonUpdate]
+        if type_crud == DataTypeInDB.TENANCY:
+            return CollectCreate[TenancyUpdate]
+        if type_crud == DataTypeInDB.CONTRACT:
+            return CollectCreate[ContractUpdate]
+        if type_crud == DataTypeInDB.APARTMENT:
+            return CollectCreate[ApartmentUpdate]
+
+        return None
+    return None
+
+
+def collect_missing_entity_data(conversation_client: "ConversationClient") -> CollectCreate[Any]:
     # Do the LLM call to collect the additional data for creating an entry
     # and get the user's confirmation for them.
     # Multiple conversation cycles logic.
-    json_schema = get_json_schema(CollectData)
-    db_entity_dict = conversation_client.llm_client.write_actions_assistant.do_llm_call(conversation_client, json_schema)
-    db_entity = validate_model(CollectData, db_entity_dict)
-    # First, open the standard envelope of the structured output service (result, payload)
-    # Inside in the payload there is a custom envelope for entity creation (ready_to_post, data, comment)
+
+    pydantic_model = get_data_model_for_crud_answer(conversation_client)
+
+    if pydantic_model is None:
+        trace_id = log_error(ErrorCode.NOT_ALLOWED_NAME_FOR_ENTITY)
+        raise APIError(ErrorCode.NOT_ALLOWED_NAME_FOR_ENTITY, trace_id)
+
+    json_schema = get_json_schema(pydantic_model)
+
+    db_entity_dict = conversation_client.llm_client.write_actions_assistant.do_llm_call(
+                                                                    conversation_client,
+                                                                    json_schema)
+
+    raw_entity = validate_model(pydantic_model, db_entity_dict)
+
+    # solves the problems with returned generic data types
+    db_entity = typing.cast(CollectCreate[Any], raw_entity)
+
     if not db_entity:
         trace_id = log_error(ErrorCode.NO_RESPONSE_FOR_DELETE_OPERATION)
         raise APIError(ErrorCode.NO_RESPONSE_FOR_CREATE_OPERATION, trace_id)
@@ -56,7 +117,7 @@ def collect_missing_entity_data(conversation_client: "ConversationClient") -> Co
 
 
 def call_db_or_collect_missing_data(conversation_client: "ConversationClient",
-                                    entity_data: CollectData) -> (EnvelopeApi, bool):
+                                    entity_data: CollectCreate) -> (EnvelopeApi, bool):
     result = None
     try:
         # Backend calls the SQL layer to delete an entry
@@ -400,138 +461,3 @@ def update_entity_in_db(conversation_client: "ConversationClient",
     except Exception as error:
         trace_id = log_error(ErrorCode.ERROR_UPDATE_ENTITY_IN_DB, exception=error)
         raise APIError(ErrorCode.ERROR_UPDATE_ENTITY_IN_DB, trace_id) from error
-
-
-def generate_prompt_to_delete_entity(conversation_client: "ConversationClient") -> str | None:
-    """
-    Analyzes the CRUD intent for creation of an entity (person, contract ect.)
-    and generates a system prompt containing dynamic fields for an entity.
-    :param conversation_client:
-    :param crud_intent: Dictionary containing which CRUD operations that should be done.
-    When an operation is "DELETE" = True, then which entity should be created.
-    :return: System prompt extended with fields
-    """
-    json_system_prompt = None
-    try:
-        # Analyze the CRUD intention and inject appropriates fields into the prompt for CREATE operation
-        type_of_data = conversation_client.crud_intent_answer.delete.type
-
-        if type_of_data is DataTypeInDB.PERSON:
-            required_fields = PersonalData.required_fields_to_delete()
-
-        elif type_of_data is DataTypeInDB.CONTRACT:
-            required_fields = Contract.required_fields_to_delete()
-
-        elif type_of_data is DataTypeInDB.TENANCY:
-            required_fields = Tenancy.required_fields_to_delete()
-
-        elif type_of_data is DataTypeInDB.APARTMENT:
-            required_fields = Apartment.required_fields_to_delete()
-
-        else:
-            trace_id = log_error(ErrorCode.NOT_ALLOWED_NAME_FOR_ENTITY)
-            raise APIError(ErrorCode.NOT_ALLOWED_NAME_FOR_ENTITY, trace_id)
-
-        if required_fields:
-            # Inject the class fields in a prompt
-            system_prompt = prompting.inject_fields_to_delete_in_prompt(required_fields)
-            conversation_client.system_prompt_name = Prompt.DELETE_ENTITY.name
-
-            json_system_prompt = dumps_for_llm_prompt(system_prompt)
-        return json_system_prompt
-
-    except APIError:
-        raise
-    except Exception as error:
-        trace_id = log_error(ErrorCode.ERROR_INJECTING_FIELDS_TO_DELETE_PROMPT, exception=error)
-        raise APIError(ErrorCode.ERROR_INJECTING_FIELDS_TO_DELETE_PROMPT, trace_id) from error
-
-
-def generate_prompt_to_create_entity(conversation_client: "ConversationClient") -> str | None:
-    """
-    Analyzes the CRUD intent for creation of an entity (person, contract ect.)
-    and generates a system prompt containing dynamic fields for an entity.
-    :param conversation_client:
-    :return: System prompt extended with fields
-    """
-    json_system_prompt = None
-    try:
-        #Analyze the CRUD intention and inject appropriates fields into the prompt for CREATE operation
-        type_of_data = conversation_client.crud_intent_answer.create.type
-
-        if type_of_data is DataTypeInDB.PERSON:
-            all_fields = PersonalData.fields_dict()
-            required_fields = PersonalData.required_fields_to_create()
-
-        elif type_of_data is DataTypeInDB.CONTRACT:
-            all_fields = Contract.fields_dict()
-            required_fields = Contract.required_fields_to_create()
-
-        elif type_of_data is DataTypeInDB.TENANCY:
-            all_fields = Tenancy.fields_dict()
-            required_fields = Tenancy.required_fields_to_create()
-
-        elif type_of_data is DataTypeInDB.APARTMENT:
-            all_fields = Apartment.fields_dict()
-            required_fields = Apartment.required_fields_to_create()
-
-        else:
-            trace_id = log_error(ErrorCode.NOT_ALLOWED_NAME_FOR_ENTITY)
-            raise APIError(ErrorCode.NOT_ALLOWED_NAME_FOR_ENTITY, trace_id)
-
-        if all_fields:
-            # Inject the class fields in a prompt
-            system_prompt = prompting.inject_fields_to_create_in_prompt(all_fields, required_fields)
-            conversation_client.system_prompt_name = Prompt.CREATE_ENTITY.name
-
-            json_system_prompt = dumps_for_llm_prompt(system_prompt)
-        return json_system_prompt
-
-    except APIError:
-        raise
-    except Exception as error:
-        trace_id = log_error(ErrorCode.ERROR_INJECTING_FIELDS_TO_CREATE_PROMPT, exception=error)
-        raise APIError(ErrorCode.ERROR_INJECTING_FIELDS_TO_CREATE_PROMPT, trace_id) from error
-
-
-def generate_prompt_to_update_entity(conversation_client: "ConversationClient") -> str | None:
-    """
-    Analyzes the CRUD intent for creation of an entity (person, contract ect.)
-    and generates a system prompt containing dynamic fields for an entity.
-    :param conversation_client:
-    :return: System prompt extended with fields
-    """
-    json_system_prompt = None
-    try:
-        #Analyze the CRUD intention and inject appropriates fields into the prompt for CREATE operation
-        type_of_data = conversation_client.crud_intent_answer.update.type
-
-        if type_of_data is DataTypeInDB.PERSON:
-            all_fields = PersonalData.fields_dict_for_update()
-
-        elif type_of_data is DataTypeInDB.CONTRACT:
-            all_fields = Contract.fields_dict_for_update()
-
-        elif type_of_data is DataTypeInDB.TENANCY:
-            all_fields = Tenancy.fields_dict_for_update()
-
-        elif type_of_data is DataTypeInDB.APARTMENT:
-            all_fields = Apartment.fields_dict_for_update()
-
-        else:
-            trace_id = log_error(ErrorCode.NOT_ALLOWED_NAME_FOR_ENTITY)
-            raise APIError(ErrorCode.NOT_ALLOWED_NAME_FOR_ENTITY, trace_id)
-
-        if all_fields:
-            # Inject the class fields in a prompt
-            system_prompt = prompting.inject_fields_to_update_in_prompt(all_fields)
-            conversation_client.system_prompt_name = Prompt.UPDATE_ENTITY.name
-
-            json_system_prompt = dumps_for_llm_prompt(system_prompt)
-        return json_system_prompt
-
-    except APIError:
-        raise
-    except Exception as error:
-        trace_id = log_error(ErrorCode.ERROR_INJECTING_FIELDS_TO_UPDATE_PROMPT, exception=error)
-        raise APIError(ErrorCode.ERROR_INJECTING_FIELDS_TO_UPDATE_PROMPT, trace_id) from error
