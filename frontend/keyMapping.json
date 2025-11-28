@@ -1,0 +1,41 @@
+{
+    "Apartment": {
+        "id_apartment": "ID apartment",
+        "area": "Area",
+        "address": "Address",
+        "price_per_square_meter": "Price per square meter",
+        "utility_billing_provider_id": "Utility billing provider ID",
+        "old_address": "Old address"
+    },
+    "Tenancy": {
+        "id_tenancy": "ID tenancy",
+        "id_apartment": "ID apartment",
+        "id_tenant_personal_data": "ID tenant personal data",
+        "id_contract": "ID contract",
+        "move_in_date": "Move in date",
+        "move_out_date": "Move out date",
+        "deposit": "Deposit",
+        "registered_address": "Registered address",
+        "comment": "Comment"
+    },
+    "PersonalData": {
+        "id_personal_data": "ID personal data",
+        "first_name": "First name",
+        "last_name": "Last name",
+        "bank_data": "Bank data",
+        "phone_number": "Phone number",
+        "email": "Email",
+        "old_first_name": "Old first name",
+        "old_last_name": "Old last name",
+        "comment": "Comment"
+    },
+    "Contract": {
+        "id_contract": "ID contract",
+        "net_rent": "Net rent",
+        "utility_costs": "Utility costs",
+        "vat": "VAT",
+        "garage": "Garage",
+        "parking_spot": "Parking spot",
+        "comment": "Comment"
+    }
+}

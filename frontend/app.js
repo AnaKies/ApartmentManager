@@ -65,7 +65,7 @@ function renderBasicMarkdown(text) {
   return html;
 }
 
-function JsonViewerPanel({ dataEnvelope }) {
+function JsonViewerPanel({ dataEnvelope, keyMapping }) {
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState('tree');
   const [visibleCount, setVisibleCount] = useState(100);
@@ -198,7 +198,10 @@ function JsonViewerPanel({ dataEnvelope }) {
   const getSchemaTitle = sch => (sch && typeof sch.title === 'string' && sch.title.trim()) ? sch.title : null;
   const getItemsSchema = sch => (sch && sch.items) ? sch.items : null;
   const getObjectProperties = sch => (sch && sch.properties) ? sch.properties : null;
-  const getLabelForKey = (key, objSchema) => getPropertyTitle(objSchema, key) || key;
+  const getLabelForKey = (key, objSchema) => {
+    if (keyMapping && keyMapping[key]) return keyMapping[key];
+    return getPropertyTitle(objSchema, key) || key;
+  };
 
   function renderLeafRow(keyLabel, value, depth) {
     const typeClass = getValueTypeClass(value);
@@ -758,6 +761,23 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [modal, setModal] = useState({ open: false, title: '', message: '' });
   const [viewMode, setViewMode] = useState('chat'); // 'chat' or 'classical'
+  const [keyMapping, setKeyMapping] = useState({});
+
+  useEffect(() => {
+    fetch('/keyMapping.json')
+      .then(res => res.json())
+      .then(data => {
+        // Flatten the nested structure (grouped by ORM table) into a single mapping object
+        const flatMapping = {};
+        Object.values(data).forEach(group => {
+          if (typeof group === 'object' && group !== null) {
+            Object.assign(flatMapping, group);
+          }
+        });
+        setKeyMapping(flatMapping);
+      })
+      .catch(err => console.error('Failed to load key mapping', err));
+  }, []);
 
   function addMessage(role, content, isError = false, source = null, llmModel = null, traceId = null, envelopeType = null) {
     setMessages(prev => [...prev, { role, content, isError, source, llmModel, traceId, envelopeType }]);
@@ -940,7 +960,7 @@ function App() {
     ),
     viewMode === 'chat'
       ? React.createElement('main', { className: 'content' },
-        React.createElement('section', { className: 'panel' }, React.createElement(JsonViewerPanel, { dataEnvelope })),
+        React.createElement('section', { className: 'panel' }, React.createElement(JsonViewerPanel, { dataEnvelope, keyMapping })),
         React.createElement('section', { className: 'panel' }, React.createElement(ChatPanel, { onSend: sendToApi, messages, loading }))
       )
       : React.createElement('main', { className: 'content classical-mode' }, React.createElement(ClassicalModeRoot)),

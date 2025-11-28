@@ -42,6 +42,7 @@ def initialize():
 
     # register routes/error handlers defined on the both blueprints
     flask_app.register_blueprint(public_bp)
+    # for all endpoints, that calls the backend and not the frontend
     flask_app.register_blueprint(internal_bp, url_prefix='/internal')
 
     return flask_app

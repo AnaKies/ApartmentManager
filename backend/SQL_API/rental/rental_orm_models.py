@@ -21,7 +21,7 @@ Rental_Base = declarative_base()
 class Apartment(Rental_Base):
     __tablename__ = "apartment"
     # manual id for fixed number of apartments
-    id_apartment = Column(Integer, primary_key=True, autoincrement=False)
+    id_apartment = Column(Integer, primary_key=True, autoincrement=True)
     area = Column(Float)
     address = Column(String)
     price_per_square_meter = Column(Float)
@@ -106,6 +106,7 @@ class Tenancy(Rental_Base):
                 f"move_in_date={self.move_in_date}, "
                 f"move_out_date={self.move_out_date}, "
                 f"deposit={self.deposit}, "
+                f"registered_address={self.registered_address}, "
                 f"comment={self.comment})")
 
     def to_dict(self):
@@ -117,6 +118,7 @@ class Tenancy(Rental_Base):
             "move_in_date": self.move_in_date,
             "move_out_date": self.move_out_date,
             "deposit": self.deposit,
+            "registered_address": self.registered_address,
             "comment": self.comment
         }
 
@@ -133,6 +135,7 @@ class Tenancy(Rental_Base):
             "move_in_date": None,
             "move_out_date": None,
             "deposit": None,
+            "registered_address": None,
             "comment": None
         }
 
@@ -140,6 +143,7 @@ class Tenancy(Rental_Base):
     def required_fields_to_create():
         return {
             "move_in_date": None,
+            "registered_address": None,
         }
 
     @staticmethod

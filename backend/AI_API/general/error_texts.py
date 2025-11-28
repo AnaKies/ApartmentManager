@@ -80,11 +80,12 @@ class ErrorCode(Enum):
     NOT_ALLOWED_NAME_TO_CHECK_ENTITY_TO_DELETE = (1617, "Not allowed name to check entity to delete.")
     NOT_ALLOWED_NAME_TO_CHECK_ENTITY_TO_CREATE = (1618, "Not allowed name to check entity to create.")
     NOT_ALLOWED_NAME_TO_CHECK_ENTITY_TO_SHOW = (1619, "Not allowed name to check entity to show.")
-    TYPE_ERROR_SHOWING_ENTRY = (1620, "That data type can not be shown, because it is not covered in the databank.")
+    TYPE_ERROR_SHOWING_ENTRY = (1620, "Databank returned empty result.")
 
     # Flask error
     FLASK_ERROR_HTTP_REQUEST_INPUT_MUST_BY_JSON = (2007, "HTTP request must have the JSON type")
     FLASK_ERROR_USER_QUESTION_IS_NOT_STRING = (2008, "User question is not a string")
+    FLASK_ERROR_NO_PATH_PROVIDED = (2009, "No path provided")
 
     # Generic glue / parsing
     ERROR_PARSING_CRUD_INTENT_RESPONSE = (3001, "Failed parsing CRUD intent response.")

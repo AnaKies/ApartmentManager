@@ -14,8 +14,10 @@ def make_restful_api_post(path: str, payload: dict) -> requests.Response:
     """
     try:
         if not path:
-            raise ValueError("No path provided")
+            trace_id = log_error(ErrorCode.FLASK_ERROR_NO_PATH_PROVIDED)
+            raise APIError(ErrorCode.FLASK_ERROR_NO_PATH_PROVIDED, trace_id)
 
+        # f. e.  url = f"http://{HOST}:{PORT}/internal{path}"
         url = f"http://{HOST}:{PORT}/internal{path}"
 
         response = requests.post(
@@ -43,6 +45,9 @@ def make_restful_api_get(path: str) -> dict | None:
     :return: Data JSON response from the endpoint RESTFUL API.
     """
     try:
+        # call the internal endpoint to get the data from the database
+        # GET  http://HOST:PORT/internal/apartments
+        # GET  http://HOST:PORT/internal/contract
         url = f"http://{HOST}:{PORT}/internal{path}"
 
         # get response from the endpoint of RESTful API
