@@ -19,7 +19,7 @@ The rental database manages the core business logic: apartments, tenants, contra
     *   **Foreign Keys:**
         *   `id_apartment` references `Apartment(id_apartment)`
         *   `id_tenant_personal_data` references `PersonalData(id_personal_data)`
-        *   `id_rent_data` references `Contract(id_rent_data)`
+        *   `id_contract` references `Contract(id_contract)`
     *   **Description:** Represents a specific rental period, linking an apartment, a tenant, and a contract.
 
 3.  **PersonalData**
@@ -28,8 +28,8 @@ The rental database manages the core business logic: apartments, tenants, contra
     *   **Description:** Stores personal information about tenants.
 
 4.  **Contract**
-    *   **Table Name:** `rent_data`
-    *   **Primary Key:** `id_rent_data`
+    *   **Table Name:** `contract`
+    *   **Primary Key:** `id_contract`
     *   **Description:** Stores financial details of the rental agreement (rent, utilities, etc.).
 
 ### Entity Relationship Diagram
@@ -52,7 +52,7 @@ erDiagram
         int id_tenancy PK
         int id_apartment FK
         int id_tenant_personal_data FK
-        int id_rent_data FK
+        int id_contract FK
         string move_in_date
         string move_out_date
         float deposit
@@ -71,7 +71,7 @@ erDiagram
     }
 
     Contract {
-        int id_rent_data PK
+        int id_contract PK
         float net_rent
         float utility_costs
         float vat

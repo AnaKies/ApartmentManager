@@ -156,7 +156,7 @@ def remove_entity_from_db(conversation_client: "ConversationClient",
 
         elif type_to_delete is DataTypeInDB.CONTRACT:
             contract = delete_contract(**parsed_args)
-            id_contract = contract.get("id_rent_data")
+            id_contract = contract.get("id_contract")
 
             if contract:
                 result = build_text_answer(message=f"Contract with ID {id_contract} was deleted successfully.",
@@ -248,7 +248,7 @@ def place_entity_in_db(conversation_client: "ConversationClient",
             contract_created_data = create_contract(**parsed_args)
 
             if contract_created_data:
-                id_contract = contract_created_data.get("id_rent_data")
+                id_contract = contract_created_data.get("id_contract")
                 result = build_text_answer(message=f"Contract with ID {id_contract} was created successfully.",
                                            model=conversation_client.model_name,
                                            answer_source=AnswerSource.BACKEND)
@@ -333,7 +333,7 @@ def update_entity_in_db(conversation_client: "ConversationClient",
 
         elif type_to_update is DataTypeInDB.CONTRACT:
             contract = update_contract(**parsed_args)
-            id_contract = contract.get("id_rent_data")
+            id_contract = contract.get("id_contract")
 
             if contract:
                 result = build_text_answer(message=f"Contract with ID {id_contract} was updated successfully.",

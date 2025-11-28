@@ -75,9 +75,9 @@ These endpoints are intended for internal use and provide direct access to the d
 
 Retrieves a JSON list of all tenancy records.
 
-#### `GET /rent_data`
+#### `GET /contract`
 
-Retrieves a JSON list of all rent data records.
+Retrieves a JSON list of all contract records.
 
 #### `GET /persons`
 

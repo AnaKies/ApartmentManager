@@ -8,7 +8,7 @@ GET_FUNCTION_CALL_PROMPT = {
   "instructions": {
     "purpose": "Decide whether the user's request requires a GET call to the apartment rental REST API.",
     "focus": "Answer only the user's latest request. Use session history only to resolve references; do not re prior listings unless explicitly asked.",
-    "endpoints": ["/apartments", "/tenancies", "/persons", "/rent_data"],
+    "endpoints": ["/apartments", "/tenancies", "/persons", "/contract"],
 
     "rules": {
       "GET": {
@@ -79,7 +79,7 @@ POST_FUNCTION_CALL_PROMPT = {
       "action_sequence": [
         "If all required fields are present → show payload.",
         "Ask for confirmation.",
-        "After confirmation → POST /rent_data."
+        "After confirmation → POST /contract."
       ]
     }
   ]

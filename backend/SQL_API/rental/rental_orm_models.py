@@ -90,7 +90,7 @@ class Tenancy(Rental_Base):
     id_tenancy = Column(Integer, primary_key=True, autoincrement=True)
     id_apartment = Column(Integer)
     id_tenant_personal_data = Column(Integer)
-    id_rent_data = Column(Integer)
+    id_contract = Column(Integer)
     move_in_date = Column(String)
     move_out_date = Column(String)
     deposit = Column(Float)
@@ -102,7 +102,7 @@ class Tenancy(Rental_Base):
                 f"id_tenancy={self.id_tenancy}, "
                 f"id_apartment={self.id_apartment}, "
                 f"id_tenant_personal_data={self.id_tenant_personal_data}, "
-                f"id_rent_data={self.id_rent_data}, "
+                f"id_contract={self.id_contract}, "
                 f"move_in_date={self.move_in_date}, "
                 f"move_out_date={self.move_out_date}, "
                 f"deposit={self.deposit}, "
@@ -113,7 +113,7 @@ class Tenancy(Rental_Base):
             "id_tenancy": self.id_tenancy,
             "id_apartment": self.id_apartment,
             "id_tenant_personal_data": self.id_tenant_personal_data,
-            "id_rent_data": self.id_rent_data,
+            "id_contract": self.id_contract,
             "move_in_date": self.move_in_date,
             "move_out_date": self.move_out_date,
             "deposit": self.deposit,
@@ -129,7 +129,7 @@ class Tenancy(Rental_Base):
         return {
             "id_apartment": None,
             "id_tenant_personal_data": None,
-            "id_rent_data": None,
+            "id_contract": None,
             "move_in_date": None,
             "move_out_date": None,
             "deposit": None,
@@ -153,7 +153,7 @@ class Tenancy(Rental_Base):
             "id_tenancy": None,
             "id_apartment": None,
             "id_tenant_personal_data": None,
-            "id_rent_data": None,
+            "id_contract": None,
             "move_in_date": None,
             "move_out_date": None,
             "deposit": None,
@@ -246,9 +246,9 @@ class PersonalData(Rental_Base):
                 "second_possibility": ["first_name", "last_name"]}
 
 class Contract(Rental_Base):
-    __tablename__ = "rent_data"
+    __tablename__ = "contract"
     # automatically autoincrement for infinity number of rents
-    id_rent_data = Column(Integer, primary_key=True, autoincrement=True)
+    id_contract = Column(Integer, primary_key=True, autoincrement=True)
     net_rent = Column(Float)
     utility_costs = Column(Float)
     vat = Column(Float)
@@ -257,8 +257,8 @@ class Contract(Rental_Base):
     comment = Column(String)
 
     def __repr__(self):
-        return (f"Apartment ("
-                f"id_rent_data={self.id_rent_data}, "
+        return (f"Contract ("
+                f"id_contract={self.id_contract}, "
                 f"net_rent={self.net_rent}, "
                 f"utility_costs={self.utility_costs}, "
                 f"vat={self.vat}, "
@@ -268,7 +268,7 @@ class Contract(Rental_Base):
 
     def to_dict(self):
         return {
-            "id_rent_data": self.id_rent_data,
+            "id_contract": self.id_contract,
             "net_rent": self.net_rent,
             "utility_costs": self.utility_costs,
             "vat": self.vat,
@@ -306,7 +306,7 @@ class Contract(Rental_Base):
         :return: Dictionary with all fields needed for update_contract() function
         """
         return {
-            "id_rent_data": None,
+            "id_contract": None,
             "net_rent": None,
             "utility_costs": None,
             "vat": None,
@@ -317,4 +317,4 @@ class Contract(Rental_Base):
 
     @staticmethod
     def required_fields_to_delete():
-        return {"first_possibility": "id_rent_data"}
+        return {"first_possibility": "id_contract"}

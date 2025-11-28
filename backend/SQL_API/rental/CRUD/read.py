@@ -134,9 +134,9 @@ def get_contract() -> list[Contract]:
     session = None
     try:
         session = Session()
-        rent_data = session.query(Contract).all()
+        contracts = session.query(Contract).all()
 
-        return rent_data
+        return contracts
 
     except Exception as error:
         if session:
@@ -204,15 +204,15 @@ def get_single_tenancy(*, id_tenancy: int = None) -> Tenancy:
         if session:
             session.close()
 
-def get_single_contract(*, id_rent_data: int = None) -> Contract:
+def get_single_contract(*, id_contract: int = None) -> Contract:
     session = None
     try:
         session = Session()
         query = session.query(Contract)
         filters = []
 
-        if id_rent_data not in (None, "", 0):
-            filters.append(Contract.id_rent_data == id_rent_data)
+        if id_contract not in (None, "", 0):
+            filters.append(Contract.id_contract == id_contract)
 
         if not filters:
             trace_id = log_error(ErrorCode.SQL_NO_FIELDS_PROVIDED_FOR_GET_SINGLE_CONTRACT) # Assuming error code

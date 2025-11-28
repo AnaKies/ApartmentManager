@@ -154,7 +154,7 @@ def update_tenancy(
                     id_tenancy: int,
                     id_apartment: int,
                     id_tenant_personal_data: int,
-                    id_rent_data: int,
+                    id_contract: int,
                     move_in_date: str,
                     move_out_date: str,
                     deposit: float,
@@ -190,8 +190,8 @@ def update_tenancy(
         if id_tenant_personal_data not in (None, ""):
             tenancy.id_tenant_personal_data = id_tenant_personal_data
 
-        if id_rent_data not in (None, ""):
-            tenancy.id_rent_data = id_rent_data
+        if id_contract not in (None, ""):
+            tenancy.id_contract = id_contract
 
         if move_in_date not in (None, ""):
             tenancy.move_in_date = move_in_date
@@ -229,7 +229,7 @@ def update_tenancy(
             session.close()
 
 def update_contract(
-                    id_rent_data: int,
+                    id_contract: int,
                     net_rent: float,
                     utility_costs: float,
                     vat: float,
@@ -240,7 +240,7 @@ def update_contract(
 
     try:
         # Parameter validation rules
-        id_given = id_rent_data not in (None, "")
+        id_given = id_contract not in (None, "")
 
         # If just one of both (first name and last name) are provided, and the ID is not provided
         if not id_given:
@@ -250,7 +250,7 @@ def update_contract(
 
         # filter by personal ID
         query = session.query(Contract).filter(
-            Contract.id_rent_data == id_rent_data
+            Contract.id_contract == id_contract
         )
 
         # try to get the person to update

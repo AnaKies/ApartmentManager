@@ -109,15 +109,15 @@ def get_tenancies():
     return jsonify(tenancies_to_json)
 
 
-@internal_bp.route('/rent_data', methods=['GET'])
+@internal_bp.route('/contract', methods=['GET'])
 def get_contract():
     """
-     Returns a JSON list of rent_data.
+     Returns a JSON list of contracts.
     :return:
     """
-    rent_data = read_sql.get_contract()
-    rent_data_to_json = [data.to_dict() for data in rent_data]
-    return jsonify(rent_data_to_json)
+    contracts = read_sql.get_contract()
+    contracts_to_json = [data.to_dict() for data in contracts]
+    return jsonify(contracts_to_json)
 
 
 @internal_bp.route('/persons', methods=['GET'])

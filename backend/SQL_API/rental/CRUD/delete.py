@@ -195,12 +195,12 @@ def delete_tenancy(*,
             session.close()
 
 def delete_contract(*,
-                    id_rent_data: int) -> dict:
+                    id_contract: int) -> dict:
     session = None
 
     try:
         # Parameter validation rules
-        id_given = id_rent_data not in (None, "")
+        id_given = id_contract not in (None, "")
 
         if not id_given:
             raise APIError(ErrorCode.SQL_PARAMETER_ERROR_DELETING_ENTRY)
@@ -208,7 +208,7 @@ def delete_contract(*,
         session = Session()
 
         query = session.query(Contract).filter(
-            Contract.id_rent_data == id_rent_data
+            Contract.id_contract == id_contract
         )
 
         # try to get the person to delete
