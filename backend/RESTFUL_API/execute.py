@@ -16,7 +16,7 @@ def make_restful_api_post(path: str, payload: dict) -> requests.Response:
         if not path:
             raise ValueError("No path provided")
 
-        url = f"http://{HOST}:{PORT}{path}"
+        url = f"http://{HOST}:{PORT}/internal{path}"
 
         response = requests.post(
             url=url,
@@ -43,7 +43,7 @@ def make_restful_api_get(path: str) -> dict | None:
     :return: Data JSON response from the endpoint RESTFUL API.
     """
     try:
-        url = f"http://{HOST}:{PORT}{path}"
+        url = f"http://{HOST}:{PORT}/internal{path}"
 
         # get response from the endpoint of RESTful API
         response = requests.get(url, timeout=10)
