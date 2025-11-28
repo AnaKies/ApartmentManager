@@ -64,6 +64,22 @@ class Apartment(Rental_Base):
         }
 
     @staticmethod
+    def fields_dict_for_update():
+        """
+        Used to get all fields required for updating an apartment.
+        Includes both identifier fields (to find the apartment) and update fields (to update the apartment).
+        :return: Dictionary with all fields needed for update_apartment() function
+        """
+        return {
+            "old_address": None,
+            "id_apartment": None,
+            "area": None,
+            "address": None,
+            "price_per_square_meter": None,
+            "utility_billing_provider_id": None
+        }
+
+    @staticmethod
     def required_fields_to_delete():
         return {"first_possibility": ["id_apartment"],
                 "second_possibility": ["address"]}
@@ -124,6 +140,25 @@ class Tenancy(Rental_Base):
     def required_fields_to_create():
         return {
             "move_in_date": None,
+        }
+
+    @staticmethod
+    def fields_dict_for_update():
+        """
+        Used to get all fields required for updating a tenancy.
+        Includes both identifier fields (to find the tenancy) and update fields (to update the tenancy).
+        :return: Dictionary with all fields needed for update_tenancy() function
+        """
+        return {
+            "id_tenancy": None,
+            "id_apartment": None,
+            "id_tenant_personal_data": None,
+            "id_rent_data": None,
+            "move_in_date": None,
+            "move_out_date": None,
+            "deposit": None,
+            "registered_address": None,
+            "comment": None
         }
 
     @staticmethod
@@ -261,6 +296,23 @@ class Contract(Rental_Base):
     def required_fields_to_create():
         return {
             "net_rent": None,
+        }
+
+    @staticmethod
+    def fields_dict_for_update():
+        """
+        Used to get all fields required for updating a contract.
+        Includes both identifier fields (to find the contract) and update fields (to update the contract).
+        :return: Dictionary with all fields needed for update_contract() function
+        """
+        return {
+            "id_rent_data": None,
+            "net_rent": None,
+            "utility_costs": None,
+            "vat": None,
+            "garage": None,
+            "parking_spot": None,
+            "comment": None
         }
 
     @staticmethod

@@ -146,3 +146,87 @@ def get_contract() -> list[Contract]:
     finally:
         if session:
             session.close()
+
+def get_single_apartment(*, address: str = None, id_apartment: int = None) -> Apartment:
+    session = None
+    try:
+        session = Session()
+        query = session.query(Apartment)
+        filters = []
+
+        if id_apartment not in (None, "", 0):
+            filters.append(Apartment.id_apartment == id_apartment)
+        
+        if address:
+            filters.append(Apartment.address == address)
+
+        if not filters:
+            trace_id = log_error(ErrorCode.SQL_NO_FIELDS_PROVIDED_FOR_GET_SINGLE_APARTMENT) # Assuming error code
+            raise APIError(ErrorCode.SQL_NO_FIELDS_PROVIDED_FOR_GET_SINGLE_APARTMENT, trace_id)
+
+        apartment = query.filter(*filters).one()
+        return apartment
+    except APIError:
+        raise
+    except Exception as error:
+        if session:
+            session.rollback()
+        trace_id = log_error(ErrorCode.SQL_ERROR_READING_SINGLE_APARTMENT, error) # Assuming error code
+        raise APIError(ErrorCode.SQL_ERROR_READING_SINGLE_APARTMENT, trace_id) from error
+    finally:
+        if session:
+            session.close()
+
+def get_single_tenancy(*, id_tenancy: int = None) -> Tenancy:
+    session = None
+    try:
+        session = Session()
+        query = session.query(Tenancy)
+        filters = []
+
+        if id_tenancy not in (None, "", 0):
+            filters.append(Tenancy.id_tenancy == id_tenancy)
+
+        if not filters:
+            trace_id = log_error(ErrorCode.SQL_NO_FIELDS_PROVIDED_FOR_GET_SINGLE_TENANCY) # Assuming error code
+            raise APIError(ErrorCode.SQL_NO_FIELDS_PROVIDED_FOR_GET_SINGLE_TENANCY, trace_id)
+
+        tenancy = query.filter(*filters).one()
+        return tenancy
+    except APIError:
+        raise
+    except Exception as error:
+        if session:
+            session.rollback()
+        trace_id = log_error(ErrorCode.SQL_ERROR_READING_SINGLE_TENANCY, error) # Assuming error code
+        raise APIError(ErrorCode.SQL_ERROR_READING_SINGLE_TENANCY, trace_id) from error
+    finally:
+        if session:
+            session.close()
+
+def get_single_contract(*, id_rent_data: int = None) -> Contract:
+    session = None
+    try:
+        session = Session()
+        query = session.query(Contract)
+        filters = []
+
+        if id_rent_data not in (None, "", 0):
+            filters.append(Contract.id_rent_data == id_rent_data)
+
+        if not filters:
+            trace_id = log_error(ErrorCode.SQL_NO_FIELDS_PROVIDED_FOR_GET_SINGLE_CONTRACT) # Assuming error code
+            raise APIError(ErrorCode.SQL_NO_FIELDS_PROVIDED_FOR_GET_SINGLE_CONTRACT, trace_id)
+
+        contract = query.filter(*filters).one()
+        return contract
+    except APIError:
+        raise
+    except Exception as error:
+        if session:
+            session.rollback()
+        trace_id = log_error(ErrorCode.SQL_ERROR_READING_SINGLE_CONTRACT, error) # Assuming error code
+        raise APIError(ErrorCode.SQL_ERROR_READING_SINGLE_CONTRACT, trace_id) from error
+    finally:
+        if session:
+            session.close()

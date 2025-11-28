@@ -1,4 +1,4 @@
-from ApartmentManager.backend.SQL_API.rental.rental_orm_models import Session, PersonalData
+from ApartmentManager.backend.SQL_API.rental.rental_orm_models import Session, PersonalData, Apartment, Tenancy, Contract
 from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
 from ApartmentManager.backend.AI_API.general.logger import log_error
 
@@ -70,10 +70,142 @@ def create_person(first_name: str,
     session.add_all(personal_data)
 
 
-res = create_person(first_name="Olga" ,
+    res = create_person(first_name="Olga" ,
                     last_name="Ivanova",
                     bank_data="RU34567",
                     phone_number="+7235890",
                     email="olga.ivanova@mail.ru",
                     comment="new tenant from oktober")
     """
+
+def create_apartment(area: float,
+                     address: str,
+                     price_per_square_meter: float,
+                     utility_billing_provider_id: int) -> dict:
+    session = None
+    try:
+        session = Session()
+
+        apartment = Apartment(
+            area=area,
+            address=address,
+            price_per_square_meter=price_per_square_meter,
+            utility_billing_provider_id=utility_billing_provider_id
+        )
+
+        required_params = address not in (None, "")
+
+        if not required_params:
+            raise APIError(ErrorCode.SQL_PARAMETER_ERROR_CREATING_NEW_APARTMENT) # Assuming this error code exists or I should use a generic one
+
+        session.add(apartment)
+        session.flush()
+        apartment_data = apartment.to_dict()
+        session.commit()
+
+        return apartment_data
+
+    except APIError:
+        if session:
+            session.rollback()
+        raise
+    except Exception as error:
+        if session:
+            session.rollback()
+        trace_id = log_error(ErrorCode.SQL_ERROR_CREATING_ENTRY_FOR_NEW_APARTMENT, error) # Assuming error code
+        raise APIError(ErrorCode.SQL_ERROR_CREATING_ENTRY_FOR_NEW_APARTMENT, trace_id) from error
+    finally:
+        if session:
+            session.close()
+
+def create_tenancy(id_apartment: int,
+                   id_tenant_personal_data: int,
+                   id_rent_data: int,
+                   move_in_date: str,
+                   move_out_date: str,
+                   deposit: float,
+                   registered_address: str,
+                   comment: str) -> dict:
+    session = None
+    try:
+        session = Session()
+
+        tenancy = Tenancy(
+            id_apartment=id_apartment,
+            id_tenant_personal_data=id_tenant_personal_data,
+            id_rent_data=id_rent_data,
+            move_in_date=move_in_date,
+            move_out_date=move_out_date,
+            deposit=deposit,
+            registered_address=registered_address,
+            comment=comment
+        )
+
+        required_params = move_in_date not in (None, "")
+
+        if not required_params:
+            raise APIError(ErrorCode.SQL_PARAMETER_ERROR_CREATING_NEW_TENANCY)
+
+        session.add(tenancy)
+        session.flush()
+        tenancy_data = tenancy.to_dict()
+        session.commit()
+
+        return tenancy_data
+
+    except APIError:
+        if session:
+            session.rollback()
+        raise
+    except Exception as error:
+        if session:
+            session.rollback()
+        trace_id = log_error(ErrorCode.SQL_ERROR_CREATING_ENTRY_FOR_NEW_TENANCY, error)
+        raise APIError(ErrorCode.SQL_ERROR_CREATING_ENTRY_FOR_NEW_TENANCY, trace_id) from error
+    finally:
+        if session:
+            session.close()
+
+def create_contract(net_rent: float,
+                    utility_costs: float,
+                    vat: float,
+                    garage: float,
+                    parking_spot: float,
+                    comment: str) -> dict:
+    session = None
+    try:
+        session = Session()
+
+        contract = Contract(
+            net_rent=net_rent,
+            utility_costs=utility_costs,
+            vat=vat,
+            garage=garage,
+            parking_spot=parking_spot,
+            comment=comment
+        )
+
+        required_params = net_rent not in (None, "")
+
+        if not required_params:
+            raise APIError(ErrorCode.SQL_PARAMETER_ERROR_CREATING_NEW_CONTRACT)
+
+        session.add(contract)
+        session.flush()
+        contract_data = contract.to_dict()
+        session.commit()
+
+        return contract_data
+
+    except APIError:
+        if session:
+            session.rollback()
+        raise
+    except Exception as error:
+        if session:
+            session.rollback()
+        trace_id = log_error(ErrorCode.SQL_ERROR_CREATING_ENTRY_FOR_NEW_CONTRACT, error)
+        raise APIError(ErrorCode.SQL_ERROR_CREATING_ENTRY_FOR_NEW_CONTRACT, trace_id) from error
+    finally:
+        if session:
+            session.close()

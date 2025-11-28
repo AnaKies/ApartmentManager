@@ -6,9 +6,9 @@ from ApartmentManager.backend.AI_API.general.envelopes.envelopes_business_logic 
 from ApartmentManager.backend.AI_API.general.logger import log_error
 from ApartmentManager.backend.AI_API.general.prompting import Prompt
 from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entry
-from ApartmentManager.backend.SQL_API.rental.CRUD.create import create_person
-from ApartmentManager.backend.SQL_API.rental.CRUD.delete import delete_person
-from ApartmentManager.backend.SQL_API.rental.CRUD.update import update_person
+from ApartmentManager.backend.SQL_API.rental.CRUD.create import create_person, create_apartment, create_tenancy, create_contract
+from ApartmentManager.backend.SQL_API.rental.CRUD.delete import delete_person, delete_apartment, delete_tenancy, delete_contract
+from ApartmentManager.backend.SQL_API.rental.CRUD.update import update_person, update_apartment, update_tenancy, update_contract
 from ApartmentManager.backend.SQL_API.rental.rental_orm_models import PersonalData, Contract, Tenancy, Apartment
 
 # TYPE_CHECKING import is used to avoid circular imports at runtime.
@@ -71,7 +71,7 @@ def call_db_or_collect_missing_data(conversation_client: "ConversationClient",
                 result = place_entity_in_db(conversation_client, parsed_args)
 
             elif conversation_client.crud_intent_answer.update.value:
-                result = update_person_in_db(conversation_client, parsed_args)
+                result = update_entity_in_db(conversation_client, parsed_args)
 
             ready = True
 
@@ -139,16 +139,53 @@ def remove_entity_from_db(conversation_client: "ConversationClient",
                 )
 
         elif type_to_delete is DataTypeInDB.TENANCY:
-            trace_id = log_error(ErrorCode.WARNING_NOT_IMPLEMENTED)
-            raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED, trace_id)
+            tenancy = delete_tenancy(**parsed_args)
+            id_tenancy = tenancy.get("id_tenancy")
+
+            if tenancy:
+                result = build_text_answer(message=f"Tenancy with ID {id_tenancy} was deleted successfully.",
+                                           model=conversation_client.model_name,
+                                           answer_source=AnswerSource.BACKEND)
+                create_new_log_entry(
+                    llm_model=conversation_client.model_name,
+                    user_question=conversation_client.user_question or "---",
+                    backend_response=result.model_dump_json(),
+                    llm_answer="---",
+                    system_prompt_name=conversation_client.system_prompt_name
+                )
 
         elif type_to_delete is DataTypeInDB.CONTRACT:
-            trace_id = log_error(ErrorCode.WARNING_NOT_IMPLEMENTED)
-            raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED, trace_id)
+            contract = delete_contract(**parsed_args)
+            id_contract = contract.get("id_rent_data")
+
+            if contract:
+                result = build_text_answer(message=f"Contract with ID {id_contract} was deleted successfully.",
+                                           model=conversation_client.model_name,
+                                           answer_source=AnswerSource.BACKEND)
+                create_new_log_entry(
+                    llm_model=conversation_client.model_name,
+                    user_question=conversation_client.user_question or "---",
+                    backend_response=result.model_dump_json(),
+                    llm_answer="---",
+                    system_prompt_name=conversation_client.system_prompt_name
+                )
 
         elif type_to_delete is DataTypeInDB.APARTMENT:
-            trace_id = log_error(ErrorCode.WARNING_NOT_IMPLEMENTED)
-            raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED, trace_id)
+            apartment = delete_apartment(**parsed_args)
+            id_apartment = apartment.get("id_apartment")
+            address = apartment.get("address")
+
+            if apartment:
+                result = build_text_answer(message=f"Apartment at {address} with ID {id_apartment} was deleted successfully.",
+                                           model=conversation_client.model_name,
+                                           answer_source=AnswerSource.BACKEND)
+                create_new_log_entry(
+                    llm_model=conversation_client.model_name,
+                    user_question=conversation_client.user_question or "---",
+                    backend_response=result.model_dump_json(),
+                    llm_answer="---",
+                    system_prompt_name=conversation_client.system_prompt_name
+                )
 
         else:
             trace_id = log_error(ErrorCode.NOT_ALLOWED_NAME_TO_CHECK_ENTITY_TO_DELETE)
@@ -192,16 +229,53 @@ def place_entity_in_db(conversation_client: "ConversationClient",
                 )
 
         elif type_to_create is DataTypeInDB.TENANCY:
-            trace_id = log_error(ErrorCode.WARNING_NOT_IMPLEMENTED)
-            raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED, trace_id)
+            tenancy_created_data = create_tenancy(**parsed_args)
+
+            if tenancy_created_data:
+                id_tenancy = tenancy_created_data.get("id_tenancy")
+                result = build_text_answer(message=f"Tenancy with ID {id_tenancy} was created successfully.",
+                                           model=conversation_client.model_name,
+                                           answer_source=AnswerSource.BACKEND)
+                create_new_log_entry(
+                    llm_model=conversation_client.model_name,
+                    user_question=conversation_client.user_question or "---",
+                    backend_response=result.model_dump_json(),
+                    llm_answer="---",
+                    system_prompt_name=conversation_client.system_prompt_name
+                )
 
         elif type_to_create is DataTypeInDB.CONTRACT:
-            trace_id = log_error(ErrorCode.WARNING_NOT_IMPLEMENTED)
-            raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED, trace_id)
+            contract_created_data = create_contract(**parsed_args)
+
+            if contract_created_data:
+                id_contract = contract_created_data.get("id_rent_data")
+                result = build_text_answer(message=f"Contract with ID {id_contract} was created successfully.",
+                                           model=conversation_client.model_name,
+                                           answer_source=AnswerSource.BACKEND)
+                create_new_log_entry(
+                    llm_model=conversation_client.model_name,
+                    user_question=conversation_client.user_question or "---",
+                    backend_response=result.model_dump_json(),
+                    llm_answer="---",
+                    system_prompt_name=conversation_client.system_prompt_name
+                )
 
         elif type_to_create is DataTypeInDB.APARTMENT:
-            trace_id = log_error(ErrorCode.WARNING_NOT_IMPLEMENTED)
-            raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED, trace_id)
+            apartment_created_data = create_apartment(**parsed_args)
+
+            if apartment_created_data:
+                id_apartment = apartment_created_data.get("id_apartment")
+                address = apartment_created_data.get("address")
+                result = build_text_answer(message=f"Apartment at {address} with ID {id_apartment} was created successfully.",
+                                           model=conversation_client.model_name,
+                                           answer_source=AnswerSource.BACKEND)
+                create_new_log_entry(
+                    llm_model=conversation_client.model_name,
+                    user_question=conversation_client.user_question or "---",
+                    backend_response=result.model_dump_json(),
+                    llm_answer="---",
+                    system_prompt_name=conversation_client.system_prompt_name
+                )
 
         else:
             trace_id = log_error(ErrorCode.NOT_ALLOWED_NAME_TO_CHECK_ENTITY_TO_CREATE)
@@ -214,7 +288,7 @@ def place_entity_in_db(conversation_client: "ConversationClient",
         raise APIError(ErrorCode.ERROR_PLACE_ENTITY_TO_DB, trace_id) from error
 
 
-def update_person_in_db(conversation_client: "ConversationClient",
+def update_entity_in_db(conversation_client: "ConversationClient",
                         parsed_args: dict) -> EnvelopeApi:
     result = None
     try:
@@ -243,16 +317,50 @@ def update_person_in_db(conversation_client: "ConversationClient",
                     system_prompt_name=conversation_client.system_prompt_name)
 
         elif type_to_update is DataTypeInDB.TENANCY:
-            trace_id = log_error(ErrorCode.WARNING_NOT_IMPLEMENTED)
-            raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED, trace_id)
+            tenancy = update_tenancy(**parsed_args)
+            id_tenancy = tenancy.get("id_tenancy")
+
+            if tenancy:
+                result = build_text_answer(message=f"Tenancy with ID {id_tenancy} was updated successfully.",
+                                           model=conversation_client.model_name,
+                                           answer_source=AnswerSource.BACKEND)
+                create_new_log_entry(
+                    llm_model=conversation_client.model_name,
+                    user_question=conversation_client.user_question or "---",
+                    backend_response=result.model_dump_json(),
+                    llm_answer="---",
+                    system_prompt_name=conversation_client.system_prompt_name)
 
         elif type_to_update is DataTypeInDB.CONTRACT:
-            trace_id = log_error(ErrorCode.WARNING_NOT_IMPLEMENTED)
-            raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED, trace_id)
+            contract = update_contract(**parsed_args)
+            id_contract = contract.get("id_rent_data")
+
+            if contract:
+                result = build_text_answer(message=f"Contract with ID {id_contract} was updated successfully.",
+                                           model=conversation_client.model_name,
+                                           answer_source=AnswerSource.BACKEND)
+                create_new_log_entry(
+                    llm_model=conversation_client.model_name,
+                    user_question=conversation_client.user_question or "---",
+                    backend_response=result.model_dump_json(),
+                    llm_answer="---",
+                    system_prompt_name=conversation_client.system_prompt_name)
 
         elif type_to_update is DataTypeInDB.APARTMENT:
-            trace_id = log_error(ErrorCode.WARNING_NOT_IMPLEMENTED)
-            raise APIError(ErrorCode.WARNING_NOT_IMPLEMENTED, trace_id)
+            apartment = update_apartment(**parsed_args)
+            id_apartment = apartment.get("id_apartment")
+            address = apartment.get("address")
+
+            if apartment:
+                result = build_text_answer(message=f"Apartment at {address} with ID {id_apartment} was updated successfully.",
+                                           model=conversation_client.model_name,
+                                           answer_source=AnswerSource.BACKEND)
+                create_new_log_entry(
+                    llm_model=conversation_client.model_name,
+                    user_question=conversation_client.user_question or "---",
+                    backend_response=result.model_dump_json(),
+                    llm_answer="---",
+                    system_prompt_name=conversation_client.system_prompt_name)
 
         else:
             trace_id = log_error(ErrorCode.NOT_ALLOWED_NAME_TO_CHECK_ENTITY_TO_DELETE)
@@ -375,13 +483,13 @@ def generate_prompt_to_update_entity(conversation_client: "ConversationClient") 
             all_fields = PersonalData.fields_dict_for_update()
 
         elif type_of_data is DataTypeInDB.CONTRACT:
-            all_fields = Contract.fields_dict()
+            all_fields = Contract.fields_dict_for_update()
 
         elif type_of_data is DataTypeInDB.TENANCY:
-            all_fields = Tenancy.fields_dict()
+            all_fields = Tenancy.fields_dict_for_update()
 
         elif type_of_data is DataTypeInDB.APARTMENT:
-            all_fields = Apartment.fields_dict()
+            all_fields = Apartment.fields_dict_for_update()
 
         else:
             trace_id = log_error(ErrorCode.NOT_ALLOWED_NAME_FOR_ENTITY)
