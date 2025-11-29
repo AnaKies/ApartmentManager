@@ -13,24 +13,21 @@ from ApartmentManager.backend.SQL_API.logs.create_log import create_new_log_entr
 from ApartmentManager.backend.SQL_API.rental.CRUD.create import create_person, create_apartment, create_tenancy, create_contract
 from ApartmentManager.backend.SQL_API.rental.CRUD.delete import delete_person, delete_apartment, delete_tenancy, delete_contract
 from ApartmentManager.backend.SQL_API.rental.CRUD.update import update_person, update_apartment, update_tenancy, update_contract
-from ApartmentManager.backend.SQL_API.rental.rental_orm_models import PersonalData, Contract, Tenancy, Apartment
+from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
 from ApartmentManager.backend.AI_API.general.envelopes.envelopes_business_logic import (
     CollectCreate,
     PersonCreate,
     TenancyCreate,
     ContractCreate,
-    ApartmentCreate,
-)
+    ApartmentCreate,)
 
 # TYPE_CHECKING import is used to avoid circular imports at runtime.
 # At runtime this block is skipped, but type checkers see it and provide
 # autocompletion and static type analysis for ConversationClient.
 if typing.TYPE_CHECKING:
     from ApartmentManager.backend.AI_API.general.conversation_client import ConversationClient
-from ApartmentManager.backend.AI_API.general import prompting
 from ApartmentManager.backend.AI_API.general.envelopes.envelopes_api import build_text_answer, AnswerSource, \
     EnvelopeApi
-from ApartmentManager.backend.AI_API.general.error_texts import ErrorCode, APIError
 
 
 def write_action_to_entity(conversation_client: "ConversationClient") -> (EnvelopeApi, bool):

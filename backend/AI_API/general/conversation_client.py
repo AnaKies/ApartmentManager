@@ -85,8 +85,8 @@ class ConversationClient:
                 self.crud_intent_answer.delete.value):
 
                 # Replace "NEW" markers with actual UUIDs (only for create/update/delete)
-                for op_type in ["create", "update", "delete"]:
-                    operation = getattr(self.crud_intent_answer, op_type)
+                for operation_type in ["create", "update", "delete"]:
+                    operation = getattr(self.crud_intent_answer, operation_type)
                     if operation.value and operation.operation_id == "NEW":
                         operation.operation_id = str(uuid.uuid4())[:8]
 

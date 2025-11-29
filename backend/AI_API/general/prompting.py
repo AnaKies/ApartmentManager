@@ -261,19 +261,15 @@ CRUD_INTENT_PROMPT = {
 DELETE_ENTITY_PROMPT = {
   "role": "system",
   "instructions": {
-    # Dynamically injected list of valid identifier sets.
-    # e.g., [["id"], ["full_name"], ["first_name", "last_name"]]
-    "identifier_fields": None,
-
     "task": (
-      "Identify a single entity for deletion using one of the allowed identifier sets. "
+      "Identify a single entity for deletion. "
       "Respond with a single JSON object: {ready_to_delete: bool, data: object, comment: str}. "
       "Do not perform or mention API calls. Do not delete the record yourself."
     ),
 
     "principles": [
       # Data Sourcing
-      "Use only: (a) payload_template, (b) the user's latest message, and (c) recent dialogue context. Never invent values.",
+      "Use only: (a) the user's latest message, and (b) recent dialogue context. Never invent values.",
 
       # Context reasoning (short-term contextual memory)
       "When reasoning about which identifiers or entities the user refers to (for example, 'that one', 'this person', 'no', 'yes'), "
@@ -282,24 +278,14 @@ DELETE_ENTITY_PROMPT = {
       "about specific identifiers or candidate entities.",
 
       # Identification Logic
-      "Treat 'identifier_fields' as a set of alternative identifier options. Each option is a list of field names that, when all are filled, uniquely identifies one entity.",
-      "At the beginning, if no identifier values have been provided yet, briefly explain to the user that there are multiple ways to identify the entity, "
-      "based on the options described in 'identifier_fields' (for example, one option may require a single field, another option may require two fields). "
+      "Collect the minimum data to uniquely identify one entity, while keeping the data object structurally complete.",
       "Use natural language. Do NOT mention data types (e.g. 'string', 'integer') unless the user provides a value that is clearly invalid. "
-      "When mentioning field names, ALWAYS convert them to human-readable text by replacing underscores with spaces (e.g., 'first_name' -> 'first name'). "
-      "Invite the user to choose one of these options.",
-      "Once the user starts providing values for one or more fields, infer which identifier option from 'identifier_fields' best matches the fields they are using, "
-      "and focus on completing that option.",
-      "Collect the minimum data to uniquely identify one person (one complete identifier option), while keeping the data object structurally complete.",
-      "The 'data' object must include all field names that appear in any identifier option from 'identifier_fields' (or in payload_template, if provided).",
-      "For every field that the user has not filled or that belongs to a non-chosen identifier option, return it with an empty string value \"\".",
-      "An entity is considered identified if all fields of at least one identifier option from 'identifier_fields' are filled.",
+      "When mentioning field names, ALWAYS convert them to human-readable text by replacing underscores with spaces (e.g., 'first_name' -> 'first name'). ",
 
       # User Interaction
-      "If the user's message doesn't provide a valid identifier set, ask for one in the 'comment' (for example, by explaining the available options).",
-      "If the user has partially filled one identifier option (for example, provided only one of several fields), ask specifically for the missing fields of that same option.",
-      "If conflicting identifiers are given (for example, values that correspond to different identifier options or that are inconsistent), ask for clarification and set ready_to_delete=false.",
-      "If a valid identifier option is already complete and the user declines to provide any further details, "
+      "If the user's message doesn't provide a valid identifier, ask for one in the 'comment'.",
+      "If conflicting identifiers are given, ask for clarification and set ready_to_delete=false.",
+      "If a valid identifier is already complete and the user declines to provide any further details, "
       "keep the existing data object and move toward explicit confirmation instead of treating this as a cancellation.",
 
       # Dialogue Flow
@@ -308,12 +294,12 @@ DELETE_ENTITY_PROMPT = {
       "A refusal to add more identifiers or details must NOT be interpreted as a cancellation of the deletion process.",
 
       # Deletion Readiness
-      "Set ready_to_delete=true only after (1) at least one identifier option from 'identifier_fields' is fully collected and (2) the user gives explicit confirmation (e.g., 'yes, delete').",
-      "When ready_to_delete=true, the 'comment' should  which entity will be deleted, without asking a question.",
+      "Set ready_to_delete=true only after (1) the entity is fully identified and (2) the user gives explicit confirmation (e.g., 'yes, delete').",
+      "When ready_to_delete=true, the 'comment' should state which entity will be deleted, without asking a question.",
 
       # Cancellation
       "Treat the deletion process as canceled only if the user clearly expresses that they want to stop or change the task entirely. "
-      "In that case, set ready_to_delete=false and  in the 'comment' that the operation was aborted."
+      "In that case, set ready_to_delete=false and state in the 'comment' that the operation was aborted."
     ]
   }
 }
@@ -322,11 +308,8 @@ DELETE_ENTITY_PROMPT = {
 CREATE_ENTITY_PROMPT = {
   "role": "system",
   "instructions": {
-    "payload_template": None,          # dynamically injected: fields of the entity being created
-    "required_fields": None,
-
     "task": (
-      "Collect data for a new entity strictly according to payload_template. "
+      "Collect data for a new entity. "
       "Always respond with ONE JSON object matching the provided JSON Schema "
       "(keys: ready_to_post:boolean, data:object, comment:string). "
       "Do NOT perform or mention any API/tool calls, and do NOT create the record yourself."
@@ -334,7 +317,7 @@ CREATE_ENTITY_PROMPT = {
 
     "principles": [
       # Source of truth
-      "Use ONLY: (a) payload_template, (b) the user's latest turn, (c) the context of this dialogue. Never invent values.",
+      "Use ONLY: (a) the user's latest turn, (b) the context of this dialogue. Never invent values.",
 
       # Context reasoning (short-term contextual memory)
       "When reasoning about which fields the user refers to (for example, 'leave them empty' or 'add this value'), "
@@ -344,22 +327,21 @@ CREATE_ENTITY_PROMPT = {
       "If the user starts describing a new person, object, or entity, treat it as a fresh collection and do not reuse previous data.",
 
       # Field collection logic
-      "At start: show all fields from payload_template to the user (mentioning which are required and which are optional). "
-      "Use natural language for field names. Do NOT mention data types (e.g. 'string', 'integer', 'float') unless the user provides a value that is clearly invalid (e.g. text for a numeric field). "
+      "Use natural language for field names. Do NOT mention data types (e.g. 'string', 'integer', 'float') unless the user provides a value that is clearly invalid. "
       "When mentioning field names, ALWAYS convert them to human-readable text by replacing underscores with spaces (e.g., 'price_per_square_meter' -> 'price per square meter'). "
-      "Ask explicitly for required_fields first, then offer optional ones.",
+      "Ask explicitly for required fields first, then offer optional ones.",
       "Treat any later user message as an amendment to fields (even after confirmation). Update the fields with the new values. If a field already has a value, replace it with the new one. Do NOT concatenate values.",
 
       # New rule – required done, optional skipped
-      "If all required_fields are already collected and the user indicates they do not want to fill optional fields "
+      "If all required fields are already collected and the user indicates they do not want to fill optional fields "
       "(e.g., 'no', 'none', 'leave them empty', or similar expressions), "
       "the assistant must keep the optional fields empty and proceed toward the confirmation stage, "
       "not treat this as a cancellation of the creation process.",
 
       # Readiness conditions
-      "Required_fields must be non-empty to become ready. Optional fields can stay empty if the user explicitly says so.",
+      "Required fields must be non-empty to become ready. Optional fields can stay empty if the user explicitly says so.",
       "ready_to_post=false until the user gives an explicit, unambiguous confirmation (e.g. 'yes', 'confirm') without new data afterward.",
-      "When ready_to_post=true, summarize collected data in 'comment' and  that you are sending them for backend processing (no question).",
+      "When ready_to_post=true, summarize collected data in 'comment' and state that you are sending them for backend processing (no question).",
 
       # Language and brevity
       "Keep 'comment' brief and in the user's language. No prose outside JSON.",
@@ -374,19 +356,17 @@ CREATE_ENTITY_PROMPT = {
 UPDATE_ENTITY_PROMPT = {
   "role": "system",
   "instructions": {
-    "payload_template": None,
-
     "task": (
-      "Collect update data for an existing entity strictly according to payload_template. "
+      "Collect update data for an existing entity. "
       "Return ONE JSON object: {ready:boolean, data:object, comment:string}. "
-      "The 'data' object must be a flat dictionary matching ALL keys from payload_template. "
+      "The 'data' object must be a flat dictionary matching the update schema. "
       "Do NOT mention or perform any API/tool calls. Do NOT switch to a 'create new entity' flow."
     ),
 
     "principles": [
 
       # Source of truth
-      "Use only: (a) payload_template, (b) the user's latest turn, (c) the dialogue context. Never invent values.",
+      "Use only: (a) the user's latest turn, (b) the dialogue context. Never invent values.",
 
       # Conversation style
       "All wording shown to the user must be natural and human-like. "
@@ -399,22 +379,18 @@ UPDATE_ENTITY_PROMPT = {
       "Do NOT switch to any other intent (create, show, delete, general QA) until ready becomes true or the user explicitly "
       "cancels the update task.",
 
-      # STEP 1 — Identify the person
-      "First, identify which person the user wants to update. There are three allowed identification options:\n"
-      "  • their ID (id_personal_data),\n"
-      "  • their last name only,\n"
-      "  • their first name AND last name together.\n"
-      "In your FIRST identification question you MUST explicitly offer ALL THREE options in one sentence, for example:\n"
-      "  'Please tell me their ID, or their last name, or their first and last name, so I can identify the person you want to update.'\n"
+      # STEP 1 — Identify the entity
+      "First, identify which entity the user wants to update based on the available identification fields in the schema.",
+      "In your FIRST identification question you MUST explicitly offer the available identification options.",
       "Only after the user has chosen one of these options may you continue by asking follow-up questions within that chosen option.",
       "Do not use any 'old_' prefixes when talking to the user.",
-      "Once one of these options is complete, treat the person as identified and move on to collecting update fields.",
-      "If after several clarifications you still cannot reliably identify the person, tell the user that you cannot find a unique match "
+      "Once one of these options is complete, treat the entity as identified and move on to collecting update fields.",
+      "If after several clarifications you still cannot reliably identify the entity, tell the user that you cannot find a unique match "
       "and explicitly ask them for an ID or a clearer description instead of looping.",
 
       # STEP 2 — Show and collect update fields
-      "After the person is identified, show which fields CAN be updated. "
-      "List only the update fields from payload_template (for example: first_name, last_name, bank_data, phone_number, email, comment). "
+      "After the entity is identified, show which fields CAN be updated. "
+      "List only the update fields from the schema. "
       "Use natural language. Do NOT mention data types (e.g. 'string', 'integer') unless the user provides a value that is clearly invalid. "
       "When mentioning field names, ALWAYS convert them to human-readable text by replacing underscores with spaces (e.g., 'phone_number' -> 'phone number').",
       "Ask the user which of these fields they want to change and what the new values should be.",
@@ -433,7 +409,7 @@ UPDATE_ENTITY_PROMPT = {
       # Readiness, confirmation, and cancellation
       "The JSON field 'ready' must reflect the state of the update flow:\n"
       "- Set ready=false while you are still collecting identifier and/or update fields.\n"
-      "- Once a person is identified (by ID, last name, or first+last name) AND at least one update field has a non-empty value, "
+      "- Once an entity is identified AND at least one update field has a non-empty value, "
       "summarize the planned changes and explicitly ask the user to confirm the EXECUTION.\n"
       "- IMPORTANT: Your confirmation question MUST be unambiguous about writing data. Use phrases like: "
       "'Do you want to execute this update?', 'Shall I save these changes now?', or 'Are you ready to apply this update?'. "
@@ -473,54 +449,10 @@ def inject_feedback(feedback: (EnvelopeApi, bool), operation_id: str = None, int
 
   if operation_id:
     combined_prompt["feedback"]["operation_id"] = operation_id
-  
+
   if interrupted_operations:
     combined_prompt["feedback"]["interrupted_operations"] = interrupted_operations
 
   system_prompt = dumps_for_llm_prompt(combined_prompt)
 
-  return system_prompt
-
-
-def inject_fields_to_delete_in_prompt(fields_combination) -> str:
-  # create a copy and do not touch the originals
-  combined_prompt = copy.deepcopy(Prompt.DELETE_ENTITY.value)
-
-  if fields_combination:
-    combined_prompt["instructions"]["identifier_fields"] = fields_combination
-
-  system_prompt = dumps_for_llm_prompt(combined_prompt)
-  return system_prompt
-
-
-def inject_fields_to_create_in_prompt(class_fields, required_fields) -> str:
-  """
-  Adds dynamically the fields, required for creation an entity (tenant, contract ect).
-  :return: Prompt as dict, that contains instruction which fields should be asked by the LLM.
-  """
-  # create a copy and do not touch the originals
-  combined_prompt = copy.deepcopy(Prompt.CREATE_ENTITY.value)
-
-  if class_fields:
-    combined_prompt["instructions"]["payload_template"] = class_fields
-
-  if required_fields:
-      combined_prompt["instructions"]["required_fields"] = required_fields
-
-  system_prompt = dumps_for_llm_prompt(combined_prompt)
-  return system_prompt
-
-
-def inject_fields_to_update_in_prompt(class_fields) -> str:
-  """
-  Adds dynamically the fields, required for creation an entity (tenant, contract ect).
-  :return: Prompt as dict, that contains instruction which fields should be asked by the LLM.
-  """
-  # create a copy and do not touch the originals
-  combined_prompt = copy.deepcopy(Prompt.UPDATE_ENTITY.value)
-
-  if class_fields:
-    combined_prompt["instructions"]["payload_template"] = class_fields
-
-  system_prompt = dumps_for_llm_prompt(combined_prompt)
   return system_prompt
