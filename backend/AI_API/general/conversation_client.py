@@ -3,6 +3,7 @@ import os
 from google.genai import errors as genai_errors
 from dotenv import load_dotenv
 from requests import RequestException
+from pydantic import ValidationError
 from ApartmentManager.backend.AI_API.ai_clients.gemini.gemini_client import GeminiClient
 from ApartmentManager.backend.AI_API.general.prompting import Prompt
 from ApartmentManager.backend.AI_API.general.conversation_write_actions import write_action_to_entity
@@ -137,13 +138,29 @@ class ConversationClient:
 
             return envelope_api
 
-        except APIError:
-            raise
-        # catch a Gemini error
-        except genai_errors.APIError:
-            raise
-        except RequestException:
-            raise
+        # for the Pydantic check
+        except ValidationError as error:
+            # Prevent infinite recursion if the error persists
+            if "Backend Error:" in user_question:
+                trace_id = log_error(ErrorCode.LLM_WRONG_INPUT_CALLING_MODEL, exception=error)
+                raise APIError(ErrorCode.LLM_WRONG_INPUT_CALLING_MODEL, trace_id) from error
+
+            # Logic to feed back error
+            error_msg = f"Backend Error: Validation Error - {error.errors()}"
+            return self.get_llm_answer(error_msg)
         except Exception as error:
-            trace_id = log_error(ErrorCode.ERROR_PERFORMING_CRUD_OPERATION, exception=error)
-            raise APIError(ErrorCode.ERROR_PERFORMING_CRUD_OPERATION, trace_id) from error
+            # Prevent infinite recursion if the error persists
+            if "Backend Error:" in user_question:
+                 trace_id = log_error(ErrorCode.LLM_GENERAL_ERROR_CALLING_MODEL, exception=error)
+                 raise APIError(ErrorCode.LLM_GENERAL_ERROR_CALLING_MODEL, trace_id) from error
+
+            # Logic to feed back error
+            error_msg = f"Backend Error: {str(error)}"
+            if isinstance(error, APIError):
+                error_msg = f"Backend Error: {error.message}"
+            elif isinstance(error, genai_errors.APIError):
+                error_msg = f"Backend Error: Gemini API Error - {str(error)}"
+            elif isinstance(error, RequestException):
+                error_msg = f"Backend Error: Network Request Error - {str(error)}"
+
+            return self.get_llm_answer(error_msg)

@@ -34,7 +34,8 @@ class ErrorCode(Enum):
     LLM_ERROR_NO_TEXT_ANSWER = (1011, "LLM does not have a text answer.")
     LLM_ERROR_PARSING_CRUD_ACTION = (1012, "Failed parsing CRUD action.")
     LLM_ERROR_RETRIEVING_STRUCTURED_CRUD_RESPONSE = (1013, "Failed retrieving structured CRUD response.")
-
+    LLM_WRONG_INPUT_CALLING_MODEL = (1014, "Wrong input calling LLM model.")
+    LLM_GENERAL_ERROR_CALLING_MODEL = (1015, "General error calling LLM model.")
 
     # SQL error
     SQL_ERROR_DELETING_ENTRY = (1501, "Failed deleting entry in database.")
