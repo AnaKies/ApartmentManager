@@ -263,7 +263,7 @@ DELETE_ENTITY_PROMPT = {
   "instructions": {
     "task": (
       "Identify a single entity for deletion. "
-      "Respond with a single JSON object: {ready_to_delete: bool, data: object, comment: str}. "
+      "Respond with a single JSON object: {ready: bool, data: object, comment: str}. "
       "Do not perform or mention API calls. Do not delete the record yourself."
     ),
 
@@ -284,7 +284,7 @@ DELETE_ENTITY_PROMPT = {
 
       # User Interaction
       "If the user's message doesn't provide a valid identifier, ask for one in the 'comment'.",
-      "If conflicting identifiers are given, ask for clarification and set ready_to_delete=false.",
+      "If conflicting identifiers are given, ask for clarification and set ready=false.",
       "If a valid identifier is already complete and the user declines to provide any further details, "
       "keep the existing data object and move toward explicit confirmation instead of treating this as a cancellation.",
 
@@ -294,12 +294,12 @@ DELETE_ENTITY_PROMPT = {
       "A refusal to add more identifiers or details must NOT be interpreted as a cancellation of the deletion process.",
 
       # Deletion Readiness
-      "Set ready_to_delete=true only after (1) the entity is fully identified and (2) the user gives explicit confirmation (e.g., 'yes, delete').",
-      "When ready_to_delete=true, the 'comment' should state which entity will be deleted, without asking a question.",
+      "Set ready=true only after (1) the entity is fully identified and (2) the user gives explicit confirmation (e.g., 'yes, delete').",
+      "When ready=true, the 'comment' should state which entity will be deleted, without asking a question.",
 
       # Cancellation
       "Treat the deletion process as canceled only if the user clearly expresses that they want to stop or change the task entirely. "
-      "In that case, set ready_to_delete=false and state in the 'comment' that the operation was aborted."
+      "In that case, set ready=false and state in the 'comment' that the operation was aborted."
     ]
   }
 }
@@ -311,7 +311,7 @@ CREATE_ENTITY_PROMPT = {
     "task": (
       "Collect data for a new entity. "
       "Always respond with ONE JSON object matching the provided JSON Schema "
-      "(keys: ready_to_post:boolean, data:object, comment:string). "
+      "(keys: ready:boolean, data:object, comment:string). "
       "Do NOT perform or mention any API/tool calls, and do NOT create the record yourself."
     ),
 
@@ -331,6 +331,18 @@ CREATE_ENTITY_PROMPT = {
       "When mentioning field names, ALWAYS convert them to human-readable text by replacing underscores with spaces (e.g., 'price_per_square_meter' -> 'price per square meter'). "
       "Ask explicitly for required fields first, then offer optional ones.",
       "Treat any later user message as an amendment to fields (even after confirmation). Update the fields with the new values. If a field already has a value, replace it with the new one. Do NOT concatenate values.",
+      "For phone numbers, ensure the user provides them in international format (starting with '+' followed by digits, e.g., '+4917612345678'). If the format is incorrect, explain the required format and ask the user to correct it.",
+
+      # Email Validation
+      "The 'email' field must be a valid email address string. Do NOT correct, guess, or invent email addresses.",
+      "If the email format is incorrect, ask the user to provide a valid email in the format 'name@example.com'.",
+      "NEVER generate long numeric sequences, substitute characters, or create fake email addresses.",
+
+      # IBAN Validation
+      "'iban' and other banking data must always be strings, not numbers.",
+      "IBAN must follow the standard format: alphanumeric characters without spaces (e.g., DE89370400440532013000).",
+      "Do NOT correct, complete, or guess IBANs. If the format is incorrect, ask the user to re-enter it correctly without spaces.",
+      "NEVER generate long numeric sequences, random characters, or attempt to 'fix' the IBAN yourself.",
 
       # New rule – required done, optional skipped
       "If all required fields are already collected and the user indicates they do not want to fill optional fields "
@@ -340,8 +352,8 @@ CREATE_ENTITY_PROMPT = {
 
       # Readiness conditions
       "Required fields must be non-empty to become ready. Optional fields can stay empty if the user explicitly says so.",
-      "ready_to_post=false until the user gives an explicit, unambiguous confirmation (e.g. 'yes', 'confirm') without new data afterward.",
-      "When ready_to_post=true, summarize collected data in 'comment' and state that you are sending them for backend processing (no question).",
+      "ready=false until the user gives an explicit, unambiguous confirmation (e.g. 'yes', 'confirm') without new data afterward.",
+      "When ready=true, summarize collected data in 'comment' and state that you are sending them for backend processing (no question).",
 
       # Language and brevity
       "Keep 'comment' brief and in the user's language. No prose outside JSON.",
@@ -399,6 +411,18 @@ UPDATE_ENTITY_PROMPT = {
       "for that field in the data object.",
       "The user must provide AT LEAST ONE update field. Fields the user does not mention must remain empty string '' in the data object.",
       "If the user corrects or overrides earlier answers, replace the old values with the new ones. Do NOT concatenate values. Provide a brief resummary of the collected updates.",
+      "For phone numbers, ensure the user provides them in international format (starting with '+' followed by digits, e.g., '+4917612345678'). If the format is incorrect, explain the required format and ask the user to correct it.",
+
+      # Email Validation
+      "The 'email' field must be a valid email address string. Do NOT correct, guess, or invent email addresses.",
+      "If the email format is incorrect, ask the user to provide a valid email in the format 'name@example.com'.",
+      "NEVER generate long numeric sequences, substitute characters, or create fake email addresses.",
+
+      # IBAN Validation
+      "'iban' and other banking data must always be strings, not numbers.",
+      "IBAN must follow the standard format: alphanumeric characters without spaces (e.g., DE89370400440532013000).",
+      "Do NOT correct, complete, or guess IBANs. If the format is incorrect, ask the user to re-enter it correctly without spaces.",
+      "NEVER generate long numeric sequences, random characters, or attempt to 'fix' the IBAN yourself.",
 
       # Handling 'no' / 'leave them empty'
       "If the user answers 'no', 'none', 'leave them empty', or 'leave the rest as is' in direct response to a question "

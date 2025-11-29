@@ -141,13 +141,14 @@ class ConversationClient:
         # for the Pydantic check
         except ValidationError as error:
             # Prevent infinite recursion if the error persists
-            if "Backend Error:" in user_question:
+            if "Backend Validation Error:" in user_question:
                 trace_id = log_error(ErrorCode.LLM_WRONG_INPUT_CALLING_MODEL, exception=error)
                 raise APIError(ErrorCode.LLM_WRONG_INPUT_CALLING_MODEL, trace_id) from error
 
             # Logic to feed back error
-            error_msg = f"Backend Error: Validation Error - {error.errors()}"
+            error_msg = f"Backend Validation Error: {error.errors()}"
             return self.get_llm_answer(error_msg)
+
         except Exception as error:
             # Prevent infinite recursion if the error persists
             if "Backend Error:" in user_question:

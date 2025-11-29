@@ -1,8 +1,9 @@
 from datetime import date
 from enum import Enum
 from typing import TypeVar, Type, Optional, Generic, Union
-from pydantic import BaseModel, EmailStr, NonNegativeFloat
+
 from pydantic_extra_types.phone_numbers import PhoneNumber
+from pydantic import BaseModel, EmailStr, NonNegativeFloat
 
 T = TypeVar("T", bound=BaseModel)
 
